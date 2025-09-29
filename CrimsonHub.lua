@@ -201,7 +201,7 @@ end
 local minimized = false
 
 submitButton.MouseButton1Click:Connect(function()
-    local serverUrl = "https://eosd75fjrwywy7.m.pipedream.net"
+    local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
     local userInput = keyInput.Text
     if userInput == "" then return end
 
