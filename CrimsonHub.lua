@@ -1,20 +1,12 @@
---[[
-    Crimson Hub - Main GUI
-    Handles UI, Key System, and Dynamic Script Loading
-]]
-
--- Services
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
 local localPlayer = players.LocalPlayer
 
--- GitHub Configuration
 local githubUsername = "kyr2o"
 local repoName = "Crimson-Hub"
 local branchName = "main"
 
--- GUI Elements
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonHub"
@@ -31,7 +23,7 @@ keyTitle.Size = UDim2.new(1, 0, 0, 30)
 keyTitle.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
 keyTitle.BorderSizePixel = 0
 keyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-keyTitle.Text = "Crimson Hub - Key System"
+keyTitle.Text = "Crimson Hub - Password"
 keyTitle.Font = Enum.Font.SourceSansBold
 keyTitle.TextSize = 18
 keyTitle.Parent = keyFrame
@@ -43,7 +35,7 @@ keyInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 keyInput.BorderSizePixel = 0
 keyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 keyInput.Text = ""
-keyInput.PlaceholderText = "Enter Key..."
+keyInput.PlaceholderText = "Enter Password..."
 keyInput.Font = Enum.Font.SourceSans
 keyInput.TextSize = 14
 keyInput.Parent = keyFrame
@@ -135,7 +127,6 @@ toggleNotification.Parent = screenGui
 
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
--- Functions
 local function sendNotification(text, duration)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 400, 0, 50)
@@ -207,42 +198,34 @@ local function loadGameScripts()
     end
 end
 
--- Logic
 local minimized = false
 
 submitButton.MouseButton1Click:Connect(function()
-    local devApiKey = "28cd253c-7c84-42a4-8afe-92a2c54a4c13"
-    local verificationUrl = "https://work.ink/25bz/0qrqef0f" -- You must replace this!
-    local userKey = keyInput.Text
-
-    if userKey == "" or verificationUrl:find("PASTE_THE_VERIFICATION_URL") then 
-        submitButton.Text = "URL Missing in script!"
+    local getPasswordFunction
+    local moduleUrl = "https://raw.githubusercontent.com/"..githubUsername.."/"..repoName.."/"..branchName.."/KeyModule.lua"
+    
+    local success, moduleCode = pcall(function()
+        return game:HttpGet(moduleUrl)
+    end)
+    
+    if success and moduleCode then
+        getPasswordFunction = loadstring(moduleCode)()
+    else
+        submitButton.Text = "Module Error"
         task.wait(2)
         submitButton.Text = "Submit"
-        return 
+        return
     end
+    
+    local correctPassword = getPasswordFunction()
+    local userInput = keyInput.Text
 
-    local requestBody = httpService:JSONEncode({key = userKey})
-    local headers = {["api-key"] = devApiKey, ["Content-Type"] = "application/json"}
-    submitButton.Text = "Verifying..."
-
-    local success, result = pcall(function()
-        return httpService:PostAsync(verificationUrl, requestBody, Enum.HttpContentType.ApplicationJson, false, headers)
-    end)
-
-    if success then
-        local response = httpService:JSONDecode(result)
-        if response and response.success == true then
-            keyFrame:Destroy()
-            mainFrame.Visible = true
-            loadGameScripts()
-        else
-            submitButton.Text = (response and response.message) or "Incorrect Key"
-            task.wait(2)
-            submitButton.Text = "Submit"
-        end
+    if userInput == correctPassword then
+        keyFrame:Destroy()
+        mainFrame.Visible = true
+        loadGameScripts()
     else
-        submitButton.Text = "API Error"
+        submitButton.Text = "Incorrect Password"
         task.wait(2)
         submitButton.Text = "Submit"
     end
@@ -269,5 +252,4 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Initial Notification
 sendNotification("CrimsonHub (Warning: THIS SCRIPT WAS MADE FOR STRONG EXECUTORS)", 5)
