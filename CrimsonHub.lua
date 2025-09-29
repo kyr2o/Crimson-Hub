@@ -203,6 +203,10 @@ local minimized = false
 submitButton.MouseButton1Click:Connect(function()
     local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
     local userInput = keyInput.Text
+
+    -- THIS IS THE NEW DEBUG LINE
+    sendNotification("DEBUG - Connecting to: " .. serverUrl, 8)
+
     if userInput == "" then return end
 
     submitButton.Text = "Verifying..."
