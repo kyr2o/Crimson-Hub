@@ -201,23 +201,26 @@ end
 local minimized = false
 
 submitButton.MouseButton1Click:Connect(function()
-    local getPasswordFunction
-    local moduleUrl = "https://raw.githubusercontent.com/"..githubUsername.."/"..repoName.."/"..branchName.."/KeyModule.lua"
+    local data_part1 = "JUNKyeKnosmirCJUNK"
     
-    local success, moduleCode = pcall(function()
-        return game:HttpGet(moduleUrl)
+    local clean_part1 = string.reverse(string.sub(data_part1, 5, -5))
+    
+    local passwordUrl = "https://pastebin.com/raw/disgAzgn"
+    
+    local clean_part2 = ""
+    local success, fetchedContent = pcall(function()
+        return game:HttpGet(passwordUrl, true)
     end)
     
-    if success and moduleCode then
-        getPasswordFunction = loadstring(moduleCode)()
+    if success and fetchedContent then
+        clean_part2 = fetchedContent:match("^%s*(.-)%s*$")
     else
-        submitButton.Text = "Module Error"
+        submitButton.Text = "Fetch Error"
         task.wait(2)
         submitButton.Text = "Submit"
         return
     end
-    
-    local correctPassword = getPasswordFunction()
+    local correctPassword = clean_part1 .. clean_part2
     local userInput = keyInput.Text
 
     if userInput == correctPassword then
@@ -228,27 +231,6 @@ submitButton.MouseButton1Click:Connect(function()
         submitButton.Text = "Incorrect Password"
         task.wait(2)
         submitButton.Text = "Submit"
-    end
-end)
-
-closeButton.MouseButton1Click:Connect(function()
-    mainFrame.Visible = false
-    toggleNotification.Visible = true
-end)
-
-minimizeButton.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    contentFrame.Visible = not minimized
-    mainFrame.Size = minimized and UDim2.new(0, 450, 0, 30) or UDim2.new(0, 450, 0, 300)
-end)
-
-userInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        mainFrame.Visible = not mainFrame.Visible
-        if mainFrame.Visible then
-            toggleNotification.Visible = false
-        end
     end
 end)
 
