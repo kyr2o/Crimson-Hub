@@ -11,7 +11,7 @@ A script hub for Roblox.
 
 You need a key to use this. Get one here:
 
-* (Put your Lootables link here when you make it)
+* https://lootdest.org/s?55nJPjX4
 
 **Note:**
 * Tested on: Potassium
