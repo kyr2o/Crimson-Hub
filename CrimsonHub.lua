@@ -177,7 +177,7 @@ local function loadGameScripts()
     if not success then return end
     
     local decoded = httpService:JSONDecode(result)
-    if not decoded then return end
+    if not decoded or type(decoded) ~= "table" then return end
 
     for _, scriptInfo in ipairs(decoded) do
         if scriptInfo.type == "file" then
@@ -212,7 +212,7 @@ local minimized = false
 
 submitButton.MouseButton1Click:Connect(function()
     local devApiKey = "28cd253c-7c84-42a4-8afe-92a2c54a4c13"
-    local verificationUrl = "PASTE_THE_VERIFICATION_URL_FROM_WORK.INK_HERE"
+    local verificationUrl = "https://work.ink/25bz/0qrqef0f" -- You must replace this!
     local userKey = keyInput.Text
 
     if userKey == "" or verificationUrl:find("PASTE_THE_VERIFICATION_URL") then 
@@ -245,6 +245,27 @@ submitButton.MouseButton1Click:Connect(function()
         submitButton.Text = "API Error"
         task.wait(2)
         submitButton.Text = "Submit"
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+    toggleNotification.Visible = true
+end)
+
+minimizeButton.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    contentFrame.Visible = not minimized
+    mainFrame.Size = minimized and UDim2.new(0, 450, 0, 30) or UDim2.new(0, 450, 0, 300)
+end)
+
+userInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        mainFrame.Visible = not mainFrame.Visible
+        if mainFrame.Visible then
+            toggleNotification.Visible = false
+        end
     end
 end)
 
