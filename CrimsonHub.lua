@@ -127,6 +127,7 @@ toggleNotification.Parent = screenGui
 
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
+-- notification helper
 local function sendNotification(text, duration)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 400, 0, 50)
@@ -145,33 +146,151 @@ local function sendNotification(text, duration)
     label.Parent = frame
 
     frame:TweenPosition(UDim2.new(0.5, -200, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.5, true)
-    task.wait(duration)
+    task.wait(duration or 2)
     frame:TweenPosition(UDim2.new(0.5, -200, 0, -60), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.5, true)
     task.wait(0.5)
     frame:Destroy()
 end
 
-local function loadGameScripts()
-    for i, v in ipairs(contentFrame:GetChildren()) do
-        if v:IsA("TextButton") then
-            v:Destroy()
+-- universal HTTP POST helper (tries multiple methods)
+local function httpPost(url, bodyTable)
+    local bodyJson = nil
+    local ok, enc = pcall(function() return httpService:JSONEncode(bodyTable) end)
+    if ok then bodyJson = enc else bodyJson = tostring(bodyTable) end
+
+    -- 1) Try Roblox HttpService:PostAsync (Studio, HttpRequests enabled)
+    local success, result = pcall(function()
+        return httpService:PostAsync(url, bodyJson, Enum.HttpContentType.ApplicationJson)
+    end)
+    if success and result then
+        return true, tostring(result)
+    end
+
+    -- 2) Try common executor global 'request' function (returns table with Body)
+    if request then
+        local ok2, resp = pcall(function()
+            return request({
+                Url = url,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["User-Agent"] = "Roblox"
+                },
+                Body = bodyJson
+            })
+        end)
+        if ok2 and resp then
+            -- many executors return .Body
+            if resp.Body then
+                return true, tostring(resp.Body)
+            elseif resp.body then
+                return true, tostring(resp.body)
+            else
+                return true, tostring(resp)
+            end
         end
     end
 
-    local gameId = game.PlaceId
+    -- 3) Try syn.request
+    if syn and syn.request then
+        local ok3, resp = pcall(function()
+            return syn.request({
+                Url = url,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["User-Agent"] = "Roblox"
+                },
+                Body = bodyJson
+            })
+        end)
+        if ok3 and resp then
+            if resp.Body then return true, tostring(resp.Body) end
+            if resp.body then return true, tostring(resp.body) end
+            return true, tostring(resp)
+        end
+    end
+
+    -- 4) Try http_request / http.request
+    if http_request then
+        local ok4, resp = pcall(function()
+            return http_request({
+                Url = url,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["User-Agent"] = "Roblox"
+                },
+                Body = bodyJson
+            })
+        end)
+        if ok4 and resp then
+            if type(resp) == "table" and resp.Body then return true, tostring(resp.Body) end
+            return true, tostring(resp)
+        end
+    end
+
+    if http and http.request then
+        local ok5, resp = pcall(function()
+            return http.request({
+                Url = url,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["User-Agent"] = "Roblox"
+                },
+                Body = bodyJson
+            })
+        end)
+        if ok5 and resp then
+            if type(resp) == "table" and resp.Body then return true, tostring(resp.Body) end
+            return true, tostring(resp)
+        end
+    end
+
+    -- If everything failed, return false and best error (result from PostAsync if any)
+    local errMessage = "All HTTP methods failed."
+    if result then
+        errMessage = tostring(result)
+    end
+    return false, errMessage
+end
+
+-- load scripts from your GitHub repo folder named by game.PlaceId
+local function loadGameScripts()
+    -- clear previous buttons inside contentFrame
+    for i = #contentFrame:GetChildren(), 1, -1 do
+        local child = contentFrame:GetChildren()[i]
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+
+    local gameId = tostring(game.PlaceId)
     local apiUrl = "https://api.github.com/repos/"..githubUsername.."/"..repoName.."/contents/"..gameId.."?ref="..branchName
-    
-    local success, result = pcall(function()
+
+    local ok, result = pcall(function()
         return httpService:GetAsync(apiUrl)
     end)
+    if not ok then
+        sendNotification("GitHub API error: " .. tostring(result), 5)
+        return
+    end
 
-    if not success then return end
-    
-    local decoded = httpService:JSONDecode(result)
-    if not decoded or type(decoded) ~= "table" then return end
+    local decoded
+    local ok2, dec = pcall(function() return httpService:JSONDecode(result) end)
+    if ok2 then decoded = dec else
+        sendNotification("Failed decoding GitHub response", 4)
+        return
+    end
+
+    if type(decoded) ~= "table" then
+        sendNotification("No scripts found in repo folder: " .. gameId, 4)
+        return
+    end
 
     for _, scriptInfo in ipairs(decoded) do
-        if scriptInfo.type == "file" then
+        if scriptInfo.type == "file" and scriptInfo.download_url then
             local scriptButton = Instance.new("TextButton")
             scriptButton.Size = UDim2.new(0.9, 0, 0, 35)
             scriptButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
@@ -184,14 +303,28 @@ local function loadGameScripts()
 
             scriptButton.MouseButton1Click:Connect(function()
                 local scriptUrl = scriptInfo.download_url
-                local success, scriptContent = pcall(function()
-                    return game:HttpGet(scriptUrl)
+                local ok3, scriptContent = pcall(function()
+                    -- many executors provide game:HttpGet or HttpService:GetAsync; try both
+                    if pcall(function() return game.HttpGet end) and game.HttpGet then
+                        return game:HttpGet(scriptUrl)
+                    else
+                        return httpService:GetAsync(scriptUrl)
+                    end
                 end)
-                if success then
-                    loadstring(scriptContent)()
-                    sendNotification("Executed: " .. scriptButton.Text, 2)
+                if ok3 and scriptContent then
+                    local okRun, errRun = pcall(function()
+                        local fn = loadstring(scriptContent)
+                        if type(fn) == "function" then
+                            fn()
+                        end
+                    end)
+                    if okRun then
+                        sendNotification("Executed: " .. scriptButton.Text, 2)
+                    else
+                        sendNotification("Error running script: " .. tostring(errRun), 4)
+                    end
                 else
-                    sendNotification("Error executing script!", 2)
+                    sendNotification("Error loading script!", 3)
                 end
             end)
         end
@@ -200,36 +333,57 @@ end
 
 local minimized = false
 
+-- Submit button: uses httpPost() helper
 submitButton.MouseButton1Click:Connect(function()
-    local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
-    local userInput = keyInput.Text
+    local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net" -- keep your endpoint here
+    local userInput = tostring(keyInput.Text or "")
 
-    -- THIS IS THE NEW DEBUG LINE
-    sendNotification("DEBUG - Connecting to: " .. serverUrl, 8)
+    sendNotification("DEBUG - Connecting to: " .. serverUrl, 2)
 
-    if userInput == "" then return end
+    if userInput == "" or userInput == " " then
+        sendNotification("Enter a password first.", 2)
+        return
+    end
 
     submitButton.Text = "Verifying..."
-    
-    local success, result = pcall(function()
-        return httpService:PostAsync(serverUrl, userInput)
-    end)
-    
-    if success then
-        local response = httpService:JSONDecode(result)
-        if response and response.success == true then
-            keyFrame:Destroy()
-            mainFrame.Visible = true
-            loadGameScripts()
+
+    -- payload as JSON object (change field name if your server expects something else)
+    local payload = { password = userInput }
+
+    local ok, respText = httpPost(serverUrl, payload)
+
+    -- show raw response for debugging
+    sendNotification("DEBUG Response: " .. (tostring(respText):sub(1,200)), 4) -- limit length
+
+    if not ok then
+        -- failed to send or no valid response
+        submitButton.Text = "Server Error"
+        task.wait(2)
+        submitButton.Text = "Submit"
+        return
+    end
+
+    -- try to decode server reply (some endpoints return plain text)
+    local parsed
+    local decOk, decRes = pcall(function() return httpService:JSONDecode(respText) end)
+    if decOk then parsed = decRes end
+
+    if parsed and parsed.success == true then
+        keyFrame:Destroy()
+        mainFrame.Visible = true
+        loadGameScripts()
+        submitButton.Text = "Submit"
+    else
+        -- if parsed exists but success false, show message if available
+        if parsed and parsed.message then
+            submitButton.Text = parsed.message
+            task.wait(2)
+            submitButton.Text = "Submit"
         else
             submitButton.Text = "Incorrect Password"
             task.wait(2)
             submitButton.Text = "Submit"
         end
-    else
-        submitButton.Text = "Server Error"
-        task.wait(2)
-        submitButton.Text = "Submit"
     end
 end)
 
