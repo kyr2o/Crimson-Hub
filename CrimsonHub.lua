@@ -201,36 +201,52 @@ end
 local minimized = false
 
 submitButton.MouseButton1Click:Connect(function()
-    local data_part1 = "JUNKyeKnosmirCJUNK"
+    local serverUrl = "https://eosd75fjrwywy7.m.pipedream.net"
+    local userInput = keyInput.Text
+    if userInput == "" then return end
+
+    submitButton.Text = "Verifying..."
     
-    local clean_part1 = string.reverse(string.sub(data_part1, 5, -5))
-    
-    local passwordUrl = "https://pastebin.com/raw/disgAzgn"
-    
-    local clean_part2 = ""
-    local success, fetchedContent = pcall(function()
-        return game:HttpGet(passwordUrl, true)
+    local success, result = pcall(function()
+        return httpService:PostAsync(serverUrl, userInput)
     end)
     
-    if success and fetchedContent then
-        clean_part2 = fetchedContent:match("^%s*(.-)%s*$")
+    if success then
+        local response = httpService:JSONDecode(result)
+        if response and response.success == true then
+            keyFrame:Destroy()
+            mainFrame.Visible = true
+            loadGameScripts()
+        else
+            submitButton.Text = "Incorrect Password"
+            task.wait(2)
+            submitButton.Text = "Submit"
+        end
     else
-        submitButton.Text = "Fetch Error"
+        submitButton.Text = "Server Error"
         task.wait(2)
         submitButton.Text = "Submit"
-        return
     end
-    local correctPassword = clean_part1 .. clean_part2
-    local userInput = keyInput.Text
+end)
 
-    if userInput == correctPassword then
-        keyFrame:Destroy()
-        mainFrame.Visible = true
-        loadGameScripts()
-    else
-        submitButton.Text = "Incorrect Password"
-        task.wait(2)
-        submitButton.Text = "Submit"
+closeButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+    toggleNotification.Visible = true
+end)
+
+minimizeButton.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    contentFrame.Visible = not minimized
+    mainFrame.Size = minimized and UDim2.new(0, 450, 0, 30) or UDim2.new(0, 450, 0, 300)
+end)
+
+userInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        mainFrame.Visible = not mainFrame.Visible
+        if mainFrame.Visible then
+            toggleNotification.Visible = false
+        end
     end
 end)
 
