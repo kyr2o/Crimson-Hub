@@ -211,11 +211,16 @@ end
 local minimized = false
 
 submitButton.MouseButton1Click:Connect(function()
-    local devApiKey = "8c0195cb4634d6a4eab953590b1683f5035d961f28e7089230d36d8989c6db7c"
-    local verificationUrl = "https://api.lootlabs.io/v1/key/verify"
+    local devApiKey = "28cd253c-7c84-42a4-8afe-92a2c54a4c13"
+    local verificationUrl = "PASTE_THE_VERIFICATION_URL_FROM_WORK.INK_HERE"
     local userKey = keyInput.Text
 
-    if userKey == "" then return end
+    if userKey == "" or verificationUrl:find("PASTE_THE_VERIFICATION_URL") then 
+        submitButton.Text = "URL Missing in script!"
+        task.wait(2)
+        submitButton.Text = "Submit"
+        return 
+    end
 
     local requestBody = httpService:JSONEncode({key = userKey})
     local headers = {["api-key"] = devApiKey, ["Content-Type"] = "application/json"}
@@ -240,27 +245,6 @@ submitButton.MouseButton1Click:Connect(function()
         submitButton.Text = "API Error"
         task.wait(2)
         submitButton.Text = "Submit"
-    end
-end)
-
-closeButton.MouseButton1Click:Connect(function()
-    mainFrame.Visible = false
-    toggleNotification.Visible = true
-end)
-
-minimizeButton.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    contentFrame.Visible = not minimized
-    mainFrame.Size = minimized and UDim2.new(0, 450, 0, 30) or UDim2.new(0, 450, 0, 300)
-end)
-
-userInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        mainFrame.Visible = not mainFrame.Visible
-        if mainFrame.Visible then
-            toggleNotification.Visible = false
-        end
     end
 end)
 
