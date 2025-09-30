@@ -157,21 +157,14 @@ local minimizeButtonCorner = Instance.new("UICorner")
 minimizeButtonCorner.CornerRadius = UDim.new(1, 0)
 minimizeButtonCorner.Parent = minimizeButton
 
-local contentFrame = Instance.new("Frame")
-contentFrame.Size = UDim2.new(1, 0, 1, -30)
-contentFrame.Position = UDim2.new(0, 0, 0, 30)
-contentFrame.BackgroundTransparency = 1
-contentFrame.BorderSizePixel = 0
-contentFrame.Parent = mainFrame
-
 local contentList = Instance.new("ScrollingFrame")
-contentList.Size = UDim2.new(1, -10, 1, -10)
-contentList.Position = UDim2.new(0, 5, 0, 5)
+contentList.Size = UDim2.new(1, -10, 1, -40)
+contentList.Position = UDim2.new(0, 5, 0, 35)
 contentList.BackgroundTransparency = 1
 contentList.BorderSizePixel = 0
 contentList.CanvasSize = UDim2.new(0, 0, 0, 0)
 contentList.ScrollBarThickness = 6
-contentList.Parent = contentFrame
+contentList.Parent = mainFrame
 
 local uiListLayout = Instance.new("UIListLayout")
 uiListLayout.Padding = UDim.new(0, 8)
@@ -221,18 +214,15 @@ local function sendNotification(text)
     label.TextSize = 14
     label.TextWrapped = true
     label.Parent = frame
-    
     local timerBar = Instance.new("Frame")
     timerBar.Size = UDim2.new(0, 0, 0, 3)
     timerBar.Position = UDim2.new(0, 0, 1, -3)
     timerBar.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
     timerBar.BorderSizePixel = 0
     timerBar.Parent = frame
-
     local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 1, -60)})
     local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -60)})
     local timerTween = tweenService:Create(timerBar, TweenInfo.new(7.5, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 0, 3)})
-
     showTween:Play()
     timerTween:Play()
     task.wait(7.5)
@@ -250,21 +240,19 @@ local function httpGet(url)
 			return reqFunc({Url = url, Method = "GET", Headers = { ["User-Agent"] = "CrimsonHub/1.0" }})
 		end)
 		if ok and resp then
-			if type(resp) == "table" then
-				return true, tostring(resp.Body or resp.body or "")
-			end
+			if type(resp) == "table" then return true, tostring(resp.Body or resp.body or "") end
 			return true, tostring(resp)
 		end
 		return false, nil
 	end
-	local reqSuccess, reqResult = tryRequest(request)
-	if reqSuccess then return reqSuccess, reqResult end
-	local synSuccess, synResult = tryRequest(syn and syn.request)
-	if synSuccess then return synSuccess, synResult end
-	local oldHttpSuccess, oldHttpResult = tryRequest(http_request)
-	if oldHttpSuccess then return oldHttpSuccess, oldHttpResult end
-	local newHttpSuccess, newHttpResult = tryRequest(http and http.request)
-	if newHttpSuccess then return newHttpSuccess, newHttpResult end
+	local r, rr = tryRequest(request)
+	if r then return r, rr end
+	local s, sr = tryRequest(syn and syn.request)
+	if s then return s, sr end
+	local o, ore = tryRequest(http_request)
+	if o then return o, ore end
+	local n, nr = tryRequest(http and http.request)
+	if n then return n, nr end
 	return false, tostring(result or "All HTTP GET methods failed.")
 end
 
@@ -290,14 +278,14 @@ local function httpPost(url, body)
         end
         return false, nil
     end
-    local reqSuccess, reqResult = tryRequest(request)
-    if reqSuccess then return reqSuccess, reqResult end
-    local synSuccess, synResult = tryRequest(syn and syn.request)
-    if synSuccess then return synSuccess, synResult end
-    local oldHttpSuccess, oldHttpResult = tryRequest(http_request)
-    if oldHttpSuccess then return oldHttpSuccess, oldHttpResult end
-    local newHttpSuccess, newHttpResult = tryRequest(http and http.request)
-    if newHttpSuccess then return newHttpSuccess, newHttpResult end
+    local r, rr = tryRequest(request)
+	if r then return r, rr end
+	local s, sr = tryRequest(syn and syn.request)
+	if s then return s, sr end
+	local o, ore = tryRequest(http_request)
+	if o then return o, ore end
+	local n, nr = tryRequest(http and http.request)
+	if n then return n, nr end
     return false, tostring(result or "All HTTP methods failed.")
 end
 
@@ -315,34 +303,24 @@ local function isPositiveResponse(responseText)
 end
 
 local function toggleScript(scriptName, toggleButton, forceState)
-    if not scriptStates[scriptName] then return end
-    
+    if not scriptStates[scriptName] or scriptStates[scriptName].IsOnHold then return end
     local currentState = scriptStates[scriptName].Enabled
     local newState = if forceState ~= nil then forceState else not currentState
-    
     if newState == currentState then return end
     scriptStates[scriptName].Enabled = newState
-
     local pos = if newState then UDim2.new(1, -22, 0.5, -10) else UDim2.new(0, 2, 0.5, -10)
     local color = if newState then Color3.fromRGB(80, 255, 80) else Color3.fromRGB(255, 80, 80)
-    
-    tweenService:Create(toggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-        Position = pos,
-        BackgroundColor3 = color
-    }):Play()
-
+    tweenService:Create(toggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Position = pos, BackgroundColor3 = color}):Play()
     if newState then
         local ok, content = httpGet(scriptStates[scriptName].Url)
         if ok and content then
             local f, err = pcall(loadstring(content))
             if f and type(f) == "function" then
                 task.spawn(f)
-                scriptStates[scriptName].Thread = f
             else
                 sendNotification("Error executing " .. scriptName)
             end
         end
-    else
     end
 end
 
@@ -350,37 +328,11 @@ local function loadGameScripts()
     for _, child in ipairs(contentList:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
-    
-    local welcomeFrame = Instance.new("Frame")
-    welcomeFrame.Size = UDim2.new(1, -20, 0, 50)
-    welcomeFrame.BackgroundTransparency = 1
-    welcomeFrame.Parent = contentList
-    local pfp = Instance.new("ImageLabel")
-    pfp.Size = UDim2.new(0, 40, 0, 40)
-    pfp.Position = UDim2.new(0, 0, 0.5, -20)
-    pfp.BackgroundTransparency = 1
-    pfp.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..localPlayer.UserId.."&width=420&height=420&format=png"
-    pfp.Parent = welcomeFrame
-    local pfpCorner = Instance.new("UICorner")
-    pfpCorner.CornerRadius = UDim.new(1,0)
-    pfpCorner.Parent = pfp
-    local welcomeLabel = Instance.new("TextLabel")
-    welcomeLabel.Size = UDim2.new(1, -50, 1, 0)
-    welcomeLabel.Position = UDim2.new(0, 50, 0, 0)
-    welcomeLabel.BackgroundTransparency = 1
-    welcomeLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-    welcomeLabel.Font = Enum.Font.SourceSansBold
-    welcomeLabel.TextSize = 18
-    welcomeLabel.Text = "Welcome, " .. localPlayer.DisplayName
-    welcomeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    welcomeLabel.Parent = welcomeFrame
-
     local gameId = tostring(game.PlaceId)
     if gameId == "0" then
-        sendNotification("Cannot load scripts in Studio. Please publish first.")
+        sendNotification("Cannot load scripts in Studio. Publish first.")
         return
     end
-
     local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
     local ok, result = httpGet(apiUrl)
     if not ok then
@@ -391,23 +343,18 @@ local function loadGameScripts()
         end
         return
     end
-
     local ok2, decoded = pcall(function() return httpService:JSONDecode(result) end)
     if not ok2 or type(decoded) ~= "table" or not decoded[1] then
         sendNotification("No script files found in repo folder.")
         return
     end
-
     for _, scriptInfo in ipairs(decoded) do
         if scriptInfo.type == "file" and scriptInfo.download_url then
             local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
-            scriptStates[scriptName] = {
-                Enabled = false,
-                Keybind = nil,
-                Url = scriptInfo.download_url,
-                Thread = nil
-            }
-
+            scriptStates[scriptName] = {Url = scriptInfo.download_url, Enabled = false, Keybind = nil, IsOnHold = false, HoldLabel = nil}
+            
+            local isToggle = not scriptName:lower():match("^run_")
+            
             local container = Instance.new("Frame")
             container.Size = UDim2.new(1, -20, 0, 40)
             container.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
@@ -416,71 +363,102 @@ local function loadGameScripts()
             contCorner.CornerRadius = UDim.new(0, 6)
             contCorner.Parent = container
 
-            local scriptLabel = Instance.new("TextLabel")
-            scriptLabel.Size = UDim2.new(1, -80, 1, 0)
-            scriptLabel.Position = UDim2.new(0, 10, 0, 0)
-            scriptLabel.BackgroundTransparency = 1
-            scriptLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-            scriptLabel.Text = scriptName
-            scriptLabel.Font = Enum.Font.SourceSansBold
-            scriptLabel.TextSize = 16
-            scriptLabel.TextXAlignment = Enum.TextXAlignment.Left
-            scriptLabel.Parent = container
-            
-            scriptLabel.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton2 then
-                    local originalText = scriptLabel.Text
-                    scriptLabel.Text = "On Hold"
-                    local conn
-                    conn = input.Changed:Connect(function(state)
-                        if state == Enum.UserInputState.End then
-                            scriptLabel.Text = originalText
-                            conn:Disconnect()
+            if isToggle then
+                local scriptLabel = Instance.new("TextLabel")
+                scriptLabel.Size = UDim2.new(1, -80, 1, 0)
+                scriptLabel.Position = UDim2.new(0, 10, 0, 0)
+                scriptLabel.BackgroundTransparency = 1
+                scriptLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+                scriptLabel.Text = scriptName
+                scriptLabel.Font = Enum.Font.SourceSansBold
+                scriptLabel.TextSize = 16
+                scriptLabel.TextXAlignment = Enum.TextXAlignment.Left
+                scriptLabel.Parent = container
+                scriptLabel.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+                        local state = scriptStates[scriptName]
+                        state.IsOnHold = not state.IsOnHold
+                        if state.IsOnHold then
+                            local holdLabel = Instance.new("TextLabel")
+                            holdLabel.Size = UDim2.new(0, 60, 0, 20)
+                            holdLabel.Position = UDim2.new(1, -70, 1, -20)
+                            holdLabel.BackgroundTransparency = 1
+                            holdLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+                            holdLabel.Font = Enum.Font.SourceSans
+                            holdLabel.TextSize = 12
+                            holdLabel.Text = "(On Hold)"
+                            holdLabel.Parent = container
+                            state.HoldLabel = holdLabel
+                        else
+                            if state.HoldLabel then state.HoldLabel:Destroy() end
+                            state.HoldLabel = nil
                         end
-                    end)
-                end
-            end)
-
-            local toggleBg = Instance.new("Frame")
-            toggleBg.Size = UDim2.new(0, 40, 0, 20)
-            toggleBg.Position = UDim2.new(1, -50, 0.5, -10)
-            toggleBg.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-            toggleBg.Parent = container
-            local bgCorner = Instance.new("UICorner")
-            bgCorner.CornerRadius = UDim.new(0, 6)
-            bgCorner.Parent = toggleBg
-
-            local toggleButton = Instance.new("TextButton")
-            toggleButton.Size = UDim2.new(0, 20, 0, 20)
-            toggleButton.Position = UDim2.new(0, 2, 0.5, -10)
-            toggleButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-            toggleButton.Text = ""
-            toggleButton.Parent = toggleBg
-            local tglCorner = Instance.new("UICorner")
-            tglCorner.CornerRadius = UDim.new(1, 0)
-            tglCorner.Parent = toggleButton
-            
-            toggleButton.MouseButton1Click:Connect(function()
-                toggleScript(scriptName, toggleButton)
-            end)
-
-            toggleButton.MouseButton2Click:Connect(function()
-                if isBindingKey then return end
-                isBindingKey = true
-                local originalText = toggleButton.Text
-                toggleButton.Text = ". . ."
-                toggleButton.Visible = false
-                local bindConn = userInputService.InputBegan:Connect(function(input, gp)
-                    if gp then return end
-                    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-                    scriptStates[scriptName].Keybind = input.KeyCode
-                    sendNotification(scriptName .. " bound to " .. input.KeyCode.Name)
-                    toggleButton.Text = originalText
-                    toggleButton.Visible = true
-                    isBindingKey = false
-                    bindConn:Disconnect()
+                    end
                 end)
-            end)
+                local toggleBg = Instance.new("Frame")
+                toggleBg.Size = UDim2.new(0, 40, 0, 20)
+                toggleBg.Position = UDim2.new(1, -50, 0.5, -10)
+                toggleBg.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+                toggleBg.Parent = container
+                local bgCorner = Instance.new("UICorner")
+                bgCorner.CornerRadius = UDim.new(0, 6)
+                bgCorner.Parent = toggleBg
+                local toggleButton = Instance.new("TextButton")
+                toggleButton.Size = UDim2.new(0, 20, 0, 20)
+                toggleButton.Position = UDim2.new(0, 2, 0.5, -10)
+                toggleButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+                toggleButton.Text = ""
+                toggleButton.Parent = toggleBg
+                local tglCorner = Instance.new("UICorner")
+                tglCorner.CornerRadius = UDim.new(1, 0)
+                tglCorner.Parent = toggleButton
+                toggleButton.MouseButton1Click:Connect(function() toggleScript(scriptName, toggleButton) end)
+                toggleButton.MouseButton2Click:Connect(function()
+                    if isBindingKey then return end
+                    isBindingKey = true
+                    toggleButton.Visible = false
+                    local keybindText = Instance.new("TextLabel")
+                    keybindText.Size = UDim2.new(1,0,1,0)
+                    keybindText.BackgroundTransparency = 1
+                    keybindText.Font = Enum.Font.SourceSansBold
+                    keybindText.TextColor3 = Color3.fromRGB(255,255,255)
+                    keybindText.TextSize = 14
+                    keybindText.Text = ". . ."
+                    keybindText.Parent = toggleBg
+                    local bindConn = userInputService.InputBegan:Connect(function(input, gp)
+                        if gp or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+                        scriptStates[scriptName].Keybind = input.KeyCode
+                        sendNotification(scriptName .. " bound to " .. input.KeyCode.Name)
+                        keybindText:Destroy()
+                        toggleButton.Visible = true
+                        isBindingKey = false
+                        bindConn:Disconnect()
+                    end)
+                end)
+            else
+                local executeButton = Instance.new("TextButton")
+                executeButton.Size = UDim2.new(1, 0, 1, 0)
+                executeButton.BackgroundTransparency = 1
+                executeButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+                executeButton.Text = scriptName:gsub("^run_", "")
+                executeButton.Font = Enum.Font.SourceSansBold
+                executeButton.TextSize = 16
+                executeButton.Parent = container
+                executeButton.MouseButton1Click:Connect(function()
+                    local ok3, scriptContent = httpGet(scriptInfo.download_url)
+                    if ok3 and scriptContent then
+                        local okRun, errRun = pcall(loadstring(scriptContent))
+                        if okRun and type(okRun) == "function" then
+                            task.spawn(okRun)
+                            sendNotification("Executed: " .. executeButton.Text)
+                        else
+                            sendNotification("Error running script: " .. tostring(errRun or okRun))
+                        end
+                    else
+                        sendNotification("Error loading script content.")
+                    end
+                end)
+            end
         end
     end
     uiListLayout.Parent = nil
@@ -500,9 +478,7 @@ submitButton.MouseButton1Click:Connect(function()
     isVerifying = true
     submitButton.Text = "Verifying..."
     local ok, respText = httpPost(serverUrl, userInput)
-    if VERBOSE then
-        sendNotification("Response: " .. (tostring(respText or "nil"):sub(1, 150)))
-    end
+    if VERBOSE then sendNotification("Response: " .. (tostring(respText or "nil"):sub(1, 150))) end
     if ok and isPositiveResponse(respText) then
         submitButton.Text = "Correct"
         task.wait(1)
@@ -535,8 +511,10 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
             if state.Keybind and input.KeyCode == state.Keybind then
                 local container = contentList:FindFirstChild(name)
                 if container then
-                    local toggleButton = container.Frame.TextButton
-                    toggleScript(name, toggleButton)
+                    local toggleButton = container:FindFirstChild("Frame"):FindFirstChild("TextButton")
+                    if toggleButton then
+                        toggleScript(name, toggleButton)
+                    end
                 end
             end
         end
