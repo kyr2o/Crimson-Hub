@@ -77,9 +77,10 @@ local submitButtonCorner = Instance.new("UICorner")
 submitButtonCorner.CornerRadius = UDim.new(0, 6)
 submitButtonCorner.Parent = submitButton
 
+-- Main UI Frame
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 450, 0, 300)
-mainFrame.Position = UDim2.new(0.5, -225, 0.5, -150)
+mainFrame.Size = UDim2.new(0, 450, 0, 350)
+mainFrame.Position = UDim2.new(0.5, -225, 0.5, -175)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38)
 mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
@@ -110,7 +111,6 @@ headerGradient.Parent = header
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, -80, 1, 0)
 titleLabel.Position = UDim2.new(0, 10, 0, 0)
-titleLabel.BackgroundColor3 = Color3.new(1, 1, 1)
 titleLabel.BackgroundTransparency = 1
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.Text = "Crimson Hub"
@@ -139,10 +139,36 @@ local minimizeButtonCorner = Instance.new("UICorner")
 minimizeButtonCorner.CornerRadius = UDim.new(1, 0)
 minimizeButtonCorner.Parent = minimizeButton
 
+-- Welcome Message Frame
+local welcomeFrame = Instance.new("Frame")
+welcomeFrame.Size = UDim2.new(1, -10, 0, 40)
+welcomeFrame.Position = UDim2.new(0, 5, 0, 35)
+welcomeFrame.BackgroundTransparency = 1
+welcomeFrame.Parent = mainFrame
+
+local headshotImage = Instance.new("ImageLabel")
+headshotImage.Size = UDim2.new(0, 30, 0, 30)
+headshotImage.Position = UDim2.new(1, -35, 0.5, -15)
+headshotImage.BackgroundTransparency = 1
+headshotImage.Parent = welcomeFrame
+local headshotCorner = Instance.new("UICorner")
+headshotCorner.CornerRadius = UDim.new(1, 0)
+headshotCorner.Parent = headshotImage
+
+local welcomeLabel = Instance.new("TextLabel")
+welcomeLabel.Size = UDim2.new(1, -40, 1, 0)
+welcomeLabel.Position = UDim2.new(0, 0, 0, 0)
+welcomeLabel.BackgroundTransparency = 1
+welcomeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+welcomeLabel.Font = Enum.Font.SourceSans
+welcomeLabel.TextSize = 16
+welcomeLabel.TextXAlignment = Enum.TextXAlignment.Right
+welcomeLabel.Parent = welcomeFrame
+
+-- Content Frame for script buttons
 local contentFrame = Instance.new("Frame")
-contentFrame.Size = UDim2.new(1, -10, 1, -40)
-contentFrame.Position = UDim2.new(0, 5, 0, 35)
-contentFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+contentFrame.Size = UDim2.new(1, -10, 1, -80)
+contentFrame.Position = UDim2.new(0, 5, 0, 75)
 contentFrame.BackgroundTransparency = 1
 contentFrame.BorderSizePixel = 0
 contentFrame.Parent = mainFrame
@@ -168,39 +194,56 @@ local toggleNotificationCorner = Instance.new("UICorner")
 toggleNotificationCorner.CornerRadius = UDim.new(0, 6)
 toggleNotificationCorner.Parent = toggleNotification
 
+-- Notification function with progress bar
 local function sendNotification(text, duration)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 250, 0, 50)
-    frame.Position = UDim2.new(1, 10, 1, -60)
-    frame.BackgroundColor3 = Color3.fromRGB(35, 37, 43)
-    frame.BorderSizePixel = 0
-    frame.Parent = screenGui
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = frame
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(139, 0, 0)
-    stroke.Thickness = 1
-    stroke.Parent = frame
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -10, 1, 0)
-    label.Position = UDim2.new(0, 5, 0, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.Text = text
-    label.Font = Enum.Font.SourceSans
-    label.TextSize = 14
-    label.TextWrapped = true
-    label.Parent = frame
-    local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 1, -60)})
-    local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -60)})
-    showTween:Play()
-    task.wait(duration or 3)
-    hideTween:Play()
-    hideTween.Completed:Wait()
-    frame:Destroy()
+    local notificationDuration = duration or 3
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 50)
+    frame.Position = UDim2.new(1, 10, 1, -60)
+    frame.BackgroundColor3 = Color3.fromRGB(35, 37, 43)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = frame
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(139, 0, 0)
+    stroke.Thickness = 1
+    stroke.Parent = frame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -10, 1, -5)
+    label.Position = UDim2.new(0, 5, 0, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Text = text
+    label.Font = Enum.Font.SourceSans
+    label.TextSize = 14
+    label.TextWrapped = true
+    label.Parent = frame
+
+    local progressBar = Instance.new("Frame")
+    progressBar.Size = UDim2.new(0, 0, 0, 4)
+    progressBar.Position = UDim2.new(0, 0, 1, -4)
+    progressBar.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+    progressBar.BorderSizePixel = 0
+    progressBar.Parent = frame
+    
+    local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 1, -60)})
+    local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -60)})
+    local progressTween = tweenService:Create(progressBar, TweenInfo.new(notificationDuration), {Size = UDim2.new(1, 0, 0, 4)})
+
+    showTween:Play()
+    progressTween:Play()
+    
+    task.wait(notificationDuration)
+    
+    hideTween:Play()
+    hideTween.Completed:Wait()
+    frame:Destroy()
 end
 
+-- HTTP Functions (unchanged)
 local function httpGet(url)
 	local success, result = pcall(function() return httpService:GetAsync(url) end)
 	if success and result then return true, tostring(result) end
@@ -221,178 +264,339 @@ local function httpGet(url)
 	if reqSuccess then return reqSuccess, reqResult end
 	local synSuccess, synResult = tryRequest(syn and syn.request)
 	if synSuccess then return synSuccess, synResult end
-	local oldHttpSuccess, oldHttpResult = tryRequest(http_request)
-	if oldHttpSuccess then return oldHttpSuccess, oldHttpResult end
-	local newHttpSuccess, newHttpResult = tryRequest(http and http.request)
-	if newHttpSuccess then return newHttpSuccess, newHttpResult end
 	return false, tostring(result or "All HTTP GET methods failed.")
 end
 
 local function httpPost(url, body)
-    local bodyContent, contentType, contentTypeEnum
-    if type(body) == "table" then
-        local ok, encoded = pcall(function() return httpService:JSONEncode(body) end)
-        if not ok then return false, "Failed to encode JSON payload" end
-        bodyContent, contentType, contentTypeEnum = encoded, "application/json", Enum.HttpContentType.ApplicationJson
-    else
-        bodyContent, contentType, contentTypeEnum = tostring(body), "text/plain", Enum.HttpContentType.TextPlain
-    end
-    local success, result = pcall(function() return httpService:PostAsync(url, bodyContent, contentTypeEnum) end)
-    if success and result then return true, tostring(result) end
-    local function tryRequest(reqFunc)
-        if not reqFunc then return false, nil end
-        local ok, resp = pcall(function()
-            return reqFunc({Url = url, Method = "POST", Headers = { ["Content-Type"] = contentType, ["User-Agent"] = "CrimsonHub/1.0" }, Body = bodyContent})
-        end)
-        if ok and resp then
-            if type(resp) == "table" then return true, tostring(resp.Body or resp.body or "") end
-            return true, tostring(resp)
-        end
-        return false, nil
-    end
-    local reqSuccess, reqResult = tryRequest(request)
-    if reqSuccess then return reqSuccess, reqResult end
-    local synSuccess, synResult = tryRequest(syn and syn.request)
-    if synSuccess then return synSuccess, synResult end
-    local oldHttpSuccess, oldHttpResult = tryRequest(http_request)
-    if oldHttpSuccess then return oldHttpSuccess, oldHttpResult end
-    local newHttpSuccess, newHttpResult = tryRequest(http and http.request)
-    if newHttpSuccess then return newHttpSuccess, newHttpResult end
-    return false, tostring(result or "All HTTP methods failed.")
+    local bodyContent, contentType, contentTypeEnum = tostring(body), "text/plain", Enum.HttpContentType.TextPlain
+    local success, result = pcall(function() return httpService:PostAsync(url, bodyContent, contentTypeEnum) end)
+    if success and result then return true, tostring(result) end
+    local function tryRequest(reqFunc)
+        if not reqFunc then return false, nil end
+        local ok, resp = pcall(function()
+            return reqFunc({Url = url, Method = "POST", Headers = { ["Content-Type"] = contentType, ["User-Agent"] = "CrimsonHub/1.0" }, Body = bodyContent})
+        end)
+        if ok and resp then
+            if type(resp) == "table" then return true, tostring(resp.Body or resp.body or "") end
+            return true, tostring(resp)
+        end
+        return false, nil
+    end
+    local reqSuccess, reqResult = tryRequest(request)
+    if reqSuccess then return reqSuccess, reqResult end
+    local synSuccess, synResult = tryRequest(syn and syn.request)
+    if synSuccess then return synSuccess, synResult end
+    return false, tostring(result or "All HTTP methods failed.")
 end
 
+-- Response parsing function (unchanged)
 local function isPositiveResponse(responseText)
-    if not responseText or type(responseText) ~= "string" then return false end
-    local text = responseText:lower():match("^%s*(.-)%s*$")
-    if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then
-        return true
-    end
-    local success, decoded = pcall(function() return httpService:JSONDecode(responseText) end)
-    if success and type(decoded) == "table" and (decoded.success == true or decoded.Success == true) then
-        return true
-    end
-    return false
+    if not responseText or type(responseText) ~= "string" then return false end
+    local text = responseText:lower():match("^%s*(.-)%s*$")
+    if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then
+        return true
+    end
+    local success, decoded = pcall(function() return httpService:JSONDecode(responseText) end)
+    if success and type(decoded) == "table" and (decoded.success == true or decoded.Success == true) then
+        return true
+    end
+    return false
 end
 
+-- Function to create the new, cleaner script buttons
+local function createScriptButton(name, callback)
+    local buttonData = {
+        enabled = false,
+        keybind = "N/A",
+        hold = false,
+        settingKeybind = false
+    }
+
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -20, 0, 40)
+    button.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
+    button.Text = ""
+    button.Parent = contentFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = button
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(80, 80, 80)
+    stroke.Thickness = 1
+    stroke.Parent = button
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -120, 1, 0)
+    label.Position = UDim2.new(0, 15, 0, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.Text = name
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = button
+
+    local toggleCircle = Instance.new("Frame")
+    toggleCircle.Size = UDim2.new(0, 18, 0, 18)
+    toggleCircle.Position = UDim2.new(1, -30, 0.5, -9)
+    toggleCircle.BackgroundColor3 = Color3.fromRGB(255, 80, 80) -- Red (disabled)
+    toggleCircle.Parent = button
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(1, 0)
+    circleCorner.Parent = toggleCircle
+
+    local keybindButton = Instance.new("TextButton")
+    keybindButton.Size = UDim2.new(0, 60, 0, 22)
+    keybindButton.Position = UDim2.new(1, -100, 0.5, -11)
+    keybindButton.BackgroundColor3 = Color3.fromRGB(60, 63, 70)
+    keybindButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+    keybindButton.Text = buttonData.keybind
+    keybindButton.Font = Enum.Font.SourceSansSemibold
+    keybindButton.TextSize = 12
+    keybindButton.Parent = button
+    local keybindCorner = Instance.new("UICorner")
+    keybindCorner.CornerRadius = UDim.new(0, 4)
+    keybindCorner.Parent = keybindButton
+
+    local function updateToggle()
+        buttonData.enabled = not buttonData.enabled
+        toggleCircle.BackgroundColor3 = buttonData.enabled and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80) -- Green/Red
+        if not buttonData.hold then
+            pcall(callback, buttonData.enabled)
+        end
+    end
+
+    button.MouseButton1Click:Connect(updateToggle)
+    
+    button.MouseButton2Click:Connect(function()
+        buttonData.hold = not buttonData.hold
+        stroke.Color = buttonData.hold and Color3.fromRGB(255, 165, 0) or Color3.fromRGB(80, 80, 80)
+        sendNotification(name .. " hold mode: " .. (buttonData.hold and "On" or "Off"), 2)
+    end)
+    
+    keybindButton.MouseButton1Click:Connect(function()
+        buttonData.settingKeybind = true
+        keybindButton.Text = "..."
+    end)
+
+    local function handleKeyPress(input)
+        if not button.Visible or not button.Parent then return end
+
+        if buttonData.settingKeybind then
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                buttonData.keybind = input.KeyCode.Name
+                keybindButton.Text = buttonData.keybind
+                buttonData.settingKeybind = false
+            end
+        elseif input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == buttonData.keybind then
+            if buttonData.hold then
+                if input.UserInputState == Enum.UserInputState.Begin then
+                    pcall(callback, true) -- Activate on hold
+                elseif input.UserInputState == Enum.UserInputState.End then
+                    pcall(callback, false) -- Deactivate on release
+                end
+            elseif input.UserInputState == Enum.UserInputState.Begin then
+                updateToggle()
+            end
+        end
+    end
+    
+    userInputService.InputBegan:Connect(handleKeyPress)
+    userInputService.InputEnded:Connect(handleKeyPress)
+end
+
+-- Script loading function
 local function loadGameScripts()
-    for i = #contentFrame:GetChildren(), 1, -1 do
-        local child = contentFrame:GetChildren()[i]
-        if child:IsA("TextButton") then
-            child:Destroy()
-        end
-    end
-    local gameId = tostring(game.PlaceId)
-    if gameId == "0" then
-        sendNotification("Cannot load scripts in Studio. Please publish first.", 5)
-        return
-    end
+    -- Clear existing buttons
+    for _, child in ipairs(contentFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
 
-    local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
-    
-    local ok, result = httpGet(apiUrl)
-    if not ok then
-        local err = tostring(result)
-        if err:match("404") then
-            sendNotification("No scripts found for this game.", 4)
-        elseif err:match("403") then
-            sendNotification("GitHub API blocked/limited. Try again later.", 5)
-        else
-            sendNotification("GitHub API error: " .. err:sub(1, 50), 5)
-        end
-        return
-    end
+    local gameId = tostring(game.PlaceId)
+    if gameId == "0" then
+        sendNotification("Cannot load scripts in Studio.", 5)
+        return
+    end
 
-    local ok2, decoded = pcall(function() return httpService:JSONDecode(result) end)
-    if not ok2 or type(decoded) ~= "table" or not decoded[1] then
-        sendNotification("No script files found in repo folder.", 4)
-        return
-    end
+    local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
+    
+    local ok, result = httpGet(apiUrl)
+    if not ok then
+        sendNotification("Error loading scripts. Check console for details.", 4)
+        if VERBOSE then print("GitHub API Error: " .. tostring(result)) end
+        return
+    end
 
-    for _, scriptInfo in ipairs(decoded) do
-        if scriptInfo.type == "file" and scriptInfo.download_url then
-            local scriptButton = Instance.new("TextButton")
-            scriptButton.Size = UDim2.new(1, -20, 0, 35)
-            scriptButton.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
-            scriptButton.TextColor3 = Color3.fromRGB(220, 220, 220)
-            scriptButton.Text = (scriptInfo.name or ""):gsub("%.lua$", "")
-            scriptButton.Font = Enum.Font.SourceSansBold
-            scriptButton.TextSize = 16
-            scriptButton.Parent = contentFrame
-            local btnCorner = Instance.new("UICorner")
-            btnCorner.CornerRadius = UDim.new(0, 6)
-            btnCorner.Parent = scriptButton
-            local btnStroke = Instance.new("UIStroke")
-            btnStroke.Color = Color3.fromRGB(80, 80, 80)
-            btnStroke.Thickness = 1
-            btnStroke.Parent = scriptButton
-            scriptButton.MouseButton1Click:Connect(function()
-                local ok3, scriptContent = httpGet(scriptInfo.download_url)
-                if ok3 and scriptContent then
-                    local okRun, errRun = pcall(function()
-                        local fn = loadstring(scriptContent)
-                        if type(fn) == "function" then fn() end
-                    end)
-                    if okRun then
-                        sendNotification("Executed: " .. scriptButton.Text, 2)
-                    else
-                        sendNotification("Error running script: " .. tostring(errRun), 4)
-                    end
-                else
-                    sendNotification("Error loading script content.", 3)
-                end
-            end)
-        end
-    end
+    local success, decoded = pcall(function() return httpService:JSONDecode(result) end)
+    if not success or type(decoded) ~= "table" then
+        sendNotification("No scripts found for this game.", 4)
+        return
+    end
+
+    for _, scriptInfo in ipairs(decoded) do
+        if scriptInfo.type == "file" and scriptInfo.download_url then
+            local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
+            
+            local function executeScript(state)
+                pcall(function()
+                    if state == false then return end -- Only run when enabled or held
+                    
+                    local ok, scriptContent = httpGet(scriptInfo.download_url)
+                    if ok and scriptContent then
+                        local func, err = loadstring(scriptContent)
+                        if func then
+                            func()
+                            sendNotification("Executed: " .. scriptName, 2)
+                        else
+                            sendNotification("Script error: " .. tostring(err), 5)
+                        end
+                    else
+                        sendNotification("Failed to download script content.", 3)
+                    end
+                end)
+            end
+            
+            createScriptButton(scriptName, executeScript)
+        end
+    end
 end
 
+-- Main UI intro animation
+local function playIntroAnimation()
+    mainFrame.Visible = true
+    mainFrame.Size = UDim2.new(0, 100, 0, 75)
+    mainFrame.Position = UDim2.new(0.5, -50, 0.5, -37.5)
+    mainFrame.BackgroundTransparency = 1
+    
+    for _, child in ipairs(mainFrame:GetDescendants()) do
+        if child:IsA("GuiObject") and child ~= mainFrame then
+            child.BackgroundTransparency = 1
+            if child:IsA("TextLabel") or child:IsA("TextButton") then
+                child.TextTransparency = 1
+            elseif child:IsA("ImageLabel") then
+                child.ImageTransparency = 1
+            end
+        end
+    end
+
+    local sizeTween = tweenService:Create(mainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 450, 0, 350),
+        Position = UDim2.new(0.5, -225, 0.5, -175)
+    })
+    
+    local transparencyTween = tweenService:Create(mainFrame, TweenInfo.new(0.4), {BackgroundTransparency = 0})
+
+    sizeTween:Play()
+    transparencyTween:Play()
+    
+    task.wait(0.3)
+    
+    -- Fade in descendants
+    for _, child in ipairs(mainFrame:GetDescendants()) do
+        if child:IsA("GuiObject") and child ~= mainFrame then
+            local info = TweenInfo.new(0.5)
+            local goals = {}
+            if child:IsA("TextLabel") or child:IsA("TextButton") then
+                goals.TextTransparency = 0
+            elseif child:IsA("ImageLabel") then
+                goals.ImageTransparency = 0
+            end
+            if child.ClassName ~= "UICorner" and child.ClassName ~= "UIStroke" and child.ClassName ~= "UIGradient" then
+                 goals.BackgroundTransparency = child.BackgroundTransparency
+            end
+            tweenService:Create(child, info, goals):Play()
+        end
+    end
+end
+
+-- Setup Welcome Message
+welcomeLabel.Text = "Welcome, " .. localPlayer.DisplayName
+local thumbType = Enum.ThumbnailType.HeadShot
+local thumbSize = Enum.ThumbnailSize.Size420x420
+local content, isReady = players:GetUserThumbnailAsync(localPlayer.UserId, thumbType, thumbSize)
+headshotImage.Image = content
+headshotImage.Size = isReady and UDim2.new(0, 30, 0, 30) or UDim2.new(0,0,0,0)
+
+-- Event Connections
 local minimized = false
 local isVerifying = false
 
 submitButton.MouseButton1Click:Connect(function()
-    if isVerifying then return end
-    local userInput = tostring(keyInput.Text or "")
-    if userInput:match("^%s*$") then
-        sendNotification("Enter a password first.", 2)
-        return
-    end
-    isVerifying = true
-    submitButton.Text = "Verifying..."
-    local ok, respText = httpPost(serverUrl, userInput)
-    if VERBOSE then
-        sendNotification("Response: " .. (tostring(respText or "nil"):sub(1, 150)), 4)
-    end
-    if ok and isPositiveResponse(respText) then
-        submitButton.Text = "Correct"
-        task.wait(1)
-        keyFrame:Destroy()
-        mainFrame.Visible = true
-        loadGameScripts()
-    else
-        submitButton.Text = ok and "Incorrect" or "Server Error"
-        task.wait(2)
-        submitButton.Text = "Submit"
-    end
-    isVerifying = false
+    if isVerifying then return end
+    local userInput = tostring(keyInput.Text or "")
+    if userInput:match("^%s*$") then
+        sendNotification("Enter a password first.", 2)
+        return
+    end
+    isVerifying = true
+    submitButton.Text = "Verifying..."
+    
+    local ok, respText = httpPost(serverUrl, userInput)
+    
+    if VERBOSE then
+        sendNotification("Response: " .. (tostring(respText or "nil"):sub(1, 150)), 4)
+    end
+    
+    if ok and isPositiveResponse(respText) then
+        submitButton.Text = "Correct"
+        -- Success Animation
+        local colorTween = tweenService:Create(keyFrame, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(80, 255, 80)})
+        colorTween:Play()
+        colorTween.Completed:Wait()
+        local fadeOut = tweenService:Create(keyFrame, TweenInfo.new(1), {BackgroundTransparency = 1})
+        fadeOut:Play()
+        for _, v in ipairs(keyFrame:GetDescendants()) do
+             if v:IsA("GuiObject") then
+                tweenService:Create(v, TweenInfo.new(1), {BackgroundTransparency = 1, TextTransparency = 1}):Play()
+             end
+        end
+        fadeOut.Completed:Wait()
+        keyFrame:Destroy()
+        
+        -- Load main UI
+        playIntroAnimation()
+        loadGameScripts()
+    else
+        submitButton.Text = "Incorrect"
+        -- Shake Animation
+        local originalPos = submitButton.Position
+        local shakeTween = tweenService:Create(submitButton, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {Position = originalPos + UDim2.fromOffset(5, 5)})
+        local shakeBack = tweenService:Create(submitButton, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {Position = originalPos})
+        local shakeTween2 = tweenService:Create(submitButton, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {Position = originalPos - UDim2.fromOffset(5, 5)})
+        shakeTween:Play()
+        shakeTween.Completed:Wait()
+        shakeTween2:Play()
+        shakeTween2.Completed:Wait()
+        shakeBack:Play()
+        
+        task.wait(1.5)
+        submitButton.Text = "Submit"
+    end
+    isVerifying = false
 end)
 
 closeButton.MouseButton1Click:Connect(function()
-    mainFrame.Visible = false
-    toggleNotification.Visible = true
+    mainFrame.Visible = false
+    toggleNotification.Visible = true
 end)
 
 minimizeButton.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    contentFrame.Visible = not minimized
-    mainFrame.Size = minimized and UDim2.new(0, 450, 0, 30) or UDim2.new(0, 450, 0, 300)
+    minimized = not minimized
+    contentFrame.Visible = not minimized
+    welcomeFrame.Visible = not minimized
+    mainFrame.Size = minimized and UDim2.new(0, 450, 0, 30) or UDim2.new(0, 450, 0, 350)
 end)
 
 userInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        if not keyFrame.Parent then
-            mainFrame.Visible = not mainFrame.Visible
-            toggleNotification.Visible = not mainFrame.Visible
-        end
-    end
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        if not keyFrame.Parent then
+            mainFrame.Visible = not mainFrame.Visible
+            toggleNotification.Visible = not mainFrame.Visible
+        end
+    end
 end)
-
