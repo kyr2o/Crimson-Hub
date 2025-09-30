@@ -10,6 +10,9 @@ local repoName = "Crimson-Hub"
 local branchName = "main"
 local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
 
+local loadedScripts = {}
+local isSettingKeybind = false
+
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonHub"
@@ -169,36 +172,46 @@ toggleNotificationCorner.CornerRadius = UDim.new(0, 6)
 toggleNotificationCorner.Parent = toggleNotification
 
 local function sendNotification(text, duration)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 250, 0, 50)
-    frame.Position = UDim2.new(1, 10, 1, -60)
-    frame.BackgroundColor3 = Color3.fromRGB(35, 37, 43)
-    frame.BorderSizePixel = 0
-    frame.Parent = screenGui
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = frame
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(139, 0, 0)
-    stroke.Thickness = 1
-    stroke.Parent = frame
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -10, 1, 0)
-    label.Position = UDim2.new(0, 5, 0, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.Text = text
-    label.Font = Enum.Font.SourceSans
-    label.TextSize = 14
-    label.TextWrapped = true
-    label.Parent = frame
-    local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 1, -60)})
-    local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -60)})
-    showTween:Play()
-    task.wait(duration or 3)
-    hideTween:Play()
-    hideTween.Completed:Wait()
-    frame:Destroy()
+	local notificationDuration = duration or 7.5
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(0, 250, 0, 50)
+	frame.Position = UDim2.new(1, 10, 1, -60)
+	frame.BackgroundColor3 = Color3.fromRGB(35, 37, 43)
+	frame.BorderSizePixel = 0
+	frame.Parent = screenGui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = frame
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(139, 0, 0)
+	stroke.Thickness = 1
+	stroke.Parent = frame
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -10, 1, 0)
+	label.Position = UDim2.new(0, 5, 0, 0)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.Text = text
+	label.Font = Enum.Font.SourceSans
+	label.TextSize = 14
+	label.TextWrapped = true
+	label.Parent = frame
+	local timerBar = Instance.new("Frame")
+	timerBar.Size = UDim2.new(0, 0, 0, 3)
+	timerBar.Position = UDim2.new(0, 0, 1, -3)
+	timerBar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+	timerBar.BorderSizePixel = 0
+	timerBar.ZIndex = 2
+	timerBar.Parent = frame
+	local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 1, -60)})
+	local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -60)})
+	local timerTween = tweenService:Create(timerBar, TweenInfo.new(notificationDuration, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 0, 3)})
+	showTween:Play()
+	timerTween:Play()
+	timerTween.Completed:Wait()
+	hideTween:Play()
+	hideTween.Completed:Wait()
+	frame:Destroy()
 end
 
 local function httpGet(url)
@@ -274,21 +287,47 @@ local function isPositiveResponse(responseText)
     return false
 end
 
+local function toggleScript(scriptName)
+	local data = loadedScripts[scriptName]
+	if not data or not data.content then
+		sendNotification("Cannot toggle script: Content not loaded.", 3)
+		return
+	end
+	data.toggled = not data.toggled
+	data.toggleButton.Text = data.toggled and "[X]" or "[ ]"
+	data.toggleButton.TextColor3 = data.toggled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(220, 220, 220)
+	if data.toggled then
+		local scriptFunc, err = loadstring(data.content)
+		if scriptFunc then
+			data.thread = task.spawn(function()
+				while data.toggled do
+					pcall(scriptFunc)
+					task.wait(0.1)
+				end
+			end)
+		else
+			sendNotification("Error loading script: " .. tostring(err), 4)
+			data.toggled = false
+			data.toggleButton.Text = "[ ]"
+			data.toggleButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+		end
+	end
+end
+
 local function loadGameScripts()
     for i = #contentFrame:GetChildren(), 1, -1 do
         local child = contentFrame:GetChildren()[i]
-        if child:IsA("TextButton") then
+        if child:IsA("Frame") then
             child:Destroy()
         end
     end
+	loadedScripts = {}
     local gameId = tostring(game.PlaceId)
     if gameId == "0" then
         sendNotification("Cannot load scripts in Studio. Please publish first.", 5)
         return
     end
-
     local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
-    
     local ok, result = httpGet(apiUrl)
     if not ok then
         local err = tostring(result)
@@ -301,46 +340,102 @@ local function loadGameScripts()
         end
         return
     end
-
     local ok2, decoded = pcall(function() return httpService:JSONDecode(result) end)
     if not ok2 or type(decoded) ~= "table" or not decoded[1] then
         sendNotification("No script files found in repo folder.", 4)
         return
     end
-
     for _, scriptInfo in ipairs(decoded) do
         if scriptInfo.type == "file" and scriptInfo.download_url then
-            local scriptButton = Instance.new("TextButton")
-            scriptButton.Size = UDim2.new(1, -20, 0, 35)
-            scriptButton.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
-            scriptButton.TextColor3 = Color3.fromRGB(220, 220, 220)
-            scriptButton.Text = (scriptInfo.name or ""):gsub("%.lua$", "")
-            scriptButton.Font = Enum.Font.SourceSansBold
-            scriptButton.TextSize = 16
-            scriptButton.Parent = contentFrame
+            local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
+            local container = Instance.new("Frame")
+            container.Size = UDim2.new(1, -20, 0, 35)
+            container.BackgroundTransparency = 1
+            container.Parent = contentFrame
+            local listLayout = Instance.new("UIListLayout")
+            listLayout.FillDirection = Enum.FillDirection.Horizontal
+            listLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+            listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            listLayout.Padding = UDim.new(0, 5)
+            listLayout.Parent = container
+            local mainButton = Instance.new("TextButton")
+            mainButton.Size = UDim2.new(1, -110, 1, 0)
+            mainButton.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
+            mainButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+            mainButton.Text = scriptName
+            mainButton.Font = Enum.Font.SourceSansBold
+            mainButton.TextSize = 16
+            mainButton.LayoutOrder = 1
+            mainButton.Parent = container
             local btnCorner = Instance.new("UICorner")
             btnCorner.CornerRadius = UDim.new(0, 6)
-            btnCorner.Parent = scriptButton
-            local btnStroke = Instance.new("UIStroke")
-            btnStroke.Color = Color3.fromRGB(80, 80, 80)
-            btnStroke.Thickness = 1
-            btnStroke.Parent = scriptButton
-            scriptButton.MouseButton1Click:Connect(function()
-                local ok3, scriptContent = httpGet(scriptInfo.download_url)
-                if ok3 and scriptContent then
-                    local okRun, errRun = pcall(function()
-                        local fn = loadstring(scriptContent)
-                        if type(fn) == "function" then fn() end
-                    end)
-                    if okRun then
-                        sendNotification("Executed: " .. scriptButton.Text, 2)
-                    else
-                        sendNotification("Error running script: " .. tostring(errRun), 4)
-                    end
-                else
-                    sendNotification("Error loading script content.", 3)
-                end
-            end)
+            btnCorner.Parent = mainButton
+            local toggleButton = Instance.new("TextButton")
+            toggleButton.Size = UDim2.new(0, 35, 1, 0)
+            toggleButton.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
+            toggleButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+            toggleButton.Text = "[ ]"
+            toggleButton.Font = Enum.Font.SourceSansBold
+            toggleButton.TextSize = 16
+            toggleButton.LayoutOrder = 2
+            toggleButton.Parent = container
+            local toggleCorner = Instance.new("UICorner")
+            toggleCorner.CornerRadius = UDim.new(0, 6)
+            toggleCorner.Parent = toggleButton
+            local keybindButton = Instance.new("TextButton")
+            keybindButton.Size = UDim2.new(0, 60, 1, 0)
+            keybindButton.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
+            keybindButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+            keybindButton.Text = "[None]"
+            keybindButton.Font = Enum.Font.SourceSans
+            keybindButton.TextSize = 14
+            keybindButton.LayoutOrder = 3
+            keybindButton.Parent = container
+            local keybindCorner = Instance.new("UICorner")
+            keybindCorner.CornerRadius = UDim.new(0, 6)
+            keybindCorner.Parent = keybindButton
+            loadedScripts[scriptName] = {content = nil, toggled = false, keybind = "None", thread = nil, toggleButton = toggleButton, keybindButton = keybindButton}
+            mainButton.MouseButton1Click:Connect(function()
+				if loadedScripts[scriptName].content then
+					local okRun, errRun = pcall(loadstring(loadedScripts[scriptName].content))
+					if not okRun then sendNotification("Error running script: " .. tostring(errRun), 4) end
+				else
+					sendNotification("Script content not loaded yet.", 2)
+				end
+			end)
+            mainButton.MouseButton2Click:Connect(function()
+				if mainButton.Text == scriptName then
+					mainButton.Text = "On Hold"
+					mainButton.TextColor3 = Color3.fromRGB(255, 180, 80)
+				else
+					mainButton.Text = scriptName
+					mainButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+				end
+			end)
+            toggleButton.MouseButton1Click:Connect(function()
+				toggleScript(scriptName)
+			end)
+            keybindButton.MouseButton1Click:Connect(function()
+				if isSettingKeybind then return end
+				isSettingKeybind = true
+				keybindButton.Text = "..."
+				local connection
+				connection = userInputService.InputBegan:Connect(function(input, gpe)
+					if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+					isSettingKeybind = false
+					if input.KeyCode == Enum.KeyCode.Escape then
+						loadedScripts[scriptName].keybind = "None"
+						keybindButton.Text = "[None]"
+					else
+						loadedScripts[scriptName].keybind = input.KeyCode.Name
+						keybindButton.Text = "[" .. input.KeyCode.Name .. "]"
+					end
+					connection:Disconnect()
+				end)
+			end)
+            httpGet(scriptInfo.download_url):andThen(function(scriptContent)
+				loadedScripts[scriptName].content = scriptContent
+			end)
         end
     end
 end
@@ -386,12 +481,18 @@ minimizeButton.MouseButton1Click:Connect(function()
     mainFrame.Size = minimized and UDim2.new(0, 450, 0, 30) or UDim2.new(0, 450, 0, 300)
 end)
 
-userInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+userInputService.InputBegan:Connect(function(input, gpe)
+    if gpe or isSettingKeybind or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
         if not keyFrame.Parent then
             mainFrame.Visible = not mainFrame.Visible
             toggleNotification.Visible = not mainFrame.Visible
         end
+		return
     end
+	for name, data in pairs(loadedScripts) do
+		if data.keybind == input.KeyCode.Name then
+			toggleScript(name)
+		end
+	end
 end)
