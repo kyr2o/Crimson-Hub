@@ -202,7 +202,7 @@ versionLabel.Size = UDim2.new(0, 50, 0, 20)
 versionLabel.Position = UDim2.new(1, -55, 1, -20)
 versionLabel.BackgroundTransparency = 1
 versionLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
-versionLabel.Text = "v1.3"
+versionLabel.Text = "v1.4"
 versionLabel.Font = Enum.Font.SourceSans
 versionLabel.TextSize = 12
 versionLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -518,6 +518,7 @@ local function loadGameScripts()
 end
 
 local function setObjectTransparency(guiObject, transparency)
+    guiObject.BackgroundTransparency = transparency
     for _, obj in ipairs(guiObject:GetDescendants()) do
         if obj:IsA("GuiObject") then
             if obj:IsA("TextLabel") or obj:IsA("TextButton") then
@@ -527,10 +528,11 @@ local function setObjectTransparency(guiObject, transparency)
             elseif obj:IsA("UIStroke") then
                 obj.Transparency = transparency
             end
-            obj.BackgroundTransparency = transparency
+            if obj.ClassName ~= "UIGradient" then
+                obj.BackgroundTransparency = transparency
+            end
         end
     end
-    guiObject.BackgroundTransparency = transparency
 end
 
 local function playIntroAnimation(buttons)
@@ -539,29 +541,38 @@ local function playIntroAnimation(buttons)
     setObjectTransparency(welcomeFrame, 1)
 
     tweenService:Create(header, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(0,0)}):Play()
+    
     task.wait(0.2)
     
-    local welcomeGoals = {}
+    local welcomeTween = tweenService:Create(welcomeFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1})
     for _, v in ipairs(welcomeFrame:GetDescendants()) do
-        if v:IsA("TextLabel") or v:IsA("TextButton") then v.TextTransparency = 0 end
-        if v:IsA("ImageLabel") then v.ImageTransparency = 0 end
+        if v:IsA("TextLabel") then
+            tweenService:Create(v, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+        elseif v:IsA("ImageLabel") then
+            tweenService:Create(v, TweenInfo.new(0.5), {ImageTransparency = 0}):Play()
+        end
     end
-    tweenService:Create(welcomeFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
     
     if buttons then
         for _, button in ipairs(buttons) do
             setObjectTransparency(button, 1)
+        end
+        for _, button in ipairs(buttons) do
             task.wait(0.05)
-            local buttonGoals = {BackgroundTransparency = 0}
-            tweenService:Create(button, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), buttonGoals):Play()
-            for _, child in ipairs(button:GetChildren()) do
-                local childGoals = {BackgroundTransparency = child.BackgroundTransparency, TextTransparency = 0}
-                if child:IsA("UIStroke") then childGoals.Transparency = 0 end
-                tweenService:Create(child, TweenInfo.new(0.4), childGoals):Play()
+            local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+            tweenService:Create(button, tweenInfo, {BackgroundTransparency = 0}):Play()
+            for _, child in ipairs(button:GetDescendants()) do
+                local goals = {}
+                if child:IsA("TextLabel") or child:IsA("TextButton") then goals.TextTransparency = 0 end
+                if child:IsA("ImageLabel") then goals.ImageTransparency = 0 end
+                if child:IsA("UIStroke") then goals.Transparency = 0 end
+                if child.ClassName ~= "UIGradient" then goals.BackgroundTransparency = child.BackgroundTransparency end
+                tweenService:Create(child, tweenInfo, goals):Play()
             end
         end
     end
 end
+
 
 welcomeLabel.Text = "Welcome, " .. localPlayer.DisplayName
 local thumbType = Enum.ThumbnailType.HeadShot
