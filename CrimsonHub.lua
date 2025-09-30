@@ -4,18 +4,19 @@ local players = game:GetService("Players")
 local localPlayer = players.LocalPlayer
 local tweenService = game:GetService("TweenService")
 
+--[[ CONFIGURATION ]]--
 local VERBOSE = false
 local githubUsername = "kyr2o"
 local repoName = "Crimson-Hub"
 local branchName = "main"
 local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
 
+--[[ GUI SETUP ]]--
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonHub"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
-
 local keyFrame = Instance.new("Frame")
 keyFrame.Size = UDim2.new(0, 320, 0, 160)
 keyFrame.Position = UDim2.new(0.5, -160, 0.5, -80)
@@ -29,7 +30,6 @@ local keyFrameStroke = Instance.new("UIStroke")
 keyFrameStroke.Color = Color3.fromRGB(139, 0, 0)
 keyFrameStroke.Thickness = 1
 keyFrameStroke.Parent = keyFrame
-
 local keyTitle = Instance.new("TextLabel")
 keyTitle.Size = UDim2.new(1, 0, 0, 30)
 keyTitle.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
@@ -42,7 +42,6 @@ keyTitle.Parent = keyFrame
 local keyTitleCorner = Instance.new("UICorner")
 keyTitleCorner.CornerRadius = UDim.new(0, 8)
 keyTitleCorner.Parent = keyTitle
-
 local keyInput = Instance.new("TextBox")
 keyInput.Size = UDim2.new(1, -40, 0, 35)
 keyInput.Position = UDim2.new(0, 20, 0, 50)
@@ -62,7 +61,6 @@ local keyInputStroke = Instance.new("UIStroke")
 keyInputStroke.Color = Color3.fromRGB(80, 80, 80)
 keyInputStroke.Thickness = 1
 keyInputStroke.Parent = keyInput
-
 local submitButton = Instance.new("TextButton")
 submitButton.Size = UDim2.new(1, -40, 0, 30)
 submitButton.Position = UDim2.new(0, 20, 0, 105)
@@ -76,7 +74,6 @@ submitButton.Parent = keyFrame
 local submitButtonCorner = Instance.new("UICorner")
 submitButtonCorner.CornerRadius = UDim.new(0, 6)
 submitButtonCorner.Parent = submitButton
-
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 450, 0, 300)
 mainFrame.Position = UDim2.new(0.5, -225, 0.5, -150)
@@ -93,7 +90,6 @@ local mainFrameStroke = Instance.new("UIStroke")
 mainFrameStroke.Color = Color3.fromRGB(139, 0, 0)
 mainFrameStroke.Thickness = 2
 mainFrameStroke.Parent = mainFrame
-
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 30)
 header.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
@@ -106,7 +102,6 @@ local headerGradient = Instance.new("UIGradient")
 headerGradient.Color = ColorSequence.new(Color3.fromRGB(180, 0, 0), Color3.fromRGB(120, 0, 0))
 headerGradient.Rotation = 90
 headerGradient.Parent = header
-
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, -80, 1, 0)
 titleLabel.Position = UDim2.new(0, 10, 0, 0)
@@ -118,7 +113,6 @@ titleLabel.Font = Enum.Font.SourceSansBold
 titleLabel.TextSize = 18
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.Parent = header
-
 local closeButton = Instance.new("TextButton")
 closeButton.Size = UDim2.new(0, 20, 0, 20)
 closeButton.Position = UDim2.new(1, -25, 0.5, -10)
@@ -128,7 +122,6 @@ closeButton.Parent = header
 local closeButtonCorner = Instance.new("UICorner")
 closeButtonCorner.CornerRadius = UDim.new(1, 0)
 closeButtonCorner.Parent = closeButton
-
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Size = UDim2.new(0, 20, 0, 20)
 minimizeButton.Position = UDim2.new(1, -50, 0.5, -10)
@@ -138,7 +131,6 @@ minimizeButton.Parent = header
 local minimizeButtonCorner = Instance.new("UICorner")
 minimizeButtonCorner.CornerRadius = UDim.new(1, 0)
 minimizeButtonCorner.Parent = minimizeButton
-
 local contentFrame = Instance.new("Frame")
 contentFrame.Size = UDim2.new(1, -10, 1, -40)
 contentFrame.Position = UDim2.new(0, 5, 0, 35)
@@ -146,14 +138,12 @@ contentFrame.BackgroundColor3 = Color3.new(1, 1, 1)
 contentFrame.BackgroundTransparency = 1
 contentFrame.BorderSizePixel = 0
 contentFrame.Parent = mainFrame
-
 local uiListLayout = Instance.new("UIListLayout")
 uiListLayout.Padding = UDim.new(0, 8)
 uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 uiListLayout.FillDirection = Enum.FillDirection.Vertical
 uiListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 uiListLayout.Parent = contentFrame
-
 local toggleNotification = Instance.new("TextLabel")
 toggleNotification.Size = UDim2.new(0, 200, 0, 30)
 toggleNotification.Position = UDim2.new(0.5, -100, 1, -40)
@@ -168,6 +158,7 @@ local toggleNotificationCorner = Instance.new("UICorner")
 toggleNotificationCorner.CornerRadius = UDim.new(0, 6)
 toggleNotificationCorner.Parent = toggleNotification
 
+--[[ HELPER FUNCTIONS ]]--
 local function sendNotification(text, duration)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 250, 0, 50)
@@ -175,16 +166,13 @@ local function sendNotification(text, duration)
     frame.BackgroundColor3 = Color3.fromRGB(35, 37, 43)
     frame.BorderSizePixel = 0
     frame.Parent = screenGui
-
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
     corner.Parent = frame
-
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(139, 0, 0)
     stroke.Thickness = 1
     stroke.Parent = frame
-
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -10, 1, 0)
     label.Position = UDim2.new(0, 5, 0, 0)
@@ -195,10 +183,8 @@ local function sendNotification(text, duration)
     label.TextSize = 14
     label.TextWrapped = true
     label.Parent = frame
-
     local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 1, -60)})
     local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -60)})
-
     showTween:Play()
     task.wait(duration or 3)
     hideTween:Play()
@@ -276,19 +262,28 @@ local function loadGameScripts()
     end
     local gameId = tostring(game.PlaceId)
     local apiUrl = "https://api.github.com/repos/"..githubUsername.."/"..repoName.."/contents/"..gameId.."?ref="..branchName
+    
     local ok, result = pcall(function() return httpService:GetAsync(apiUrl) end)
     if not ok then
-        sendNotification("GitHub API error: " .. tostring(result), 5)
+        local err = tostring(result)
+        if err:match("404") then
+            sendNotification("No scripts found for this game.", 4)
+        elseif err:match("403") then
+            sendNotification("GitHub API rate limit hit. Try again later.", 5)
+        else
+            sendNotification("GitHub API error: " .. err:sub(1, 50), 5)
+        end
         return
     end
+
     local decoded
     local ok2, dec = pcall(function() return httpService:JSONDecode(result) end)
-    if ok2 then decoded = dec else
-        sendNotification("Failed decoding GitHub response", 4)
+    if not ok2 then
+        sendNotification("Failed to decode GitHub response.", 4)
         return
     end
-    if type(decoded) ~= "table" then
-        sendNotification("No scripts found for this game.", 4)
+    if type(decoded) ~= "table" or not decoded[1] then
+        sendNotification("No script files found in repo folder.", 4)
         return
     end
     for _, scriptInfo in ipairs(decoded) do
@@ -337,6 +332,7 @@ local function loadGameScripts()
     end
 end
 
+--[[ MAIN LOGIC ]]--
 local minimized = false
 local isVerifying = false
 
@@ -351,7 +347,7 @@ submitButton.MouseButton1Click:Connect(function()
     submitButton.Text = "Verifying..."
     local ok, respText = httpPost(serverUrl, userInput)
     if VERBOSE then
-        sendNotification("Response: " .. (tostring(respText or "nil"):sub(1, 150)), 4)
+        sendNotification("Response: " .. (tstring(respText or "nil"):sub(1, 150)), 4)
     end
     if ok and isPositiveResponse(respText) then
         submitButton.Text = "Correct"
