@@ -127,7 +127,6 @@ toggleNotification.Parent = screenGui
 
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
--- notification helper
 local function sendNotification(text, duration)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 400, 0, 50)
@@ -152,41 +151,20 @@ local function sendNotification(text, duration)
     frame:Destroy()
 end
 
--- universal HTTP POST helper (tries multiple methods)
 local function httpPost(url, bodyTable)
-    local bodyJson
-    local okEnc, enc = pcall(function() return httpService:JSONEncode(bodyTable) end)
-    if okEnc then bodyJson = enc else bodyJson = tostring(bodyTable) end
+    local bodyJson = nil
+    local ok, enc = pcall(function() return httpService:JSONEncode(bodyTable) end)
+    if ok then bodyJson = enc else bodyJson = tostring(bodyTable) end
 
-    -- 1) Try Roblox HttpService:PostAsync (Studio, HttpRequests enabled)
-    local ok1, res1 = pcall(function()
+    local success, result = pcall(function()
         return httpService:PostAsync(url, bodyJson, Enum.HttpContentType.ApplicationJson)
     end)
-    if ok1 and res1 ~= nil then
-        return true, tostring(res1)
+    if success and result then
+        return true, tostring(result)
     end
 
-    -- helper to extract body text from typical executor responses
-    local function extractBody(resp)
-        if not resp then return nil end
-        if type(resp) == "string" then return resp end
-        if type(resp) == "table" then
-            if resp.Body then return tostring(resp.Body) end
-            if resp.body then return tostring(resp.body) end
-            if resp.response then
-                if type(resp.response) == "table" and (resp.response.Body or resp.response.body) then
-                    return tostring(resp.response.Body or resp.response.body)
-                end
-            end
-            -- fallback: try tostring on table
-            return httpService:JSONEncode(resp)
-        end
-        return tostring(resp)
-    end
-
-    -- 2) Try common executor global 'request'
-    local ok2, res2 = pcall(function()
-        if request then
+    if request then
+        local ok2, resp = pcall(function()
             return request({
                 Url = url,
                 Method = "POST",
@@ -196,15 +174,21 @@ local function httpPost(url, bodyTable)
                 },
                 Body = bodyJson
             })
+        end)
+        if ok2 and resp then
+
+            if resp.Body then
+                return true, tostring(resp.Body)
+            elseif resp.body then
+                return true, tostring(resp.body)
+            else
+                return true, tostring(resp)
+            end
         end
-    end)
-    if ok2 and res2 then
-        return true, extractBody(res2)
     end
 
-    -- 3) syn.request
-    local ok3, res3 = pcall(function()
-        if syn and syn.request then
+    if syn and syn.request then
+        local ok3, resp = pcall(function()
             return syn.request({
                 Url = url,
                 Method = "POST",
@@ -214,15 +198,16 @@ local function httpPost(url, bodyTable)
                 },
                 Body = bodyJson
             })
+        end)
+        if ok3 and resp then
+            if resp.Body then return true, tostring(resp.Body) end
+            if resp.body then return true, tostring(resp.body) end
+            return true, tostring(resp)
         end
-    end)
-    if ok3 and res3 then
-        return true, extractBody(res3)
     end
 
-    -- 4) http_request
-    local ok4, res4 = pcall(function()
-        if http_request then
+    if http_request then
+        local ok4, resp = pcall(function()
             return http_request({
                 Url = url,
                 Method = "POST",
@@ -232,15 +217,15 @@ local function httpPost(url, bodyTable)
                 },
                 Body = bodyJson
             })
+        end)
+        if ok4 and resp then
+            if type(resp) == "table" and resp.Body then return true, tostring(resp.Body) end
+            return true, tostring(resp)
         end
-    end)
-    if ok4 and res4 then
-        return true, extractBody(res4)
     end
 
-    -- 5) http.request (some executors expose http)
-    local ok5, res5 = pcall(function()
-        if http and http.request then
+    if http and http.request then
+        local ok5, resp = pcall(function()
             return http.request({
                 Url = url,
                 Method = "POST",
@@ -250,54 +235,22 @@ local function httpPost(url, bodyTable)
                 },
                 Body = bodyJson
             })
-        end
-    end)
-    if ok5 and res5 then
-        return true, extractBody(res5)
-    end
-
-    return false, "All HTTP methods failed."
-end
-
--- robust check for "positive" server responses
-local function isPositiveResponse(respText)
-    if not respText then return false end
-    local s = tostring(respText):gsub("^%s+", ""):gsub("%s+$", "")
-    local lower = s:lower()
-
-    -- plain boolean string
-    if lower == "true" or lower == "ok" or lower == "success" then
-        return true
-    end
-
-    -- numeric 1
-    if lower == "1" then return true end
-
-    -- JSON decode attempt
-    local ok, dec = pcall(function() return httpService:JSONDecode(s) end)
-    if ok and type(dec) == "table" then
-        if dec.success == true then return true end
-        if dec.status == 200 or dec.status == "ok" then return true end
-        -- sometimes APIs return { result = true } or { value = true }
-        for _, v in pairs(dec) do
-            if v == true then return true end
-            if tostring(v) == "1" then return true end
+        end)
+        if ok5 and resp then
+            if type(resp) == "table" and resp.Body then return true, tostring(resp.Body) end
+            return true, tostring(resp)
         end
     end
 
-    -- fallback: check substring patterns
-    if string.find(lower, '"success"%s*:%s*true') then return true end
-    if string.find(lower, 'true') and not string.find(lower, 'false') then
-        -- contains 'true' and not 'false' (weak heuristic)
-        return true
+    local errMessage = "All HTTP methods failed."
+    if result then
+        errMessage = tostring(result)
     end
-
-    return false
+    return false, errMessage
 end
 
--- load scripts from your GitHub repo folder named by game.PlaceId
 local function loadGameScripts()
-    -- clear previous buttons inside contentFrame
+
     for i = #contentFrame:GetChildren(), 1, -1 do
         local child = contentFrame:GetChildren()[i]
         if child:IsA("TextButton") then
@@ -343,6 +296,7 @@ local function loadGameScripts()
             scriptButton.MouseButton1Click:Connect(function()
                 local scriptUrl = scriptInfo.download_url
                 local ok3, scriptContent = pcall(function()
+
                     if pcall(function() return game.HttpGet end) and game.HttpGet then
                         return game:HttpGet(scriptUrl)
                     else
@@ -371,46 +325,46 @@ end
 
 local minimized = false
 
--- Submit button: uses httpPost() helper
 submitButton.MouseButton1Click:Connect(function()
-    local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net" -- keep endpoint here
+    local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net" 
     local userInput = tostring(keyInput.Text or "")
 
-    if userInput == "" or userInput:match("^%s*$") then
+    sendNotification("DEBUG - Connecting to: " .. serverUrl, 2)
+
+    if userInput == "" or userInput == " " then
         sendNotification("Enter a password first.", 2)
         return
     end
 
     submitButton.Text = "Verifying..."
 
-    -- payload as JSON object (change field name if your server expects something else)
     local payload = { password = userInput }
 
     local ok, respText = httpPost(serverUrl, payload)
 
+    sendNotification("DEBUG Response: " .. (tostring(respText):sub(1,200)), 4) 
+
     if not ok then
+
         submitButton.Text = "Server Error"
         task.wait(2)
         submitButton.Text = "Submit"
         return
     end
 
-    -- Check for success in a robust way (supports plain "true", "1", JSON {success:true}, etc.)
-    local positive = isPositiveResponse(respText)
+    local parsed
+    local decOk, decRes = pcall(function() return httpService:JSONDecode(respText) end)
+    if decOk then parsed = decRes end
 
-    if positive then
-        submitButton.Text = "Correct"
-        sendNotification("Correct", 2)
-        task.wait(0.3)
+    if parsed and parsed.success == true then
         keyFrame:Destroy()
         mainFrame.Visible = true
         loadGameScripts()
         submitButton.Text = "Submit"
     else
-        -- if server returned something informative, show it briefly; otherwise show incorrect
-        local trimmed = tostring(respText or ""):gsub("^%s+", ""):gsub("%s+$", "")
-        if trimmed ~= "" then
-            submitButton.Text = trimmed
+
+        if parsed and parsed.message then
+            submitButton.Text = parsed.message
             task.wait(2)
             submitButton.Text = "Submit"
         else
