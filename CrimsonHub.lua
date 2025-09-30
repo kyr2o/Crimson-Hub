@@ -314,6 +314,32 @@ local function isPositiveResponse(responseText)
     return false
 end
 
+local function getScriptTypeFromContent(content)
+    local firstLine = content:match("^[^\r\n]+")
+    if firstLine and firstLine:match("%-%-%s*CrimsonHub:%s*Type=Once") then
+        return "Once"
+    end
+    return "Toggle"
+end
+
+local function executeScript(scriptName)
+    local state = scriptStates[scriptName]
+    if not state then return end
+
+    local ok, content = httpGet(state.Url)
+    if ok and content then
+        local f, err = pcall(loadstring(content))
+        if f and type(f) == "function" then
+            task.spawn(f)
+            sendNotification(scriptName .. " executed.")
+        else
+            sendNotification("Error executing " .. scriptName)
+        end
+    else
+        sendNotification("Failed to download " .. scriptName)
+    end
+end
+
 local function toggleScript(scriptName, toggleButton, forceState)
     if not scriptStates[scriptName] then return end
     
@@ -350,30 +376,7 @@ local function loadGameScripts()
     for _, child in ipairs(contentList:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
-    
-    local welcomeFrame = Instance.new("Frame")
-    welcomeFrame.Size = UDim2.new(1, -20, 0, 50)
-    welcomeFrame.BackgroundTransparency = 1
-    welcomeFrame.Parent = contentList
-    local pfp = Instance.new("ImageLabel")
-    pfp.Size = UDim2.new(0, 40, 0, 40)
-    pfp.Position = UDim2.new(0, 0, 0.5, -20)
-    pfp.BackgroundTransparency = 1
-    pfp.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..localPlayer.UserId.."&width=420&height=420&format=png"
-    pfp.Parent = welcomeFrame
-    local pfpCorner = Instance.new("UICorner")
-    pfpCorner.CornerRadius = UDim.new(1,0)
-    pfpCorner.Parent = pfp
-    local welcomeLabel = Instance.new("TextLabel")
-    welcomeLabel.Size = UDim2.new(1, -50, 1, 0)
-    welcomeLabel.Position = UDim2.new(0, 50, 0, 0)
-    welcomeLabel.BackgroundTransparency = 1
-    welcomeLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-    welcomeLabel.Font = Enum.Font.SourceSansBold
-    welcomeLabel.TextSize = 18
-    welcomeLabel.Text = "Welcome, " .. localPlayer.DisplayName
-    welcomeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    welcomeLabel.Parent = welcomeFrame
+    contentList.CanvasPosition = Vector2.new()
 
     local gameId = tostring(game.PlaceId)
     if gameId == "0" then
@@ -401,11 +404,19 @@ local function loadGameScripts()
     for _, scriptInfo in ipairs(decoded) do
         if scriptInfo.type == "file" and scriptInfo.download_url then
             local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
+            
+            local ok, content = httpGet(scriptInfo.download_url)
+            if not ok then continue end
+            
+            local scriptType = getScriptTypeFromContent(content)
+            
             scriptStates[scriptName] = {
                 Enabled = false,
                 Keybind = nil,
                 Url = scriptInfo.download_url,
-                Thread = nil
+                Thread = nil,
+                Type = scriptType,
+                Mode = "Toggle"
             }
 
             local container = Instance.new("Frame")
@@ -426,65 +437,149 @@ local function loadGameScripts()
             scriptLabel.TextSize = 16
             scriptLabel.TextXAlignment = Enum.TextXAlignment.Left
             scriptLabel.Parent = container
-            
-            scriptLabel.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton2 then
-                    local originalText = scriptLabel.Text
-                    scriptLabel.Text = "On Hold"
-                    local conn
-                    conn = input.Changed:Connect(function(state)
-                        if state == Enum.UserInputState.End then
-                            scriptLabel.Text = originalText
-                            conn:Disconnect()
-                        end
-                    end)
-                end
-            end)
 
-            local toggleBg = Instance.new("Frame")
-            toggleBg.Size = UDim2.new(0, 40, 0, 20)
-            toggleBg.Position = UDim2.new(1, -50, 0.5, -10)
-            toggleBg.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-            toggleBg.Parent = container
-            local bgCorner = Instance.new("UICorner")
-            bgCorner.CornerRadius = UDim.new(0, 6)
-            bgCorner.Parent = toggleBg
+            if scriptType == "Toggle" then
+                local toggleBg = Instance.new("Frame")
+                toggleBg.Size = UDim2.new(0, 40, 0, 20)
+                toggleBg.Position = UDim2.new(1, -50, 0.5, -10)
+                toggleBg.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+                toggleBg.Parent = container
+                local bgCorner = Instance.new("UICorner")
+                bgCorner.CornerRadius = UDim.new(0, 6)
+                bgCorner.Parent = toggleBg
 
-            local toggleButton = Instance.new("TextButton")
-            toggleButton.Size = UDim2.new(0, 20, 0, 20)
-            toggleButton.Position = UDim2.new(0, 2, 0.5, -10)
-            toggleButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-            toggleButton.Text = ""
-            toggleButton.Parent = toggleBg
-            local tglCorner = Instance.new("UICorner")
-            tglCorner.CornerRadius = UDim.new(1, 0)
-            tglCorner.Parent = toggleButton
-            
-            toggleButton.MouseButton1Click:Connect(function()
-                toggleScript(scriptName, toggleButton)
-            end)
-
-            toggleButton.MouseButton2Click:Connect(function()
-                if isBindingKey then return end
-                isBindingKey = true
-                local originalText = toggleButton.Text
-                toggleButton.Text = ". . ."
-                toggleButton.Visible = false
-                local bindConn = userInputService.InputBegan:Connect(function(input, gp)
-                    if gp then return end
-                    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-                    scriptStates[scriptName].Keybind = input.KeyCode
-                    sendNotification(scriptName .. " bound to " .. input.KeyCode.Name)
-                    toggleButton.Text = originalText
-                    toggleButton.Visible = true
-                    isBindingKey = false
-                    bindConn:Disconnect()
+                local toggleButton = Instance.new("TextButton")
+                toggleButton.Size = UDim2.new(0, 20, 0, 20)
+                toggleButton.Position = UDim2.new(0, 2, 0.5, -10)
+                toggleButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+                toggleButton.Text = ""
+                toggleButton.Parent = toggleBg
+                local tglCorner = Instance.new("UICorner")
+                tglCorner.CornerRadius = UDim.new(1, 0)
+                tglCorner.Parent = toggleButton
+                
+                toggleButton.MouseButton1Click:Connect(function()
+                    if scriptStates[scriptName].Mode == "Toggle" then
+                        toggleScript(scriptName, toggleButton)
+                    end
                 end)
-            end)
+                
+                toggleButton.MouseButton1Down:Connect(function()
+                    if scriptStates[scriptName].Mode == "OnHold" then
+                        toggleScript(scriptName, toggleButton, true)
+                    end
+                end)
+
+                toggleButton.MouseButton1Up:Connect(function()
+                    if scriptStates[scriptName].Mode == "OnHold" then
+                        toggleScript(scriptName, toggleButton, false)
+                    end
+                end)
+
+                toggleButton.MouseButton2Click:Connect(function()
+                    local state = scriptStates[scriptName]
+                    local holdLabel = container:FindFirstChild("OnHoldLabel")
+                    if state.Mode == "Toggle" then
+                        state.Mode = "OnHold"
+                        if not holdLabel then
+                            local newLabel = Instance.new("TextLabel")
+                            newLabel.Name = "OnHoldLabel"
+                            newLabel.Size = UDim2.new(0, 60, 0, 15)
+                            newLabel.Position = UDim2.new(1, -65, 1, -17)
+                            newLabel.BackgroundTransparency = 1
+                            newLabel.Text = "(On Hold)"
+                            newLabel.Font = Enum.Font.SourceSans
+                            newLabel.TextSize = 12
+                            newLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+                            newLabel.TextXAlignment = Enum.TextXAlignment.Right
+                            newLabel.Parent = container
+                        end
+                    else
+                        state.Mode = "Toggle"
+                        if holdLabel then
+                            holdLabel:Destroy()
+                        end
+                    end
+                end)
+            else -- "Once" type
+                local execButton = Instance.new("TextButton")
+                execButton.Size = UDim2.new(0, 70, 0, 25)
+                execButton.Position = UDim2.new(1, -80, 0.5, -12.5)
+                execButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+                execButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                execButton.Font = Enum.Font.SourceSansBold
+                execButton.Text = "Execute"
+                execButton.TextSize = 14
+                execButton.Parent = container
+                local execCorner = Instance.new("UICorner")
+                execCorner.CornerRadius = UDim.new(0, 6)
+                execCorner.Parent = execButton
+
+                execButton.MouseButton1Click:Connect(function()
+                    executeScript(scriptName)
+                end)
+            end
         end
     end
     uiListLayout.Parent = nil
     uiListLayout.Parent = contentList
+end
+
+local function playIntro()
+    mainFrame.Visible = true
+    mainFrame.BackgroundTransparency = 1
+    for _, child in ipairs(mainFrame:GetChildren()) do
+        if child.Name ~= "UIGradient" and child.Name ~= "UIStroke" and child.Name ~= "UICorner" then
+            child.Visible = false
+        end
+    end
+
+    tweenService:Create(mainFrame, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
+    task.wait(0.5)
+    
+    local welcomeFrame = Instance.new("Frame")
+    welcomeFrame.Size = UDim2.new(1, 0, 1, -30)
+    welcomeFrame.Position = UDim2.new(0, 0, 0, 30)
+    welcomeFrame.BackgroundTransparency = 1
+    welcomeFrame.Parent = mainFrame
+    
+    local pfp = Instance.new("ImageLabel")
+    pfp.Size = UDim2.new(0, 80, 0, 80)
+    pfp.Position = UDim2.new(0.5, -40, 0.5, -60)
+    pfp.BackgroundTransparency = 1
+    pfp.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..localPlayer.UserId.."&width=420&height=420&format=png"
+    pfp.Parent = welcomeFrame
+    local pfpCorner = Instance.new("UICorner")
+    pfpCorner.CornerRadius = UDim.new(1,0)
+    pfpCorner.Parent = pfp
+    
+    local welcomeLabel = Instance.new("TextLabel")
+    welcomeLabel.Size = UDim2.new(1, 0, 0, 30)
+    welcomeLabel.Position = UDim2.new(0, 0, 0.5, 30)
+    welcomeLabel.BackgroundTransparency = 1
+    welcomeLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    welcomeLabel.Font = Enum.Font.SourceSansBold
+    welcomeLabel.TextSize = 22
+    welcomeLabel.Text = "Welcome, " .. localPlayer.DisplayName
+    welcomeLabel.Parent = welcomeFrame
+
+    tweenService:Create(pfp, TweenInfo.new(0.5), {ImageTransparency = 0}):Play()
+    tweenService:Create(welcomeLabel, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+    
+    task.wait(3)
+
+    local hidePfp = tweenService:Create(pfp, TweenInfo.new(0.5), {ImageTransparency = 1})
+    local hideLabel = tweenService:Create(welcomeLabel, TweenInfo.new(0.5), {TextTransparency = 1})
+    hidePfp:Play()
+    hideLabel:Play()
+    hideLabel.Completed:Wait()
+    welcomeFrame:Destroy()
+
+    for _, child in ipairs(mainFrame:GetChildren()) do
+        child.Visible = true
+    end
+    contentList.Visible = true
+    loadGameScripts()
 end
 
 local minimized = false
@@ -507,8 +602,7 @@ submitButton.MouseButton1Click:Connect(function()
         submitButton.Text = "Correct"
         task.wait(1)
         keyFrame:Destroy()
-        mainFrame.Visible = true
-        loadGameScripts()
+        playIntro()
     else
         submitButton.Text = ok and "Incorrect" or "Server Error"
         task.wait(2)
@@ -534,9 +628,14 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
         for name, state in pairs(scriptStates) do
             if state.Keybind and input.KeyCode == state.Keybind then
                 local container = contentList:FindFirstChild(name)
-                if container then
-                    local toggleButton = container.Frame.TextButton
-                    toggleScript(name, toggleButton)
+                if container and state.Type == "Toggle" then
+                    local toggleBg = container:FindFirstChildWhichIsA("Frame")
+                    if toggleBg then
+                        local toggleButton = toggleBg:FindFirstChildWhichIsA("TextButton")
+                        if toggleButton then
+                           toggleScript(name, toggleButton)
+                        end
+                    end
                 end
             end
         end
