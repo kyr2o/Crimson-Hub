@@ -1,29 +1,25 @@
-    Crimson Hub - Main Client
-    Developer: kyr2o
-    Last Updated: 9/30/2025
-
-local VERBOSE = false 
-
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
 local localPlayer = players.LocalPlayer
 
+--[[ CONFIGURATION ]]--
+local VERBOSE = false -- Set to true to see debug notifications (e.g., raw server response)
 local githubUsername = "kyr2o"
 local repoName = "Crimson-Hub"
 local branchName = "main"
+local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
 
+--[[ GUI SETUP (No changes here) ]]--
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonHub"
-
 local keyFrame = Instance.new("Frame")
 keyFrame.Size = UDim2.new(0, 300, 0, 150)
 keyFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
 keyFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 keyFrame.BorderSizePixel = 0
 keyFrame.Parent = screenGui
-
 local keyTitle = Instance.new("TextLabel")
 keyTitle.Size = UDim2.new(1, 0, 0, 30)
 keyTitle.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
@@ -33,7 +29,6 @@ keyTitle.Text = "Crimson Hub - Password"
 keyTitle.Font = Enum.Font.SourceSansBold
 keyTitle.TextSize = 18
 keyTitle.Parent = keyFrame
-
 local keyInput = Instance.new("TextBox")
 keyInput.Size = UDim2.new(0.8, 0, 0, 35)
 keyInput.Position = UDim2.new(0.1, 0, 0, 50)
@@ -45,7 +40,6 @@ keyInput.PlaceholderText = "Enter Password..."
 keyInput.Font = Enum.Font.SourceSans
 keyInput.TextSize = 14
 keyInput.Parent = keyFrame
-
 local submitButton = Instance.new("TextButton")
 submitButton.Size = UDim2.new(0.8, 0, 0, 30)
 submitButton.Position = UDim2.new(0.1, 0, 0, 100)
@@ -56,7 +50,6 @@ submitButton.Text = "Submit"
 submitButton.Font = Enum.Font.SourceSansBold
 submitButton.TextSize = 16
 submitButton.Parent = keyFrame
-
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 450, 0, 300)
 mainFrame.Position = UDim2.new(0.5, -225, 0.5, -150)
@@ -66,13 +59,11 @@ mainFrame.Visible = false
 mainFrame.Draggable = true
 mainFrame.Active = true
 mainFrame.Parent = screenGui
-
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 30)
 header.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
 header.BorderSizePixel = 0
 header.Parent = mainFrame
-
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(0.8, 0, 1, 0)
 titleLabel.Position = UDim2.new(0.1, 0, 0, 0)
@@ -83,7 +74,6 @@ titleLabel.Text = "Crimson Hub"
 titleLabel.Font = Enum.Font.SourceSansBold
 titleLabel.TextSize = 18
 titleLabel.Parent = header
-
 local closeButton = Instance.new("TextButton")
 closeButton.Size = UDim2.new(0, 30, 1, 0)
 closeButton.Position = UDim2.new(1, -30, 0, 0)
@@ -94,7 +84,6 @@ closeButton.Text = "X"
 closeButton.Font = Enum.Font.SourceSansBold
 closeButton.TextSize = 18
 closeButton.Parent = header
-
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Size = UDim2.new(0, 30, 1, 0)
 minimizeButton.Position = UDim2.new(1, -60, 0, 0)
@@ -105,20 +94,17 @@ minimizeButton.Text = "_"
 minimizeButton.Font = Enum.Font.SourceSansBold
 minimizeButton.TextSize = 18
 minimizeButton.Parent = header
-
 local contentFrame = Instance.new("Frame")
 contentFrame.Size = UDim2.new(1, 0, 1, -30)
 contentFrame.Position = UDim2.new(0, 0, 0, 30)
 contentFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 contentFrame.BorderSizePixel = 0
 contentFrame.Parent = mainFrame
-
 local uiListLayout = Instance.new("UIListLayout")
 uiListLayout.Padding = UDim.new(0, 5)
 uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 uiListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 uiListLayout.Parent = contentFrame
-
 local toggleNotification = Instance.new("TextLabel")
 toggleNotification.Size = UDim2.new(0, 250, 0, 30)
 toggleNotification.Position = UDim2.new(0.5, -125, 0, 10)
@@ -130,9 +116,9 @@ toggleNotification.Font = Enum.Font.SourceSans
 toggleNotification.TextSize = 18
 toggleNotification.Visible = false
 toggleNotification.Parent = screenGui
-
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
+--[[ HELPER FUNCTIONS ]]--
 local function sendNotification(text, duration)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 400, 0, 50)
@@ -140,7 +126,6 @@ local function sendNotification(text, duration)
     frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     frame.BorderSizePixel = 0
     frame.Parent = screenGui
-
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 1, 0)
     label.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -149,7 +134,6 @@ local function sendNotification(text, duration)
     label.Font = Enum.Font.SourceSansBold
     label.TextSize = 16
     label.Parent = frame
-
     frame:TweenPosition(UDim2.new(0.5, -200, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.5, true)
     task.wait(duration or 2)
     frame:TweenPosition(UDim2.new(0.5, -200, 0, -60), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.5, true)
@@ -158,151 +142,172 @@ local function sendNotification(text, duration)
 end
 
 local function httpPost(url, body)
-    local bodyData = body
-    local contentType = "text/plain"
+    local bodyContent
+    local contentType
+    local contentTypeEnum
 
     if type(body) == "table" then
         local ok, encoded = pcall(function() return httpService:JSONEncode(body) end)
-        if ok then
-            bodyData = encoded
-            contentType = "application/json"
-        else
-            return false, "Failed to encode body"
+        if not ok then return false, "Failed to encode JSON payload" end
+        bodyContent = encoded
+        contentType = "application/json"
+        contentTypeEnum = Enum.HttpContentType.ApplicationJson
+    else
+        bodyContent = tostring(body)
+        contentType = "text/plain"
+        contentTypeEnum = Enum.HttpContentType.TextPlain
+    end
+    
+    local success, result = pcall(function()
+        return httpService:PostAsync(url, bodyContent, contentTypeEnum)
+    end)
+    if success and result then return true, tostring(result) end
+
+    local function tryRequest(reqFunc)
+        if not reqFunc then return false, nil end
+        local ok, resp = pcall(function()
+            return reqFunc({
+                Url = url,
+                Method = "POST",
+                Headers = { ["Content-Type"] = contentType, ["User-Agent"] = "Roblox" },
+                Body = bodyContent
+            })
+        end)
+        if ok and resp then
+            if type(resp) == "table" then
+                return true, tostring(resp.Body or resp.body or "")
+            end
+            return true, tostring(resp)
         end
+        return false, nil
     end
 
-    local methods = {
+    local reqSuccess, reqResult = tryRequest(request)
+    if reqSuccess then return reqSuccess, reqResult end
 
-        function()
-            return httpService:PostAsync(url, bodyData, Enum.HttpContentType[contentType == "application/json" and "ApplicationJson" or "TextPlain"])
-        end,
+    local synSuccess, synResult = tryRequest(syn and syn.request)
+    if synSuccess then return synSuccess, synResult end
+    
+    local oldHttpSuccess, oldHttpResult = tryRequest(http_request)
+    if oldHttpSuccess then return oldHttpSuccess, oldHttpResult end
+    
+    local newHttpSuccess, newHttpResult = tryRequest(http and http.request)
+    if newHttpSuccess then return newHttpSuccess, newHttpResult end
 
-        function()
-            if not (typeof and typeof(request) == "function") then return nil end
-            local resp = request({ Url = url, Method = "POST", Headers = { ["Content-Type"] = contentType }, Body = bodyData })
-            return resp and resp.Body
-        end,
-
-        function()
-            if not (syn and typeof and typeof(syn.request) == "function") then return nil end
-            local resp = syn.request({ Url = url, Method = "POST", Headers = { ["Content-Type"] = contentType }, Body = bodyData })
-            return resp and resp.Body
-        end
-    }
-
-    for _, method in ipairs(methods) do
-        local success, result = pcall(method)
-        if success and result then
-            return true, tostring(result)
-        end
-    end
-
-    return false, "All HTTP methods failed."
+    return false, tostring(result or "All HTTP methods failed.")
 end
 
 local function isPositiveResponse(responseText)
-    if not responseText or responseText == "" then return false end
-    local text = responseText:lower():match("^%s*(.-)%s*$") 
-
-    if text == "true" or text == "1" or text == "ok" or text == "success" then
+    if not responseText or type(responseText) ~= "string" then return false end
+    local text = responseText:lower():match("^%s*(.-)%s*$")
+    if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then
         return true
     end
-
     local success, decoded = pcall(function() return httpService:JSONDecode(responseText) end)
-    if success and type(decoded) == "table" and decoded.success == true then
+    if success and type(decoded) == "table" and (decoded.success == true or decoded.Success == true) then
         return true
     end
-
     return false
 end
 
 local function loadGameScripts()
-    for _, child in ipairs(contentFrame:GetChildren()) do
+    for i = #contentFrame:GetChildren(), 1, -1 do
+        local child = contentFrame:GetChildren()[i]
         if child:IsA("TextButton") then
             child:Destroy()
         end
     end
-
     local gameId = tostring(game.PlaceId)
     local apiUrl = "https://api.github.com/repos/"..githubUsername.."/"..repoName.."/contents/"..gameId.."?ref="..branchName
-
-    task.spawn(function()
-        local ok, result = pcall(function() return httpService:GetAsync(apiUrl) end)
-        if not ok then
-            sendNotification("GitHub API Error: " .. tostring(result), 5)
-            return
-        end
-
-        local success, decoded = pcall(function() return httpService:JSONDecode(result) end)
-        if not success or type(decoded) ~= "table" then
-            sendNotification("No scripts found for this game.", 4)
-            return
-        end
-
-        for _, scriptInfo in ipairs(decoded) do
-            if scriptInfo.type == "file" and scriptInfo.download_url and scriptInfo.name:match("%.lua$") then
-                local scriptButton = Instance.new("TextButton")
-                scriptButton.Size = UDim2.new(0.9, 0, 0, 35)
-                scriptButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-                scriptButton.BorderSizePixel = 0
-                scriptButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-                scriptButton.Text = scriptInfo.name:gsub("%.lua", "")
-                scriptButton.Font = Enum.Font.SourceSansBold
-                scriptButton.TextSize = 16
-                scriptButton.Parent = contentFrame
-
-                scriptButton.MouseButton1Click:Connect(function()
-                    local scriptUrl = scriptInfo.download_url
-                    local okGet, scriptContent = pcall(function()
-                        return (game.HttpGet and game:HttpGet(scriptUrl)) or httpService:GetAsync(scriptUrl)
-                    end)
-
-                    if okGet and scriptContent then
-                        local okRun, errRun = pcall(loadstring(scriptContent))
-                        if okRun then
-                            sendNotification("Executed: " .. scriptButton.Text, 2)
-                        else
-                            sendNotification("Script error: " .. tostring(errRun), 4)
-                        end
+    local ok, result = pcall(function() return httpService:GetAsync(apiUrl) end)
+    if not ok then
+        sendNotification("GitHub API error: " .. tostring(result), 5)
+        return
+    end
+    local decoded
+    local ok2, dec = pcall(function() return httpService:JSONDecode(result) end)
+    if ok2 then decoded = dec else
+        sendNotification("Failed decoding GitHub response", 4)
+        return
+    end
+    if type(decoded) ~= "table" then
+        sendNotification("No scripts found in repo folder: " .. gameId, 4)
+        return
+    end
+    for _, scriptInfo in ipairs(decoded) do
+        if scriptInfo.type == "file" and scriptInfo.download_url then
+            local scriptButton = Instance.new("TextButton")
+            scriptButton.Size = UDim2.new(0.9, 0, 0, 35)
+            scriptButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+            scriptButton.BorderSizePixel = 0
+            scriptButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            scriptButton.Text = scriptInfo.name:gsub("%.lua", "")
+            scriptButton.Font = Enum.Font.SourceSansBold
+            scriptButton.TextSize = 16
+            scriptButton.Parent = contentFrame
+            scriptButton.MouseButton1Click:Connect(function()
+                local scriptUrl = scriptInfo.download_url
+                local ok3, scriptContent = pcall(function()
+                    if pcall(function() return game.HttpGet end) and game.HttpGet then
+                        return game:HttpGet(scriptUrl)
                     else
-                        sendNotification("Failed to download script.", 3)
+                        return httpService:GetAsync(scriptUrl)
                     end
                 end)
-            end
+                if ok3 and scriptContent then
+                    local okRun, errRun = pcall(function()
+                        local fn = loadstring(scriptContent)
+                        if type(fn) == "function" then
+                            fn()
+                        end
+                    end)
+                    if okRun then
+                        sendNotification("Executed: " .. scriptButton.Text, 2)
+                    else
+                        sendNotification("Error running script: " .. tostring(errRun), 4)
+                    end
+                else
+                    sendNotification("Error loading script!", 3)
+                end
+            end)
         end
-    end)
+    end
 end
 
+--[[ MAIN LOGIC ]]--
 local minimized = false
+local isVerifying = false
 
 submitButton.MouseButton1Click:Connect(function()
-    local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
-    local userInput = keyInput.Text
+    if isVerifying then return end
 
-    if userInput == "" then
+    local userInput = tostring(keyInput.Text or "")
+    if userInput:match("^%s*$") then
         sendNotification("Enter a password first.", 2)
         return
     end
 
+    isVerifying = true
     submitButton.Text = "Verifying..."
-
-    if VERBOSE then sendNotification("DEBUG: Sending password...", 2) end
 
     local ok, respText = httpPost(serverUrl, userInput)
 
-    if VERBOSE then sendNotification("DEBUG Response: " .. tostring(respText or "nil"):sub(1, 200), 4) end
+    if VERBOSE then
+        sendNotification("Response: " .. (tostring(respText or "nil"):sub(1, 150)), 4)
+    end
 
     if ok and isPositiveResponse(respText) then
         submitButton.Text = "Correct"
-        task.wait(0.5)
+        task.wait(1)
         keyFrame:Destroy()
         mainFrame.Visible = true
         loadGameScripts()
     else
-        submitButton.Text = "Incorrect Password"
+        submitButton.Text = ok and "Incorrect" or "Server Error"
         task.wait(2)
         submitButton.Text = "Submit"
     end
+    isVerifying = false
 end)
 
 closeButton.MouseButton1Click:Connect(function()
@@ -319,7 +324,7 @@ end)
 userInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
-        if not keyFrame.Parent then 
+        if not keyFrame.Parent then -- Only toggle if key is already verified
             mainFrame.Visible = not mainFrame.Visible
             toggleNotification.Visible = not mainFrame.Visible
         end
