@@ -465,6 +465,24 @@ function mainUI:Create()
         button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
     end
 
+    local function createScriptActionButton(name, callback)
+        local button = Instance.new("TextButton", scriptsPage)
+        button.Size = UDim2.new(0, 200, 0, 50)
+        button.BackgroundColor3 = theme.accent
+        button.Text = name
+        button.Font = Enum.Font.Michroma
+        button.TextSize = 14
+        button.TextColor3 = theme.text
+        Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+
+        button.MouseButton1Click:Connect(function()
+            playSound("click")
+            pcall(callback)
+        end)
+        button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
+        button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+    end
+
     function ui:LoadScripts(scriptLoader)
         for _, child in ipairs(scriptsPage:GetChildren()) do
             if not child:IsA("UIGridLayout") then child:Destroy() end
@@ -472,7 +490,11 @@ function mainUI:Create()
         local scripts = scriptLoader()
         if scripts then
             for name, executeFunc in pairs(scripts) do
-                createScriptButton(name, executeFunc)
+                if name == "Break Gun" then
+                    createScriptActionButton(name, function() executeFunc(true) end)
+                else
+                    createScriptButton(name, executeFunc)
+                end
             end
         end
     end
