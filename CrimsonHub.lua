@@ -1,4 +1,3 @@
---// Services
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -6,11 +5,9 @@ local tweenService = game:GetService("TweenService")
 local runService = game:GetService("RunService")
 local lighting = game:GetService("Lighting")
 
---// Player Variables
 local localPlayer = players.LocalPlayer
 local mouse = localPlayer:GetMouse()
 
---// Configuration
 local VERBOSE = false
 local githubUsername = "kyr2o"
 local repoName = "Crimson-Hub"
@@ -18,7 +15,6 @@ local branchName = "main"
 local serverUrl = "https://crimson-keys.vercel.app/api/verify"
 local toggleKey = Enum.KeyCode.RightControl
 
---// Theme
 local theme = {
     background = Color3.fromRGB(21, 22, 28),
     backgroundSecondary = Color3.fromRGB(30, 32, 40),
@@ -32,7 +28,6 @@ local theme = {
     error = Color3.fromRGB(227, 38, 54)
 }
 
---// Main GUI Instance
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonHub"
@@ -40,7 +35,6 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.DisplayOrder = 999
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
---// Blur Effect
 local blur = Instance.new("BlurEffect")
 blur.Size = 0
 blur.Parent = lighting
@@ -49,10 +43,9 @@ local function setBlur(active)
     tweenService:Create(blur, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = active and 12 or 0 }):Play()
 end
 
---// Sound System
 local sounds = {
     open = "rbxassetid://6366382384",
-    close = "rbxassetid://6366382384", -- Use different sounds for more variety
+    close = "rbxassetid://6366382384", 
     toggleOn = "rbxassetid://6366382384",
     toggleOff = "rbxassetid://6366382384",
     click = "rbxassetid://6366382384",
@@ -75,7 +68,6 @@ local function playSound(soundName)
     end
 end
 
---// Notification System
 local notificationContainer = Instance.new("Frame")
 notificationContainer.Size = UDim2.new(1, 0, 1, 0)
 notificationContainer.BackgroundTransparency = 1
@@ -99,7 +91,7 @@ local function sendNotification(title, text, duration, notifType)
     elseif notifType == "error" then
         icon, color = "rbxassetid://8620934661", theme.error
     end
-    
+
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 300, 0, 70)
     frame.Position = UDim2.new(1, 10, 1, -80)
@@ -150,7 +142,7 @@ local function sendNotification(title, text, duration, notifType)
     progressBar.Position = UDim2.new(0, 0, 1, -2)
     progressBar.BackgroundColor3 = color
     progressBar.BorderSizePixel = 0
-    
+
     local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -310, 1, -80)})
     local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -80)})
     local progressTween = tweenService:Create(progressBar, TweenInfo.new(duration), {Size = UDim2.new(1, 0, 0, 2)})
@@ -165,8 +157,6 @@ local function sendNotification(title, text, duration, notifType)
     frame:Destroy()
 end
 
-
---// HTTP Functions
 local function httpGet(url)
     local success, result = pcall(function() return httpService:GetAsync(url) end)
     if success and result then return true, tostring(result) end
@@ -209,15 +199,13 @@ local function isPositiveResponse(responseText)
     return false
 end
 
---// Main UI Creation
 local mainUI = {}
 
 function mainUI:Create()
     local ui = { Visible = false }
     local pages = {}
     local tabs = {}
-    
-    -- Main Frame
+
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 600, 0, 400)
     mainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
@@ -232,10 +220,9 @@ function mainUI:Create()
     local mainFrameStroke = Instance.new("UIStroke", mainFrame)
     mainFrameStroke.Color = theme.accent
     mainFrameStroke.Thickness = 2
-    
-    -- Animated Background
+
     local bgPattern = Instance.new("ImageLabel", mainFrame)
-    bgPattern.Image = "rbxassetid://2887559971" -- Grid texture
+    bgPattern.Image = "rbxassetid://2887559971" 
     bgPattern.ScaleType = Enum.ScaleType.Tile
     bgPattern.TileSize = UDim2.new(0, 50, 0, 50)
     bgPattern.Size = UDim2.new(2, 0, 2, 0)
@@ -252,22 +239,21 @@ function mainUI:Create()
             bgPattern.Position = UDim2.new(-0.5 - offset.X * 0.0005, 0, -0.5 - offset.Y * 0.0005, 0)
         end
     end)
-    
-    -- Header
+
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, 0, 0, 40)
     header.BackgroundColor3 = theme.backgroundSecondary
     header.BorderSizePixel = 0
     header.ZIndex = 2
     header.Parent = mainFrame
-    
+
     local headerGradient = Instance.new("UIGradient")
     headerGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.primary),
         ColorSequenceKeypoint.new(1, theme.primaryGlow)
     })
     headerGradient.Rotation = 90
-    
+
     local headerDivider = Instance.new("Frame", mainFrame)
     headerDivider.Size = UDim2.new(1, 0, 0, 3)
     headerDivider.Position = UDim2.new(0, 0, 0, 40)
@@ -275,14 +261,14 @@ function mainUI:Create()
     headerDivider.BorderSizePixel = 0
     headerDivider.ZIndex = 3
     headerDivider.Parent = headerGradient
-    
+
     local logo = Instance.new("ImageLabel", header)
-    logo.Image = "rbxassetid://3921711226" -- Swirly crimson logo
+    logo.Image = "rbxassetid://3921711226" 
     logo.Size = UDim2.new(0, 24, 0, 24)
     logo.Position = UDim2.new(0, 10, 0.5, -12)
     logo.ImageColor3 = theme.primary
     logo.BackgroundTransparency = 1
-    
+
     local title = Instance.new("TextLabel", header)
     title.Text = "Crimson Hub"
     title.Font = Enum.Font.Michroma
@@ -312,16 +298,15 @@ function mainUI:Create()
     closeButton.ImageColor3 = theme.textSecondary
     closeButton.BackgroundTransparency = 1
     closeButton.ZIndex = 3
-    
+
     local minimizeButton = Instance.new("ImageButton", header)
     minimizeButton.Size = UDim2.new(0, 18, 0, 18)
     minimizeButton.Position = UDim2.new(1, -56, 0.5, -9)
-    minimizeButton.Image = "rbxassetid://13516604101" -- Minus icon
+    minimizeButton.Image = "rbxassetid://13516604101" 
     minimizeButton.ImageColor3 = theme.textSecondary
     minimizeButton.BackgroundTransparency = 1
     minimizeButton.ZIndex = 3
 
-    -- Sidebar
     local sidebar = Instance.new("Frame", mainFrame)
     sidebar.Size = UDim2.new(0, 150, 1, -40)
     sidebar.Position = UDim2.new(0, 0, 0, 40)
@@ -333,7 +318,7 @@ function mainUI:Create()
     sidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     sidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
     sidebarLayout.Padding = UDim.new(0, 10)
-    
+
     local welcomeMessage = Instance.new("TextLabel", sidebar)
     welcomeMessage.Size = UDim2.new(1, -20, 0, 50)
     welcomeMessage.Text = "Welcome,\n" .. localPlayer.DisplayName
@@ -344,13 +329,12 @@ function mainUI:Create()
     welcomeMessage.BackgroundTransparency = 1
     welcomeMessage.LayoutOrder = -1
 
-    -- Content Container
     local contentContainer = Instance.new("Frame", mainFrame)
     contentContainer.Size = UDim2.new(1, -150, 1, -40)
     contentContainer.Position = UDim2.new(0, 150, 0, 40)
     contentContainer.BackgroundTransparency = 1
     contentContainer.ZIndex = 1
-    
+
     local function selectTab(tab)
         playSound("click")
         for _, otherTab in pairs(tabs) do
@@ -360,7 +344,7 @@ function mainUI:Create()
         for _, page in pairs(pages) do
             page.Visible = false
         end
-        
+
         tweenService:Create(tab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
         tweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
         pages[tab.Name].Visible = true
@@ -377,7 +361,7 @@ function mainUI:Create()
         tab.TextColor3 = theme.textSecondary
         tab.TextXAlignment = Enum.TextXAlignment.Center
         Instance.new("UICorner", tab).CornerRadius = UDim.new(0, 6)
-        
+
         local indicator = Instance.new("Frame", tab)
         indicator.Name = "Indicator"
         indicator.Size = UDim2.new(0, 2, 1, 0)
@@ -385,11 +369,11 @@ function mainUI:Create()
         indicator.BorderSizePixel = 0
         indicator.BackgroundTransparency = 1
         Instance.new("UICorner", indicator).CornerRadius = UDim.new(0, 6)
-        
+
         tab.MouseEnter:Connect(function() tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
         tab.MouseLeave:Connect(function() tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
         tab.MouseButton1Click:Connect(function() selectTab(tab) end)
-        
+
         tabs[name] = tab
         return tab
     end
@@ -406,8 +390,7 @@ function mainUI:Create()
         pages[name] = page
         return page
     end
-    
-    -- Create Tabs and Pages
+
     local scriptsPage = createPage("Scripts")
     local scriptsLayout = Instance.new("UIGridLayout", scriptsPage)
     scriptsLayout.CellSize = UDim2.new(0, 200, 0, 50)
@@ -418,7 +401,7 @@ function mainUI:Create()
     local settingsPage = createPage("Settings")
     local settingsLayout = Instance.new("UIListLayout", settingsPage)
     settingsLayout.Padding = UDim.new(0, 10)
-    
+
     local infoPage = createPage("Info")
     local infoLabel = Instance.new("TextLabel", infoPage)
     infoLabel.Size = UDim2.new(1, -40, 0, 0)
@@ -436,7 +419,6 @@ function mainUI:Create()
     createTab("Settings")
     createTab("Info")
 
-    -- UI Functions
     local function createScriptButton(name, callback)
         local buttonData = {enabled = false}
 
@@ -445,7 +427,7 @@ function mainUI:Create()
         button.BackgroundColor3 = theme.accent
         button.Text = ""
         Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
-        
+
         local label = Instance.new("TextLabel", button)
         label.Size = UDim2.new(1, -50, 1, 0)
         label.Position = UDim2.new(0, 15, 0, 0)
@@ -461,7 +443,7 @@ function mainUI:Create()
         toggle.Position = UDim2.new(1, -50, 0.5, -10)
         toggle.BackgroundColor3 = theme.background
         Instance.new("UICorner", toggle).CornerRadius = UDim.new(1, 0)
-        
+
         local toggleKnob = Instance.new("Frame", toggle)
         toggleKnob.Size = UDim2.new(0, 14, 0, 14)
         toggleKnob.Position = UDim2.new(0, 3, 0.5, -7)
@@ -471,7 +453,7 @@ function mainUI:Create()
         local function updateToggle(manual)
             buttonData.enabled = not buttonData.enabled
             playSound(buttonData.enabled and "toggleOn" or "toggleOff")
-            
+
             local pos = buttonData.enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
             local color = buttonData.enabled and theme.success or theme.primary
             tweenService:Create(toggleKnob, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = pos, BackgroundColor3 = color}):Play()
@@ -498,7 +480,7 @@ function mainUI:Create()
     function ui:SetVisibility(visible)
         if ui.Visible == visible then return end
         ui.Visible = visible
-        
+
         if visible then
             playSound("open")
             setBlur(true)
@@ -519,22 +501,19 @@ function mainUI:Create()
 
     closeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
     minimizeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
-    
+
     userInputService.InputBegan:Connect(function(input)
         if input.KeyCode == toggleKey and userInputService:GetFocusedTextBox() == nil then
             ui:SetVisibility(not ui.Visible)
         end
     end)
-    
-    -- Select first tab by default
+
     task.wait()
     selectTab(tabs["Scripts"])
-    
+
     return ui
 end
 
-
---// Verification UI
 local function createVerificationUI(onSuccess)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 400, 0, 220)
@@ -545,7 +524,7 @@ local function createVerificationUI(onSuccess)
     frame.Parent = screenGui
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
     Instance.new("UIStroke", frame).Color = theme.accent
-    
+
     local title = Instance.new("TextLabel", frame)
     title.Size = UDim2.new(1, 0, 0, 60)
     title.BackgroundTransparency = 1
@@ -553,7 +532,7 @@ local function createVerificationUI(onSuccess)
     title.Font = Enum.Font.Michroma
     title.TextColor3 = theme.text
     title.TextSize = 28
-    
+
     local titleGlow = Instance.new("TextLabel", frame)
     titleGlow.Size = title.Size
     titleGlow.Position = title.Position
@@ -564,7 +543,7 @@ local function createVerificationUI(onSuccess)
     titleGlow.TextSize = title.TextSize
     titleGlow.TextTransparency = 0.7
     titleGlow.ZIndex = -1
-    
+
     local subtitle = Instance.new("TextLabel", frame)
     subtitle.Size = UDim2.new(1, 0, 0, 20)
     subtitle.Position = UDim2.new(0, 0, 0, 60)
@@ -596,9 +575,9 @@ local function createVerificationUI(onSuccess)
     submit.TextColor3 = Color3.new(1, 1, 1)
     submit.TextSize = 18
     Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 6)
-    
+
     local loadingSpinner = Instance.new("ImageLabel", submit)
-    loadingSpinner.Image = "rbxassetid://5107930337" -- Spinner
+    loadingSpinner.Image = "rbxassetid://5107930337" 
     loadingSpinner.Size = UDim2.new(0, 24, 0, 24)
     loadingSpinner.Position = UDim2.new(0.5, -12, 0.5, -12)
     loadingSpinner.BackgroundTransparency = 1
@@ -612,7 +591,7 @@ local function createVerificationUI(onSuccess)
             sendNotification("Error", "Please enter a key.", 3, "error")
             return
         end
-        
+
         submit.Text = ""
         loadingSpinner.Visible = true
         local rotationTween = tweenService:Create(loadingSpinner, TweenInfo.new(1, Enum.EasingStyle.Linear), { Rotation = 360 })
@@ -621,7 +600,7 @@ local function createVerificationUI(onSuccess)
              if loadingSpinner.Visible then rotationTween:Play() end
         end)
         rotationTween:Play()
-        
+
         task.spawn(function()
             local ok, respText = httpPost(serverUrl, key)
 
@@ -653,11 +632,10 @@ local function createVerificationUI(onSuccess)
             end
         end)
     end)
-    
+
     setBlur(true)
 end
 
---// Main Execution
 local function loadGameScripts()
     local gameId = tostring(game.PlaceId)
     if gameId == "0" then sendNotification("Studio", "Cannot load scripts in Studio.", 5, "warning"); return end
@@ -698,4 +676,3 @@ createVerificationUI(function()
     hub:LoadScripts(loadGameScripts)
     hub:SetVisibility(true)
 end)
-
