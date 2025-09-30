@@ -1,7 +1,6 @@
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
-local runService = game:GetService("RunService")
 local localPlayer = players.LocalPlayer
 local tweenService = game:GetService("TweenService")
 
@@ -10,8 +9,6 @@ local githubUsername = "kyr2o"
 local repoName = "Crimson-Hub"
 local branchName = "main"
 local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
-
-local scriptStates = {}
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
@@ -81,8 +78,8 @@ submitButtonCorner.CornerRadius = UDim.new(0, 6)
 submitButtonCorner.Parent = submitButton
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 500, 0, 320)
-mainFrame.Position = UDim2.new(0.5, -250, 0.5, -160)
+mainFrame.Size = UDim2.new(0, 450, 0, 300)
+mainFrame.Position = UDim2.new(0.5, -225, 0.5, -150)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38)
 mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
@@ -96,6 +93,10 @@ local mainFrameStroke = Instance.new("UIStroke")
 mainFrameStroke.Color = Color3.fromRGB(139, 0, 0)
 mainFrameStroke.Thickness = 2
 mainFrameStroke.Parent = mainFrame
+local mainFrameGradient = Instance.new("UIGradient")
+mainFrameGradient.Color = ColorSequence.new(Color3.fromRGB(40, 42, 48), Color3.fromRGB(30, 32, 38))
+mainFrameGradient.Rotation = 90
+mainFrameGradient.Parent = mainFrame
 
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 30)
@@ -131,39 +132,29 @@ local closeButtonCorner = Instance.new("UICorner")
 closeButtonCorner.CornerRadius = UDim.new(1, 0)
 closeButtonCorner.Parent = closeButton
 
-local sidebar = Instance.new("Frame")
-sidebar.Size = UDim2.new(0, 120, 1, -30)
-sidebar.Position = UDim2.new(0, 0, 0, 30)
-sidebar.BackgroundColor3 = Color3.fromRGB(24, 26, 31)
-sidebar.BorderSizePixel = 0
-sidebar.Parent = mainFrame
-local sidebarLayout = Instance.new("UIListLayout")
-sidebarLayout.Padding = UDim.new(0, 5)
-sidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-sidebarLayout.Parent = sidebar
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Size = UDim2.new(0, 20, 0, 20)
+minimizeButton.Position = UDim2.new(1, -50, 0.5, -10)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 180, 80)
+minimizeButton.Text = ""
+minimizeButton.Parent = header
+local minimizeButtonCorner = Instance.new("UICorner")
+minimizeButtonCorner.CornerRadius = UDim.new(1, 0)
+minimizeButtonCorner.Parent = minimizeButton
 
-local pages = Instance.new("Frame")
-pages.Size = UDim2.new(1, -120, 1, -30)
-pages.Position = UDim2.new(0, 120, 0, 30)
-pages.BackgroundTransparency = 1
-pages.BorderSizePixel = 0
-pages.Parent = mainFrame
-
-local scriptsPage = Instance.new("ScrollingFrame")
-scriptsPage.Size = UDim2.new(1, 0, 1, 0)
-scriptsPage.BackgroundTransparency = 1
-scriptsPage.BorderSizePixel = 0
-scriptsPage.CanvasSize = UDim2.new(0, 0, 2, 0)
-scriptsPage.ScrollBarThickness = 5
-scriptsPage.Visible = true
-scriptsPage.Parent = pages
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, -10, 1, -40)
+contentFrame.Position = UDim2.new(0, 5, 0, 35)
+contentFrame.BackgroundTransparency = 1
+contentFrame.BorderSizePixel = 0
+contentFrame.Parent = mainFrame
 
 local uiListLayout = Instance.new("UIListLayout")
 uiListLayout.Padding = UDim.new(0, 8)
 uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 uiListLayout.FillDirection = Enum.FillDirection.Vertical
 uiListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-uiListLayout.Parent = scriptsPage
+uiListLayout.Parent = contentFrame
 
 local toggleNotification = Instance.new("TextLabel")
 toggleNotification.Size = UDim2.new(0, 200, 0, 30)
@@ -180,7 +171,6 @@ toggleNotificationCorner.CornerRadius = UDim.new(0, 6)
 toggleNotificationCorner.Parent = toggleNotification
 
 local function sendNotification(text)
-    local duration = 7.5
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 250, 0, 50)
     frame.Position = UDim2.new(1, 10, 1, -60)
@@ -204,19 +194,21 @@ local function sendNotification(text)
     label.TextSize = 14
     label.TextWrapped = true
     label.Parent = frame
+
     local timerBar = Instance.new("Frame")
     timerBar.Size = UDim2.new(0, 0, 0, 3)
     timerBar.Position = UDim2.new(0, 0, 1, -3)
-    timerBar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+    timerBar.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
     timerBar.BorderSizePixel = 0
     timerBar.Parent = frame
+
     local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 1, -60)})
     local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -60)})
-    local timerTween = tweenService:Create(timerBar, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 0, 3)})
+    local timerTween = tweenService:Create(timerBar, TweenInfo.new(7.5, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 0, 3)})
     
     showTween:Play()
     timerTween:Play()
-    task.wait(duration)
+    timerTween.Completed:Wait()
     hideTween:Play()
     hideTween.Completed:Wait()
     frame:Destroy()
@@ -231,22 +223,45 @@ local function httpGet(url)
 			return reqFunc({Url = url, Method = "GET", Headers = { ["User-Agent"] = "CrimsonHub/1.0" }})
 		end)
 		if ok and resp then
-			if type(resp) == "table" then
-				return true, tostring(resp.Body or resp.body or "")
-			end
+			if type(resp) == "table" then return true, tostring(resp.Body or resp.body or "") end
 			return true, tostring(resp)
 		end
 		return false, nil
 	end
-	local r, rr = tryRequest(request)
-	if r then return r, rr end
-	local s, sr = tryRequest(syn and syn.request)
-	if s then return s, sr end
-	local o, ore = tryRequest(http_request)
-	if o then return o, ore end
-	local n, nr = tryRequest(http and http.request)
-	if n then return n, nr end
+	local reqSuccess, reqResult = tryRequest(request)
+	if reqSuccess then return reqSuccess, reqResult end
+	local synSuccess, synResult = tryRequest(syn and syn.request)
+	if synSuccess then return synSuccess, synResult end
 	return false, tostring(result or "All HTTP GET methods failed.")
+end
+
+local function httpPost(url, body)
+    local bodyContent, contentType, contentTypeEnum
+    if type(body) == "table" then
+        local ok, encoded = pcall(function() return httpService:JSONEncode(body) end)
+        if not ok then return false, "Failed to encode JSON payload" end
+        bodyContent, contentType, contentTypeEnum = encoded, "application/json", Enum.HttpContentType.ApplicationJson
+    else
+        bodyContent, contentType, contentTypeEnum = tostring(body), "text/plain", Enum.HttpContentType.TextPlain
+    end
+    local success, result = pcall(function() return httpService:PostAsync(url, bodyContent, contentTypeEnum) end)
+    if success and result then return true, tostring(result) end
+    local function tryRequest(reqFunc)
+        if not reqFunc then return false, nil end
+        local ok, resp = pcall(function()
+            return reqFunc({Url = url, Method = "POST", Headers = { ["Content-Type"] = contentType, ["User-Agent"] = "CrimsonHub/1.0" }, Body = bodyContent})
+        end)
+        if ok and resp then
+            if type(resp) == "table" then return true, tostring(resp.Body or resp.body or "") end
+            return true, tostring(resp)
+        end
+        return false, nil
+    end
+    local reqSuccess, reqResult = tryRequest(request)
+    if reqSuccess then return reqSuccess, reqResult end
+    local synSuccess, synResult = tryRequest(syn and syn.request)
+    if synSuccess then return synSuccess, synResult end
+    return false, tostring(result or "All HTTP methods failed.")
 end
 
 local function isPositiveResponse(responseText)
@@ -262,34 +277,12 @@ local function isPositiveResponse(responseText)
     return false
 end
 
-local function toggleScript(scriptName)
-    local state = scriptStates[scriptName]
-    if not state then return end
-    state.enabled = not state.enabled
-    if state.enabled then
-        if not state.scriptFunction then
-            sendNotification("Script not loaded yet.")
-            state.enabled = false
-            return
-        end
-        state.connection = runService.Heartbeat:Connect(state.scriptFunction)
-    else
-        if state.connection then
-            state.connection:Disconnect()
-            state.connection = nil
-        end
-    end
-    local button = scriptsPage:FindFirstChild(scriptName, true)
-    if button and button:FindFirstChild("Toggle") then
-        button.Toggle.BackgroundColor3 = state.enabled and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
-    end
-end
-
 local function loadGameScripts()
-	scriptStates = {}
-    for i = #scriptsPage:GetChildren(), 1, -1 do
-        local child = scriptsPage:GetChildren()[i]
-        if not child:IsA("UIListLayout") then child:Destroy() end
+    for i = #contentFrame:GetChildren(), 1, -1 do
+        local child = contentFrame:GetChildren()[i]
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
     end
     local gameId = tostring(game.PlaceId)
     if gameId == "0" then
@@ -313,88 +306,76 @@ local function loadGameScripts()
     end
     for _, scriptInfo in ipairs(decoded) do
         if scriptInfo.type == "file" and scriptInfo.download_url then
-            local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
-            scriptStates[scriptName] = {enabled = false, keybind = Enum.KeyCode.None, scriptFunction = nil, connection = nil}
-            local buttonFrame = Instance.new("Frame")
-            buttonFrame.Name = scriptName
-            buttonFrame.Size = UDim2.new(1, -20, 0, 40)
-            buttonFrame.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
-            buttonFrame.Parent = scriptsPage
-            local btnCorner = Instance.new("UICorner")
-            btnCorner.CornerRadius = UDim.new(0, 6)
-            btnCorner.Parent = buttonFrame
-            local btnStroke = Instance.new("UIStroke")
-            btnStroke.Color = Color3.fromRGB(80, 80, 80)
-            btnStroke.Thickness = 1
-            btnStroke.Parent = buttonFrame
+            local scriptModule = Instance.new("Frame")
+            scriptModule.Size = UDim2.new(1, -20, 0, 40)
+            scriptModule.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
+            scriptModule.BorderSizePixel = 0
+            scriptModule.Parent = contentFrame
+            local moduleCorner = Instance.new("UICorner")
+            moduleCorner.CornerRadius = UDim.new(0, 6)
+            moduleCorner.Parent = scriptModule
+            local moduleStroke = Instance.new("UIStroke")
+            moduleStroke.Color = Color3.fromRGB(80, 80, 80)
+            moduleStroke.Thickness = 1
+            moduleStroke.Parent = scriptModule
 
-            local toggleIndicator = Instance.new("Frame")
-            toggleIndicator.Name = "Toggle"
-            toggleIndicator.Size = UDim2.new(0, 10, 0, 10)
-            toggleIndicator.Position = UDim2.new(0, 10, 0.5, -5)
-            toggleIndicator.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-            toggleIndicator.Parent = buttonFrame
-            local toggleCorner = Instance.new("UICorner")
-            toggleCorner.CornerRadius = UDim.new(1,0)
-            toggleCorner.Parent = toggleIndicator
+            local moduleName = Instance.new("TextLabel")
+            moduleName.Size = UDim2.new(0.5, -40, 1, 0)
+            moduleName.Position = UDim2.new(0, 50, 0, 0)
+            moduleName.BackgroundTransparency = 1
+            moduleName.TextColor3 = Color3.fromRGB(220, 220, 220)
+            moduleName.Text = (scriptInfo.name or ""):gsub("%.lua$", "")
+            moduleName.Font = Enum.Font.SourceSansBold
+            moduleName.TextSize = 16
+            moduleName.TextXAlignment = Enum.TextXAlignment.Left
+            moduleName.Parent = scriptModule
 
-            local nameLabel = Instance.new("TextButton")
-            nameLabel.Size = UDim2.new(1, -100, 1, 0)
-            nameLabel.Position = UDim2.new(0, 30, 0, 0)
-            nameLabel.BackgroundTransparency = 1
-            nameLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-            nameLabel.Text = scriptName
-            nameLabel.Font = Enum.Font.SourceSansBold
-            nameLabel.TextSize = 16
-            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-            nameLabel.Parent = buttonFrame
+            local toggleBg = Instance.new("Frame")
+            toggleBg.Size = UDim2.new(0, 40, 0, 20)
+            toggleBg.Position = UDim2.new(0, 5, 0.5, -10)
+            toggleBg.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+            toggleBg.Parent = scriptModule
+            local toggleBgCorner = Instance.new("UICorner")
+            toggleBgCorner.CornerRadius = UDim.new(1, 0)
+            toggleBgCorner.Parent = toggleBg
+
+            local toggleNub = Instance.new("TextButton")
+            toggleNub.Size = UDim2.new(0, 16, 0, 16)
+            toggleNub.Position = UDim2.new(0, 2, 0.5, -8)
+            toggleNub.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+            toggleNub.Text = ""
+            toggleNub.Parent = toggleBg
+            local toggleNubCorner = Instance.new("UICorner")
+            toggleNubCorner.CornerRadius = UDim.new(1, 0)
+            toggleNubCorner.Parent = toggleNub
 
             local keybindButton = Instance.new("TextButton")
-            keybindButton.Size = UDim2.new(0, 60, 1, -10)
-            keybindButton.Position = UDim2.new(1, -65, 0.5, -0.5 * keybindButton.AbsoluteSize.Y)
+            keybindButton.Size = UDim2.new(0, 60, 0, 25)
+            keybindButton.Position = UDim2.new(1, -65, 0.5, -12.5)
             keybindButton.BackgroundColor3 = Color3.fromRGB(35, 37, 43)
-            keybindButton.TextColor3 = Color3.fromRGB(180, 180, 180)
-            keybindButton.Text = "[ ... ]"
-            keybindButton.Font = Enum.Font.SourceSans
+            keybindButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+            keybindButton.Text = "[ ]"
+            keybindButton.Font = Enum.Font.SourceSansBold
             keybindButton.TextSize = 14
-            keybindButton.Parent = buttonFrame
-            local kbCorner = Instance.new("UICorner")
-            kbCorner.CornerRadius = UDim.new(0, 4)
-            kbCorner.Parent = keybindButton
+            keybindButton.Parent = scriptModule
+            local keybindCorner = Instance.new("UICorner")
+            keybindCorner.CornerRadius = UDim.new(0, 4)
+            keybindCorner.Parent = keybindButton
 
-            nameLabel.MouseButton1Click:Connect(function() toggleScript(scriptName) end)
-            nameLabel.MouseButton2Click:Connect(function()
-                nameLabel.Text = "On Hold"
-                task.wait(1)
-                nameLabel.Text = scriptName
-            end)
-
-            keybindButton.MouseButton1Click:Connect(function()
-                keybindButton.Text = "..."
-                local connection
-                connection = userInputService.InputBegan:Connect(function(input, gpe)
-                    if not gpe and input.UserInputType == Enum.UserInputType.Keyboard then
-                        scriptStates[scriptName].keybind = input.KeyCode
-                        keybindButton.Text = "[ "..input.KeyCode.Name.." ]"
-                        connection:Disconnect()
-                    end
-                end)
-            end)
-
-            httpGet(scriptInfo.download_url):andThen(function(scriptContent)
-                local ok, fn = pcall(function() return loadstring(scriptContent) end)
-                if ok and type(fn) == "function" then
-                    scriptStates[scriptName].scriptFunction = fn
-                else
-                    nameLabel.TextColor3 = Color3.fromRGB(255,100,100)
-                    nameLabel.Text = scriptName .. " (Error)"
-                end
+            local toggledOn = false
+            toggleNub.MouseButton1Click:Connect(function()
+                toggledOn = not toggledOn
+                local goalPos = toggledOn and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+                local goalColor = toggledOn and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
+                tweenService:Create(toggleNub, TweenInfo.new(0.2), {Position = goalPos, BackgroundColor3 = goalColor}):Play()
             end)
         end
     end
 end
 
+local minimized = false
 local isVerifying = false
+
 submitButton.MouseButton1Click:Connect(function()
     if isVerifying then return end
     local userInput = tostring(keyInput.Text or "")
@@ -425,15 +406,14 @@ closeButton.MouseButton1Click:Connect(function()
     toggleNotification.Visible = true
 end)
 
-userInputService.InputBegan:Connect(function(input, gpe)
-    if gpe or not mainFrame.Visible then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        for scriptName, state in pairs(scriptStates) do
-            if input.KeyCode == state.keybind then
-                toggleScript(scriptName)
-            end
-        end
-    end
+minimizeButton.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    contentFrame.Visible = not minimized
+    mainFrame.Size = minimized and UDim2.new(0, 450, 0, 30) or UDim2.new(0, 450, 0, 300)
+end)
+
+userInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
         if not keyFrame.Parent then
             mainFrame.Visible = not mainFrame.Visible
