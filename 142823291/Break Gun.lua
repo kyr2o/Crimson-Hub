@@ -1,18 +1,23 @@
-local function getGunInstance()
-    for i, v in next, game.Players:GetPlayers() do
-        if v.Character and v.Character:FindFirstChild("Gun") then
-            return v.Character.Gun
-        end
-    end
+local players = game:GetService("Players")
+local runService = game:GetService("RunService")
+local gun = nil
+
+for _, p in ipairs(players:GetPlayers()) do
+    if p.Character then
+        local g = p.Character:FindFirstChild("Gun")
+        if g then
+            gun = g
+            break
+        end
+    end
 end
 
-local gun = getGunInstance()
 if gun then
-    local shootGun = gun:FindFirstChild("ShootGun", true)
-    if shootGun then
-        repeat
-            shootGun:InvokeServer(1, 0, "AH2")
-            task.wait()
-        until (not shootGun or not shootGun.Parent) or not shootGun:IsDescendantOf(workspace)
-    end
+    local shoot = gun:FindFirstChild("ShootGun", true)
+    if shoot then
+        while shoot and shoot.Parent do
+            shoot:InvokeServer(1, 0, "AH2")
+            runService.Heartbeat:Wait()
+        end
+    end
 end
