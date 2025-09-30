@@ -8,7 +8,7 @@ local VERBOSE = false
 local githubUsername = "kyr2o"
 local repoName = "Crimson-Hub"
 local branchName = "main"
-local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
+local serverUrl = "https://crimson-keys.vercel.app/api/verify"
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
