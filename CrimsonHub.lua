@@ -3,6 +3,7 @@ local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
 local localPlayer = players.LocalPlayer
 local tweenService = game:GetService("TweenService")
+local runService = game:GetService("RunService")
 
 local VERBOSE = false
 local githubUsername = "kyr2o"
@@ -96,6 +97,7 @@ mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
 mainFrame.Draggable = true
 mainFrame.Active = true
+mainFrame.ClipsDescendants = true
 mainFrame.Parent = screenGui
 local mainFrameCorner = Instance.new("UICorner")
 mainFrameCorner.CornerRadius = UDim.new(0, 8)
@@ -106,26 +108,33 @@ mainFrameStroke.Thickness = 2
 mainFrameStroke.Parent = mainFrame
 
 local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 30)
-header.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+header.Size = UDim2.new(1, 0, 0, 40)
+header.BackgroundColor3 = Color3.fromRGB(40, 42, 48)
 header.BorderSizePixel = 0
 header.Parent = mainFrame
-local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 8)
-headerCorner.Parent = header
+local headerStroke = Instance.new("UIStroke")
+headerStroke.Color = Color3.fromRGB(139, 0, 0)
+headerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+headerStroke.Thickness = 1.5
+headerStroke.Parent = header
 local headerGradient = Instance.new("UIGradient")
-headerGradient.Color = ColorSequence.new(Color3.fromRGB(180, 20, 20), Color3.fromRGB(120, 0, 0))
-headerGradient.Rotation = 90
+headerGradient.Color = ColorSequence.new(Color3.fromRGB(200, 20, 20), Color3.fromRGB(100, 0, 0))
 headerGradient.Parent = header
+runService.Heartbeat:Connect(function()
+    if header.Parent then
+        local sine = math.sin(tick() * 2)
+        headerGradient.Offset = Vector2.new(0, sine * 0.2)
+    end
+end)
 
 local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, 0, 1, 0)
+titleLabel.Size = UDim2.new(1, -150, 1, 0)
 titleLabel.Position = UDim2.new(0, 0, 0, 0)
 titleLabel.BackgroundTransparency = 1
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.Text = "Crimson Hub"
 titleLabel.Font = Enum.Font.SourceSansBold
-titleLabel.TextSize = 18
+titleLabel.TextSize = 20
 titleLabel.Parent = header
 
 local closeButton = Instance.new("TextButton")
@@ -150,7 +159,7 @@ minimizeButtonCorner.Parent = minimizeButton
 
 local welcomeFrame = Instance.new("Frame")
 welcomeFrame.Size = UDim2.new(1, -10, 0, 40)
-welcomeFrame.Position = UDim2.new(0, 5, 0, 35)
+welcomeFrame.Position = UDim2.new(0, 5, 0, 40)
 welcomeFrame.BackgroundTransparency = 1
 welcomeFrame.Parent = mainFrame
 
@@ -174,8 +183,8 @@ welcomeLabel.TextXAlignment = Enum.TextXAlignment.Right
 welcomeLabel.Parent = welcomeFrame
 
 local contentFrame = Instance.new("Frame")
-contentFrame.Size = UDim2.new(1, -10, 1, -80)
-contentFrame.Position = UDim2.new(0, 5, 0, 75)
+contentFrame.Size = UDim2.new(1, -10, 1, -85)
+contentFrame.Position = UDim2.new(0, 5, 0, 80)
 contentFrame.BackgroundTransparency = 1
 contentFrame.BorderSizePixel = 0
 contentFrame.Parent = mainFrame
@@ -192,7 +201,7 @@ versionLabel.Size = UDim2.new(0, 50, 0, 20)
 versionLabel.Position = UDim2.new(1, -55, 1, -20)
 versionLabel.BackgroundTransparency = 1
 versionLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
-versionLabel.Text = "v1.1"
+versionLabel.Text = "v1.2"
 versionLabel.Font = Enum.Font.SourceSans
 versionLabel.TextSize = 12
 versionLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -323,7 +332,8 @@ local function createScriptButton(name, callback)
         enabled = false,
         keybind = "N/A",
         hold = false,
-        settingKeybind = false
+        settingKeybind = false,
+        pulseTween = nil
     }
 
     local button = Instance.new("TextButton")
@@ -389,7 +399,8 @@ local function createScriptButton(name, callback)
     local function updateToggle()
         playSound()
         buttonData.enabled = not buttonData.enabled
-        toggleCircle.BackgroundColor3 = buttonData.enabled and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
+        local color = buttonData.enabled and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
+        tweenService:Create(toggleCircle, TweenInfo.new(0.2), {BackgroundColor3 = color}):Play()
         if not buttonData.hold then
             pcall(callback, buttonData.enabled)
         end
@@ -397,6 +408,14 @@ local function createScriptButton(name, callback)
 
     button.MouseButton1Click:Connect(updateToggle)
     
+    button.MouseEnter:Connect(function()
+        tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(65, 68, 74)}):Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 48, 54)}):Play()
+    end)
+
     button.MouseButton2Click:Connect(function()
         playSound()
         buttonData.hold = not buttonData.hold
@@ -405,20 +424,25 @@ local function createScriptButton(name, callback)
     
     keybindButton.MouseButton1Click:Connect(function()
         playSound()
+        if buttonData.settingKeybind then return end
         buttonData.settingKeybind = true
         keybindButton.Text = "..."
+        buttonData.pulseTween = tweenService:Create(keybindButton, TweenInfo.new(0.5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true), {BackgroundColor3 = Color3.fromRGB(80, 83, 90)})
+        buttonData.pulseTween:Play()
     end)
 
     local function handleKeyPress(input)
         if not button.Visible or not button.Parent then return end
-
-        if buttonData.settingKeybind then
-            if input.UserInputType == Enum.UserInputType.Keyboard then
-                buttonData.keybind = input.KeyCode.Name
-                keybindButton.Text = buttonData.keybind
-                buttonData.settingKeybind = false
+        if buttonData.settingKeybind and input.UserInputType == Enum.UserInputType.Keyboard then
+            buttonData.keybind = input.KeyCode.Name
+            keybindButton.Text = buttonData.keybind
+            buttonData.settingKeybind = false
+            if buttonData.pulseTween then
+                buttonData.pulseTween:Cancel()
+                buttonData.pulseTween = nil
             end
-        elseif input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == buttonData.keybind then
+            tweenService:Create(keybindButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 63, 70)}):Play()
+        elseif input.KeyCode.Name == buttonData.keybind and not buttonData.settingKeybind then
             if buttonData.hold then
                 if input.UserInputState == Enum.UserInputState.Begin then
                     pcall(callback, true)
@@ -433,11 +457,13 @@ local function createScriptButton(name, callback)
     
     userInputService.InputBegan:Connect(handleKeyPress)
     userInputService.InputEnded:Connect(handleKeyPress)
+    
+    return button
 end
 
 local function loadGameScripts()
     for _, child in ipairs(contentFrame:GetChildren()) do
-        if child:IsA("TextButton") then
+        if child:IsA("GuiObject") then
             child:Destroy()
         end
     end
@@ -452,7 +478,7 @@ local function loadGameScripts()
     
     local ok, result = httpGet(apiUrl)
     if not ok then
-        sendNotification("Error loading scripts. Check console for details.", 4)
+        sendNotification("Error loading scripts.", 4)
         if VERBOSE then print("GitHub API Error: " .. tostring(result)) end
         return
     end
@@ -463,76 +489,52 @@ local function loadGameScripts()
         return
     end
 
+    local buttons = {}
     for _, scriptInfo in ipairs(decoded) do
         if scriptInfo.type == "file" and scriptInfo.download_url then
             local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
-            
             local function executeScript(state)
                 pcall(function()
                     if state == false then return end
-                    
                     local ok, scriptContent = httpGet(scriptInfo.download_url)
                     if ok and scriptContent then
                         local func, err = loadstring(scriptContent)
                         if func then
                             func()
-                            sendNotification("Executed: " .. scriptName, 2)
                         else
                             sendNotification("Script error: " .. tostring(err), 5)
                         end
                     else
-                        sendNotification("Failed to download script content.", 3)
+                        sendNotification("Failed to download script.", 3)
                     end
                 end)
             end
-            
-            createScriptButton(scriptName, executeScript)
+            local newButton = createScriptButton(scriptName, executeScript)
+            newButton.Position = UDim2.new(0.5, -newButton.AbsoluteSize.X / 2, 0, 0)
+            table.insert(buttons, newButton)
         end
     end
+    return buttons
 end
 
-local function playIntroAnimation()
+local function playIntroAnimation(buttons)
     mainFrame.Visible = true
-    mainFrame.Size = UDim2.new(0, 100, 0, 75)
-    mainFrame.Position = UDim2.new(0.5, -50, 0.5, -37.5)
-    mainFrame.BackgroundTransparency = 1
+    header.Position = UDim2.new(0, 0, 0, -header.AbsoluteSize.Y)
+    welcomeFrame.BackgroundTransparency = 1
+    for _, v in ipairs(welcomeFrame:GetChildren()) do v.BackgroundTransparency=1; v.TextTransparency=1; v.ImageTransparency=1 end
     
-    for _, child in ipairs(mainFrame:GetDescendants()) do
-        if child:IsA("GuiObject") and child ~= mainFrame then
-            child.BackgroundTransparency = 1
-            if child:IsA("TextLabel") or child:IsA("TextButton") then
-                child.TextTransparency = 1
-            elseif child:IsA("ImageLabel") then
-                child.ImageTransparency = 1
-            end
-        end
-    end
-
-    local sizeTween = tweenService:Create(mainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 450, 0, 350),
-        Position = UDim2.new(0.5, -225, 0.5, -175)
-    })
+    tweenService:Create(header, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(0,0)}):Play()
+    task.wait(0.2)
+    tweenService:Create(welcomeFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    for _, v in ipairs(welcomeFrame:GetChildren()) do tweenService:Create(v, TweenInfo.new(0.5), {TextTransparency=0, ImageTransparency=0}):Play() end
     
-    local transparencyTween = tweenService:Create(mainFrame, TweenInfo.new(0.4), {BackgroundTransparency = 0})
-
-    sizeTween:Play()
-    transparencyTween:Play()
-    
-    task.wait(0.3)
-    
-    for _, child in ipairs(mainFrame:GetDescendants()) do
-        if child:IsA("GuiObject") and child ~= mainFrame then
-            local info = TweenInfo.new(0.5)
-            local goals = {}
-            if child:IsA("TextLabel") or child:IsA("TextButton") then
-                goals.TextTransparency = 0
-            elseif child:IsA("ImageLabel") then
-                goals.ImageTransparency = 0
-            end
-            if child.ClassName ~= "UICorner" and child.ClassName ~= "UIStroke" and child.ClassName ~= "UIGradient" then
-                 goals.BackgroundTransparency = child.BackgroundTransparency
-            end
-            tweenService:Create(child, info, goals):Play()
+    if buttons then
+        for _, button in ipairs(buttons) do
+            button.BackgroundTransparency = 1
+            for _, child in ipairs(button:GetChildren()) do child.BackgroundTransparency = 1; if child:IsA("TextLabel") or child:IsA("TextButton") then child.TextTransparency = 1 end end
+            task.wait(0.05)
+            tweenService:Create(button, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+            for _, child in ipairs(button:GetChildren()) do tweenService:Create(child, TweenInfo.new(0.4), {BackgroundTransparency = child.BackgroundTransparency, TextTransparency = 0}):Play() end
         end
     end
 end
@@ -560,10 +562,6 @@ submitButton.MouseButton1Click:Connect(function()
     
     local ok, respText = httpPost(serverUrl, userInput)
     
-    if VERBOSE then
-        sendNotification("Response: " .. (tostring(respText or "nil"):sub(1, 150)), 4)
-    end
-    
     if ok and isPositiveResponse(respText) then
         submitButton.Text = "Correct"
         local colorTween = tweenService:Create(keyFrame, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(80, 255, 80)})
@@ -585,19 +583,16 @@ submitButton.MouseButton1Click:Connect(function()
         fadeOut.Completed:Wait()
         keyFrame:Destroy()
         
-        playIntroAnimation()
-        loadGameScripts()
+        mainFrame.Visible = true
+        local buttons = loadGameScripts()
+        playIntroAnimation(buttons)
     else
         submitButton.Text = "Incorrect"
-        local originalPos = submitButton.Position
-        local shakeTween = tweenService:Create(submitButton, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {Position = originalPos + UDim2.fromOffset(5, 5)})
-        local shakeBack = tweenService:Create(submitButton, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {Position = originalPos})
-        local shakeTween2 = tweenService:Create(submitButton, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {Position = originalPos - UDim2.fromOffset(5, 5)})
-        shakeTween:Play()
-        shakeTween.Completed:Wait()
-        shakeTween2:Play()
-        shakeTween2.Completed:Wait()
-        shakeBack:Play()
+        local originalPos = keyFrame.Position
+        local shake1 = tweenService:Create(keyFrame, TweenInfo.new(0.07), {Position = originalPos + UDim2.fromOffset(7, 0)})
+        local shake2 = tweenService:Create(keyFrame, TweenInfo.new(0.07), {Position = originalPos - UDim2.fromOffset(7, 0)})
+        local shake3 = tweenService:Create(keyFrame, TweenInfo.new(0.07), {Position = originalPos})
+        shake1:Play(); shake1.Completed:Wait(); shake2:Play(); shake2.Completed:Wait(); shake1:Play(); shake1.Completed:Wait(); shake2:Play(); shake2.Completed:Wait(); shake3:Play()
         
         task.wait(1.5)
         submitButton.Text = "Submit"
@@ -616,7 +611,8 @@ minimizeButton.MouseButton1Click:Connect(function()
     minimized = not minimized
     contentFrame.Visible = not minimized
     welcomeFrame.Visible = not minimized
-    mainFrame.Size = minimized and UDim2.new(0, 450, 0, 30) or UDim2.new(0, 450, 0, 350)
+    versionLabel.Visible = not minimized
+    mainFrame.Size = minimized and UDim2.new(0, 450, 0, 40) or UDim2.new(0, 450, 0, 350)
 end)
 
 userInputService.InputBegan:Connect(function(input, gameProcessed)
