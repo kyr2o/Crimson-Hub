@@ -16,6 +16,67 @@ screenGui.Name = "CrimsonHub"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
+local keyFrame = Instance.new("Frame")
+keyFrame.Size = UDim2.new(0, 320, 0, 160)
+keyFrame.Position = UDim2.new(0.5, -160, 0.5, -80)
+keyFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38)
+keyFrame.BorderSizePixel = 0
+keyFrame.Parent = screenGui
+local keyFrameCorner = Instance.new("UICorner")
+keyFrameCorner.CornerRadius = UDim.new(0, 8)
+keyFrameCorner.Parent = keyFrame
+local keyFrameStroke = Instance.new("UIStroke")
+keyFrameStroke.Color = Color3.fromRGB(139, 0, 0)
+keyFrameStroke.Thickness = 1
+keyFrameStroke.Parent = keyFrame
+
+local keyTitle = Instance.new("TextLabel")
+keyTitle.Size = UDim2.new(1, 0, 0, 30)
+keyTitle.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+keyTitle.BorderSizePixel = 0
+keyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+keyTitle.Text = "Crimson Hub - Verification"
+keyTitle.Font = Enum.Font.SourceSansBold
+keyTitle.TextSize = 16
+keyTitle.Parent = keyFrame
+local keyTitleCorner = Instance.new("UICorner")
+keyTitleCorner.CornerRadius = UDim.new(0, 8)
+keyTitleCorner.Parent = keyTitle
+
+local keyInput = Instance.new("TextBox")
+keyInput.Size = UDim2.new(1, -40, 0, 35)
+keyInput.Position = UDim2.new(0, 20, 0, 50)
+keyInput.BackgroundColor3 = Color3.fromRGB(45, 48, 54)
+keyInput.BorderSizePixel = 0
+keyInput.TextColor3 = Color3.fromRGB(220, 220, 220)
+keyInput.PlaceholderText = "Enter Password"
+keyInput.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+keyInput.Font = Enum.Font.SourceSans
+keyInput.TextSize = 14
+keyInput.ClearTextOnFocus = false
+keyInput.Parent = keyFrame
+local keyInputCorner = Instance.new("UICorner")
+keyInputCorner.CornerRadius = UDim.new(0, 6)
+keyInputCorner.Parent = keyInput
+local keyInputStroke = Instance.new("UIStroke")
+keyInputStroke.Color = Color3.fromRGB(80, 80, 80)
+keyInputStroke.Thickness = 1
+keyInputStroke.Parent = keyInput
+
+local submitButton = Instance.new("TextButton")
+submitButton.Size = UDim2.new(1, -40, 0, 30)
+submitButton.Position = UDim2.new(0, 20, 0, 105)
+submitButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+submitButton.BorderSizePixel = 0
+submitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+submitButton.Text = "Submit"
+submitButton.Font = Enum.Font.SourceSansBold
+submitButton.TextSize = 16
+submitButton.Parent = keyFrame
+local submitButtonCorner = Instance.new("UICorner")
+submitButtonCorner.CornerRadius = UDim.new(0, 6)
+submitButtonCorner.Parent = submitButton
+
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 450, 0, 300)
 mainFrame.Position = UDim2.new(0.5, -225, 0.5, -150)
@@ -206,6 +267,52 @@ local function httpGet(url)
 	local newHttpSuccess, newHttpResult = tryRequest(http and http.request)
 	if newHttpSuccess then return newHttpSuccess, newHttpResult end
 	return false, tostring(result or "All HTTP GET methods failed.")
+end
+
+local function httpPost(url, body)
+	local bodyContent, contentType, contentTypeEnum
+	if type(body) == "table" then
+		local ok, encoded = pcall(function() return httpService:JSONEncode(body) end)
+		if not ok then return false, "Failed to encode JSON payload" end
+		bodyContent, contentType, contentTypeEnum = encoded, "application/json", Enum.HttpContentType.ApplicationJson
+	else
+		bodyContent, contentType, contentTypeEnum = tostring(body), "text/plain", Enum.HttpContentType.TextPlain
+	end
+	local success, result = pcall(function() return httpService:PostAsync(url, bodyContent, contentTypeEnum) end)
+	if success and result then return true, tostring(result) end
+	local function tryRequest(reqFunc)
+		if not reqFunc then return false, nil end
+		local ok, resp = pcall(function()
+			return reqFunc({Url = url, Method = "POST", Headers = { ["Content-Type"] = contentType, ["User-Agent"] = "CrimsonHub/1.0" }, Body = bodyContent})
+		end)
+		if ok and resp then
+			if type(resp) == "table" then return true, tostring(resp.Body or resp.body or "") end
+			return true, tostring(resp)
+		end
+		return false, nil
+	end
+	local reqSuccess, reqResult = tryRequest(request)
+	if reqSuccess then return reqSuccess, reqResult end
+	local synSuccess, synResult = tryRequest(syn and syn.request)
+	if synSuccess then return synSuccess, synResult end
+	local oldHttpSuccess, oldHttpResult = tryRequest(http_request)
+	if oldHttpSuccess then return oldHttpSuccess, oldHttpResult end
+	local newHttpSuccess, newHttpResult = tryRequest(http and http.request)
+	if newHttpSuccess then return newHttpSuccess, newHttpResult end
+	return false, tostring(result or "All HTTP methods failed.")
+end
+
+local function isPositiveResponse(responseText)
+	if not responseText or type(responseText) ~= "string" then return false end
+	local text = responseText:lower():match("^%s*(.-)%s*$")
+	if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then
+		return true
+	end
+	local success, decoded = pcall(function() return httpService:JSONDecode(responseText) end)
+	if success and type(decoded) == "table" and (decoded.success == true or decoded.Success == true) then
+		return true
+	end
+	return false
 end
 
 local function getScriptTypeFromContent(content)
@@ -401,11 +508,31 @@ local function loadGameScripts()
 end
 
 local minimized = false
+local isVerifying = false
 
-local function startHub()
+submitButton.MouseButton1Click:Connect(function()
+	if isVerifying then return end
+	local userInput = tostring(keyInput.Text or "")
+	if userInput:match("^%s*$") then
+		sendNotification("Please enter a value.")
+		return
+	end
+
+	isVerifying = true
+	submitButton.Text = "Correct"
+	task.wait(0.5)
+	tweenService:Create(keyFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1)}):Play()
+	for _,v in ipairs(keyFrame:GetChildren()) do
+		if v:IsA("GuiObject") then
+			tweenService:Create(v, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextTransparency = 1, ImageTransparency = 1}):Play()
+		end
+	end
+	task.wait(0.3)
+	keyFrame:Destroy()
+
 	mainFrame.Visible = true
 	tweenService:Create(mainFrame, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
-
+	
 	local introFrame = Instance.new("Frame")
 	introFrame.Size = UDim2.new(1, 0, 0, 50)
 	introFrame.Position = UDim2.new(0, 0, 0.5, -25)
@@ -436,7 +563,7 @@ local function startHub()
 	task.wait(0.5)
 	tweenService:Create(pfp, TweenInfo.new(0.5), {ImageTransparency = 0}):Play()
 	tweenService:Create(welcomeLabel, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
-
+	
 	task.wait(2)
 
 	tweenService:Create(pfp, TweenInfo.new(0.5), {ImageTransparency = 1}):Play()
@@ -444,10 +571,11 @@ local function startHub()
 	hideWelcome:Play()
 	hideWelcome.Completed:Wait()
 	introFrame:Destroy()
-
+	
 	contentList.Visible = true
 	loadGameScripts()
-end
+	isVerifying = false
+end)
 
 closeButton.MouseButton1Click:Connect(function()
 	mainFrame.Visible = false
@@ -476,11 +604,9 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 	end
 	if input.KeyCode == Enum.KeyCode.RightShift then
-		if mainFrame.Parent then
+		if not keyFrame.Parent then
 			mainFrame.Visible = not mainFrame.Visible
 			toggleNotification.Visible = not mainFrame.Visible
 		end
 	end
 end)
-
-startHub()
