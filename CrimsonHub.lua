@@ -16,11 +16,22 @@ screenGui.Name = "CrimsonHub"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
+local uiSound = Instance.new("Sound")
+uiSound.SoundId = "rbxassetid://6366382384" 
+uiSound.Volume = 0.5
+uiSound.Parent = screenGui
+
+local function playSound()
+    uiSound:Play()
+end
+
 local keyFrame = Instance.new("Frame")
 keyFrame.Size = UDim2.new(0, 320, 0, 160)
 keyFrame.Position = UDim2.new(0.5, -160, 0.5, -80)
 keyFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38)
 keyFrame.BorderSizePixel = 0
+keyFrame.Draggable = true
+keyFrame.Active = true
 keyFrame.Parent = screenGui
 local keyFrameCorner = Instance.new("UICorner")
 keyFrameCorner.CornerRadius = UDim.new(0, 8)
@@ -77,7 +88,6 @@ local submitButtonCorner = Instance.new("UICorner")
 submitButtonCorner.CornerRadius = UDim.new(0, 6)
 submitButtonCorner.Parent = submitButton
 
--- Main UI Frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 450, 0, 350)
 mainFrame.Position = UDim2.new(0.5, -225, 0.5, -175)
@@ -97,26 +107,25 @@ mainFrameStroke.Parent = mainFrame
 
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 30)
-header.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+header.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 header.BorderSizePixel = 0
 header.Parent = mainFrame
 local headerCorner = Instance.new("UICorner")
 headerCorner.CornerRadius = UDim.new(0, 8)
 headerCorner.Parent = header
 local headerGradient = Instance.new("UIGradient")
-headerGradient.Color = ColorSequence.new(Color3.fromRGB(180, 0, 0), Color3.fromRGB(120, 0, 0))
+headerGradient.Color = ColorSequence.new(Color3.fromRGB(180, 20, 20), Color3.fromRGB(120, 0, 0))
 headerGradient.Rotation = 90
 headerGradient.Parent = header
 
 local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, -80, 1, 0)
-titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.Size = UDim2.new(1, 0, 1, 0)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
 titleLabel.BackgroundTransparency = 1
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.Text = "Crimson Hub"
 titleLabel.Font = Enum.Font.SourceSansBold
 titleLabel.TextSize = 18
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.Parent = header
 
 local closeButton = Instance.new("TextButton")
@@ -139,7 +148,6 @@ local minimizeButtonCorner = Instance.new("UICorner")
 minimizeButtonCorner.CornerRadius = UDim.new(1, 0)
 minimizeButtonCorner.Parent = minimizeButton
 
--- Welcome Message Frame
 local welcomeFrame = Instance.new("Frame")
 welcomeFrame.Size = UDim2.new(1, -10, 0, 40)
 welcomeFrame.Position = UDim2.new(0, 5, 0, 35)
@@ -165,7 +173,6 @@ welcomeLabel.TextSize = 16
 welcomeLabel.TextXAlignment = Enum.TextXAlignment.Right
 welcomeLabel.Parent = welcomeFrame
 
--- Content Frame for script buttons
 local contentFrame = Instance.new("Frame")
 contentFrame.Size = UDim2.new(1, -10, 1, -80)
 contentFrame.Position = UDim2.new(0, 5, 0, 75)
@@ -179,6 +186,17 @@ uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 uiListLayout.FillDirection = Enum.FillDirection.Vertical
 uiListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 uiListLayout.Parent = contentFrame
+
+local versionLabel = Instance.new("TextLabel")
+versionLabel.Size = UDim2.new(0, 50, 0, 20)
+versionLabel.Position = UDim2.new(1, -55, 1, -20)
+versionLabel.BackgroundTransparency = 1
+versionLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+versionLabel.Text = "v1.1"
+versionLabel.Font = Enum.Font.SourceSans
+versionLabel.TextSize = 12
+versionLabel.TextXAlignment = Enum.TextXAlignment.Right
+versionLabel.Parent = mainFrame
 
 local toggleNotification = Instance.new("TextLabel")
 toggleNotification.Size = UDim2.new(0, 200, 0, 30)
@@ -194,7 +212,6 @@ local toggleNotificationCorner = Instance.new("UICorner")
 toggleNotificationCorner.CornerRadius = UDim.new(0, 6)
 toggleNotificationCorner.Parent = toggleNotification
 
--- Notification function with progress bar
 local function sendNotification(text, duration)
     local notificationDuration = duration or 3
     local frame = Instance.new("Frame")
@@ -243,7 +260,6 @@ local function sendNotification(text, duration)
     frame:Destroy()
 end
 
--- HTTP Functions (unchanged)
 local function httpGet(url)
 	local success, result = pcall(function() return httpService:GetAsync(url) end)
 	if success and result then return true, tostring(result) end
@@ -289,7 +305,6 @@ local function httpPost(url, body)
     return false, tostring(result or "All HTTP methods failed.")
 end
 
--- Response parsing function (unchanged)
 local function isPositiveResponse(responseText)
     if not responseText or type(responseText) ~= "string" then return false end
     local text = responseText:lower():match("^%s*(.-)%s*$")
@@ -303,7 +318,6 @@ local function isPositiveResponse(responseText)
     return false
 end
 
--- Function to create the new, cleaner script buttons
 local function createScriptButton(name, callback)
     local buttonData = {
         enabled = false,
@@ -337,11 +351,23 @@ local function createScriptButton(name, callback)
     label.TextSize = 16
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = button
+    
+    local holdLabel = Instance.new("TextLabel")
+    holdLabel.Size = UDim2.new(0, 40, 1, 0)
+    holdLabel.Position = UDim2.new(0, 50, 0, 0)
+    holdLabel.BackgroundTransparency = 1
+    holdLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+    holdLabel.Text = "[Hold]"
+    holdLabel.Font = Enum.Font.SourceSansSemibold
+    holdLabel.TextSize = 12
+    holdLabel.TextXAlignment = Enum.TextXAlignment.Left
+    holdLabel.Visible = false
+    holdLabel.Parent = label
 
     local toggleCircle = Instance.new("Frame")
     toggleCircle.Size = UDim2.new(0, 18, 0, 18)
     toggleCircle.Position = UDim2.new(1, -30, 0.5, -9)
-    toggleCircle.BackgroundColor3 = Color3.fromRGB(255, 80, 80) -- Red (disabled)
+    toggleCircle.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
     toggleCircle.Parent = button
     local circleCorner = Instance.new("UICorner")
     circleCorner.CornerRadius = UDim.new(1, 0)
@@ -361,8 +387,9 @@ local function createScriptButton(name, callback)
     keybindCorner.Parent = keybindButton
 
     local function updateToggle()
+        playSound()
         buttonData.enabled = not buttonData.enabled
-        toggleCircle.BackgroundColor3 = buttonData.enabled and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80) -- Green/Red
+        toggleCircle.BackgroundColor3 = buttonData.enabled and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
         if not buttonData.hold then
             pcall(callback, buttonData.enabled)
         end
@@ -371,12 +398,13 @@ local function createScriptButton(name, callback)
     button.MouseButton1Click:Connect(updateToggle)
     
     button.MouseButton2Click:Connect(function()
+        playSound()
         buttonData.hold = not buttonData.hold
-        stroke.Color = buttonData.hold and Color3.fromRGB(255, 165, 0) or Color3.fromRGB(80, 80, 80)
-        sendNotification(name .. " hold mode: " .. (buttonData.hold and "On" or "Off"), 2)
+        holdLabel.Visible = buttonData.hold
     end)
     
     keybindButton.MouseButton1Click:Connect(function()
+        playSound()
         buttonData.settingKeybind = true
         keybindButton.Text = "..."
     end)
@@ -393,9 +421,9 @@ local function createScriptButton(name, callback)
         elseif input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == buttonData.keybind then
             if buttonData.hold then
                 if input.UserInputState == Enum.UserInputState.Begin then
-                    pcall(callback, true) -- Activate on hold
+                    pcall(callback, true)
                 elseif input.UserInputState == Enum.UserInputState.End then
-                    pcall(callback, false) -- Deactivate on release
+                    pcall(callback, false)
                 end
             elseif input.UserInputState == Enum.UserInputState.Begin then
                 updateToggle()
@@ -407,9 +435,7 @@ local function createScriptButton(name, callback)
     userInputService.InputEnded:Connect(handleKeyPress)
 end
 
--- Script loading function
 local function loadGameScripts()
-    -- Clear existing buttons
     for _, child in ipairs(contentFrame:GetChildren()) do
         if child:IsA("TextButton") then
             child:Destroy()
@@ -443,7 +469,7 @@ local function loadGameScripts()
             
             local function executeScript(state)
                 pcall(function()
-                    if state == false then return end -- Only run when enabled or held
+                    if state == false then return end
                     
                     local ok, scriptContent = httpGet(scriptInfo.download_url)
                     if ok and scriptContent then
@@ -465,7 +491,6 @@ local function loadGameScripts()
     end
 end
 
--- Main UI intro animation
 local function playIntroAnimation()
     mainFrame.Visible = true
     mainFrame.Size = UDim2.new(0, 100, 0, 75)
@@ -495,7 +520,6 @@ local function playIntroAnimation()
     
     task.wait(0.3)
     
-    -- Fade in descendants
     for _, child in ipairs(mainFrame:GetDescendants()) do
         if child:IsA("GuiObject") and child ~= mainFrame then
             local info = TweenInfo.new(0.5)
@@ -513,7 +537,6 @@ local function playIntroAnimation()
     end
 end
 
--- Setup Welcome Message
 welcomeLabel.Text = "Welcome, " .. localPlayer.DisplayName
 local thumbType = Enum.ThumbnailType.HeadShot
 local thumbSize = Enum.ThumbnailSize.Size420x420
@@ -521,11 +544,11 @@ local content, isReady = players:GetUserThumbnailAsync(localPlayer.UserId, thumb
 headshotImage.Image = content
 headshotImage.Size = isReady and UDim2.new(0, 30, 0, 30) or UDim2.new(0,0,0,0)
 
--- Event Connections
 local minimized = false
 local isVerifying = false
 
 submitButton.MouseButton1Click:Connect(function()
+    playSound()
     if isVerifying then return end
     local userInput = tostring(keyInput.Text or "")
     if userInput:match("^%s*$") then
@@ -543,7 +566,6 @@ submitButton.MouseButton1Click:Connect(function()
     
     if ok and isPositiveResponse(respText) then
         submitButton.Text = "Correct"
-        -- Success Animation
         local colorTween = tweenService:Create(keyFrame, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(80, 255, 80)})
         colorTween:Play()
         colorTween.Completed:Wait()
@@ -551,18 +573,22 @@ submitButton.MouseButton1Click:Connect(function()
         fadeOut:Play()
         for _, v in ipairs(keyFrame:GetDescendants()) do
              if v:IsA("GuiObject") then
-                tweenService:Create(v, TweenInfo.new(1), {BackgroundTransparency = 1, TextTransparency = 1}):Play()
+                local goals = {BackgroundTransparency = 1}
+                if v:IsA("TextLabel") or v:IsA("TextButton") then
+                    goals.TextTransparency = 1
+                elseif v:IsA("UIStroke") then
+                    goals.Transparency = 1
+                end
+                tweenService:Create(v, TweenInfo.new(1), goals):Play()
              end
         end
         fadeOut.Completed:Wait()
         keyFrame:Destroy()
         
-        -- Load main UI
         playIntroAnimation()
         loadGameScripts()
     else
         submitButton.Text = "Incorrect"
-        -- Shake Animation
         local originalPos = submitButton.Position
         local shakeTween = tweenService:Create(submitButton, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {Position = originalPos + UDim2.fromOffset(5, 5)})
         local shakeBack = tweenService:Create(submitButton, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {Position = originalPos})
@@ -580,11 +606,13 @@ submitButton.MouseButton1Click:Connect(function()
 end)
 
 closeButton.MouseButton1Click:Connect(function()
+    playSound()
     mainFrame.Visible = false
     toggleNotification.Visible = true
 end)
 
 minimizeButton.MouseButton1Click:Connect(function()
+    playSound()
     minimized = not minimized
     contentFrame.Visible = not minimized
     welcomeFrame.Visible = not minimized
