@@ -192,39 +192,55 @@ local function sendNotification(text, duration)
     frame:Destroy()
 end
 
+local function httpGet(url)
+	local success, result = pcall(function() return httpService:GetAsync(url) end)
+	if success and result then return true, tostring(result) end
+	if pcall(function() return game.HttpGet end) and game.HttpGet then
+		local ok, res = pcall(function() return game:HttpGet(url) end)
+		if ok and res then return true, tostring(res) end
+	end
+	local function tryRequest(reqFunc)
+		if not reqFunc then return false, nil end
+		local ok, resp = pcall(function()
+			return reqFunc({Url = url, Method = "GET"})
+		end)
+		if ok and resp then
+			if type(resp) == "table" then
+				return true, tostring(resp.Body or resp.body or "")
+			end
+			return true, tostring(resp)
+		end
+		return false, nil
+	end
+	local reqSuccess, reqResult = tryRequest(request)
+	if reqSuccess then return reqSuccess, reqResult end
+	local synSuccess, synResult = tryRequest(syn and syn.request)
+	if synSuccess then return synSuccess, synResult end
+	local oldHttpSuccess, oldHttpResult = tryRequest(http_request)
+	if oldHttpSuccess then return oldHttpSuccess, oldHttpResult end
+	local newHttpSuccess, newHttpResult = tryRequest(http and http.request)
+	if newHttpSuccess then return newHttpSuccess, newHttpResult end
+	return false, tostring(result or "All HTTP GET methods failed.")
+end
+
 local function httpPost(url, body)
-    local bodyContent
-    local contentType
-    local contentTypeEnum
+    local bodyContent, contentType, contentTypeEnum
     if type(body) == "table" then
         local ok, encoded = pcall(function() return httpService:JSONEncode(body) end)
         if not ok then return false, "Failed to encode JSON payload" end
-        bodyContent = encoded
-        contentType = "application/json"
-        contentTypeEnum = Enum.HttpContentType.ApplicationJson
+        bodyContent, contentType, contentTypeEnum = encoded, "application/json", Enum.HttpContentType.ApplicationJson
     else
-        bodyContent = tostring(body)
-        contentType = "text/plain"
-        contentTypeEnum = Enum.HttpContentType.TextPlain
+        bodyContent, contentType, contentTypeEnum = tostring(body), "text/plain", Enum.HttpContentType.TextPlain
     end
-    local success, result = pcall(function()
-        return httpService:PostAsync(url, bodyContent, contentTypeEnum)
-    end)
+    local success, result = pcall(function() return httpService:PostAsync(url, bodyContent, contentTypeEnum) end)
     if success and result then return true, tostring(result) end
     local function tryRequest(reqFunc)
         if not reqFunc then return false, nil end
         local ok, resp = pcall(function()
-            return reqFunc({
-                Url = url,
-                Method = "POST",
-                Headers = { ["Content-Type"] = contentType, ["User-Agent"] = "Roblox" },
-                Body = bodyContent
-            })
+            return reqFunc({Url = url, Method = "POST", Headers = { ["Content-Type"] = contentType, ["User-Agent"] = "Roblox" }, Body = bodyContent})
         end)
         if ok and resp then
-            if type(resp) == "table" then
-                return true, tostring(resp.Body or resp.body or "")
-            end
+            if type(resp) == "table" then return true, tostring(resp.Body or resp.body or "") end
             return true, tostring(resp)
         end
         return false, nil
@@ -263,7 +279,7 @@ local function loadGameScripts()
     local gameId = tostring(game.PlaceId)
     local apiUrl = "https://api.github.com/repos/"..githubUsername.."/"..repoName.."/contents/"..gameId.."?ref="..branchName
     
-    local ok, result = pcall(function() return httpService:GetAsync(apiUrl) end)
+    local ok, result = httpGet(apiUrl)
     if not ok then
         local err = tostring(result)
         if err:match("404") then
@@ -305,13 +321,7 @@ local function loadGameScripts()
             btnStroke.Parent = scriptButton
             scriptButton.MouseButton1Click:Connect(function()
                 local scriptUrl = scriptInfo.download_url
-                local ok3, scriptContent = pcall(function()
-                    if pcall(function() return game.HttpGet end) and game.HttpGet then
-                        return game:HttpGet(scriptUrl)
-                    else
-                        return httpService:GetAsync(scriptUrl)
-                    end
-                end)
+                local ok3, scriptContent = httpGet(scriptUrl)
                 if ok3 and scriptContent then
                     local okRun, errRun = pcall(function()
                         local fn = loadstring(scriptContent)
@@ -347,7 +357,7 @@ submitButton.MouseButton1Click:Connect(function()
     submitButton.Text = "Verifying..."
     local ok, respText = httpPost(serverUrl, userInput)
     if VERBOSE then
-        sendNotification("Response: " .. (tstring(respText or "nil"):sub(1, 150)), 4)
+        sendNotification("Response: " .. (tostring(respText or "nil"):sub(1, 150)), 4)
     end
     if ok and isPositiveResponse(respText) then
         submitButton.Text = "Correct"
