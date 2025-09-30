@@ -15,6 +15,7 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonHub"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 100
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
 local uiSound = Instance.new("Sound")
@@ -30,7 +31,7 @@ local keyFrame = Instance.new("Frame")
 keyFrame.Size = UDim2.new(0, 320, 0, 160)
 keyFrame.Position = UDim2.new(0.5, -160, 0.5, -80)
 keyFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38)
-keyFrame.BorderSizePixel = 0
+keyFrame.ZIndex = 2
 keyFrame.Draggable = true
 keyFrame.Active = true
 keyFrame.Parent = screenGui
@@ -93,7 +94,7 @@ local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 450, 0, 350)
 mainFrame.Position = UDim2.new(0.5, -225, 0.5, -175)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38)
-mainFrame.BorderSizePixel = 0
+mainFrame.ZIndex = 2
 mainFrame.Visible = false
 mainFrame.Draggable = true
 mainFrame.Active = true
@@ -201,7 +202,7 @@ versionLabel.Size = UDim2.new(0, 50, 0, 20)
 versionLabel.Position = UDim2.new(1, -55, 1, -20)
 versionLabel.BackgroundTransparency = 1
 versionLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
-versionLabel.Text = "v1.2"
+versionLabel.Text = "v1.3"
 versionLabel.Font = Enum.Font.SourceSans
 versionLabel.TextSize = 12
 versionLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -510,31 +511,54 @@ local function loadGameScripts()
                 end)
             end
             local newButton = createScriptButton(scriptName, executeScript)
-            newButton.Position = UDim2.new(0.5, -newButton.AbsoluteSize.X / 2, 0, 0)
             table.insert(buttons, newButton)
         end
     end
     return buttons
 end
 
+local function setObjectTransparency(guiObject, transparency)
+    for _, obj in ipairs(guiObject:GetDescendants()) do
+        if obj:IsA("GuiObject") then
+            if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+                obj.TextTransparency = transparency
+            elseif obj:IsA("ImageLabel") then
+                obj.ImageTransparency = transparency
+            elseif obj:IsA("UIStroke") then
+                obj.Transparency = transparency
+            end
+            obj.BackgroundTransparency = transparency
+        end
+    end
+    guiObject.BackgroundTransparency = transparency
+end
+
 local function playIntroAnimation(buttons)
     mainFrame.Visible = true
     header.Position = UDim2.new(0, 0, 0, -header.AbsoluteSize.Y)
-    welcomeFrame.BackgroundTransparency = 1
-    for _, v in ipairs(welcomeFrame:GetChildren()) do v.BackgroundTransparency=1; v.TextTransparency=1; v.ImageTransparency=1 end
-    
+    setObjectTransparency(welcomeFrame, 1)
+
     tweenService:Create(header, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(0,0)}):Play()
     task.wait(0.2)
+    
+    local welcomeGoals = {}
+    for _, v in ipairs(welcomeFrame:GetDescendants()) do
+        if v:IsA("TextLabel") or v:IsA("TextButton") then v.TextTransparency = 0 end
+        if v:IsA("ImageLabel") then v.ImageTransparency = 0 end
+    end
     tweenService:Create(welcomeFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-    for _, v in ipairs(welcomeFrame:GetChildren()) do tweenService:Create(v, TweenInfo.new(0.5), {TextTransparency=0, ImageTransparency=0}):Play() end
     
     if buttons then
         for _, button in ipairs(buttons) do
-            button.BackgroundTransparency = 1
-            for _, child in ipairs(button:GetChildren()) do child.BackgroundTransparency = 1; if child:IsA("TextLabel") or child:IsA("TextButton") then child.TextTransparency = 1 end end
+            setObjectTransparency(button, 1)
             task.wait(0.05)
-            tweenService:Create(button, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
-            for _, child in ipairs(button:GetChildren()) do tweenService:Create(child, TweenInfo.new(0.4), {BackgroundTransparency = child.BackgroundTransparency, TextTransparency = 0}):Play() end
+            local buttonGoals = {BackgroundTransparency = 0}
+            tweenService:Create(button, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), buttonGoals):Play()
+            for _, child in ipairs(button:GetChildren()) do
+                local childGoals = {BackgroundTransparency = child.BackgroundTransparency, TextTransparency = 0}
+                if child:IsA("UIStroke") then childGoals.Transparency = 0 end
+                tweenService:Create(child, TweenInfo.new(0.4), childGoals):Play()
+            end
         end
     end
 end
