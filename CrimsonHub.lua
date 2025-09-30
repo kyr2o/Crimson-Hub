@@ -329,31 +329,29 @@ local function executeScript(scriptName)
 		return
 	end
 	local content = scriptStates[scriptName].Content
-	local f, err = pcall(loadstring(content))
-	if f and type(f) == "function" then
-		task.spawn(f)
-	else
+	local loader, loadErr = loadstring(content)
+	if not loader then
+		sendNotification("Error loading " .. scriptName)
+		return
+	end
+	local ok, err = pcall(loader)
+	if not ok then
 		sendNotification("Error executing " .. scriptName)
 	end
 end
 
 local function toggleScript(scriptName, toggleButton, forceState)
 	if not scriptStates[scriptName] then return end
-
 	local currentState = scriptStates[scriptName].Enabled
 	local newState = if forceState ~= nil then forceState else not currentState
-
 	if newState == currentState then return end
 	scriptStates[scriptName].Enabled = newState
-
 	local pos = if newState then UDim2.new(1, -22, 0.5, -10) else UDim2.new(0, 2, 0.5, -10)
 	local color = if newState then Color3.fromRGB(80, 255, 80) else Color3.fromRGB(255, 80, 80)
-
 	tweenService:Create(toggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 		Position = pos,
 		BackgroundColor3 = color
 	}):Play()
-
 	if newState then
 		executeScript(scriptName)
 	end
@@ -363,13 +361,11 @@ local function loadGameScripts()
 	for _, child in ipairs(contentList:GetChildren()) do
 		if child:IsA("Frame") then child:Destroy() end
 	end
-	
 	local gameId = tostring(game.PlaceId)
 	if gameId == "0" then
 		sendNotification("Cannot load scripts in Studio. Please publish first.")
 		return
 	end
-
 	local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
 	local ok, result = httpGet(apiUrl)
 	if not ok then
@@ -380,18 +376,15 @@ local function loadGameScripts()
 		end
 		return
 	end
-
 	local ok2, decoded = pcall(function() return httpService:JSONDecode(result) end)
 	if not ok2 or type(decoded) ~= "table" or not decoded[1] then
 		sendNotification("No script files found in repo folder.")
 		return
 	end
-
 	for _, scriptInfo in ipairs(decoded) do
 		if scriptInfo.type == "file" and scriptInfo.download_url then
 			local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
 			local contentOk, scriptContent = httpGet(scriptInfo.download_url)
-			
 			if contentOk and scriptContent then
 				local scriptType = getScriptTypeFromContent(scriptContent)
 				scriptStates[scriptName] = {
@@ -403,7 +396,6 @@ local function loadGameScripts()
 					Mode = "Toggle",
 					Thread = nil
 				}
-
 				local container = Instance.new("Frame")
 				container.Name = scriptName
 				container.Size = UDim2.new(1, -20, 0, 40)
@@ -412,7 +404,6 @@ local function loadGameScripts()
 				local contCorner = Instance.new("UICorner")
 				contCorner.CornerRadius = UDim.new(0, 6)
 				contCorner.Parent = container
-
 				local scriptLabel = Instance.new("TextLabel")
 				scriptLabel.Size = UDim2.new(1, -80, 1, 0)
 				scriptLabel.Position = UDim2.new(0, 10, 0, 0)
@@ -423,7 +414,6 @@ local function loadGameScripts()
 				scriptLabel.TextSize = 16
 				scriptLabel.TextXAlignment = Enum.TextXAlignment.Left
 				scriptLabel.Parent = container
-
 				if scriptType == "Toggle" then
 					local toggleBg = Instance.new("Frame")
 					toggleBg.Size = UDim2.new(0, 40, 0, 20)
@@ -433,7 +423,6 @@ local function loadGameScripts()
 					local bgCorner = Instance.new("UICorner")
 					bgCorner.CornerRadius = UDim.new(0, 6)
 					bgCorner.Parent = toggleBg
-
 					local toggleButton = Instance.new("TextButton")
 					toggleButton.Size = UDim2.new(0, 20, 0, 20)
 					toggleButton.Position = UDim2.new(0, 2, 0.5, -10)
@@ -443,7 +432,6 @@ local function loadGameScripts()
 					local tglCorner = Instance.new("UICorner")
 					tglCorner.CornerRadius = UDim.new(1, 0)
 					tglCorner.Parent = toggleButton
-
 					toggleButton.MouseButton1Click:Connect(function()
 						if scriptStates[scriptName].Mode == "OnHold" then
 							executeScript(scriptName)
@@ -451,34 +439,34 @@ local function loadGameScripts()
 							toggleScript(scriptName, toggleButton)
 						end
 					end)
-
-					scriptLabel.MouseButton2Click:Connect(function()
-						local state = scriptStates[scriptName]
-						local holdLabel = container:FindFirstChild("HoldLabel")
-						if state.Mode == "Toggle" then
-							state.Mode = "OnHold"
-							if not holdLabel then
-								holdLabel = Instance.new("TextLabel")
-								holdLabel.Name = "HoldLabel"
-								holdLabel.Size = UDim2.new(0, 50, 0, 15)
-								holdLabel.Position = UDim2.new(1, -55, 1, -17)
-								holdLabel.BackgroundTransparency = 1
-								holdLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-								holdLabel.Text = "(On Hold)"
-								holdLabel.Font = Enum.Font.SourceSans
-								holdLabel.TextSize = 12
-								holdLabel.TextXAlignment = Enum.TextXAlignment.Right
-								holdLabel.Parent = container
-							end
-							holdLabel.Visible = true
-						else
-							state.Mode = "Toggle"
-							if holdLabel then
-								holdLabel.Visible = false
+					container.InputBegan:Connect(function(input)
+						if input.UserInputType == Enum.UserInputType.MouseButton2 then
+							local state = scriptStates[scriptName]
+							local holdLabel = container:FindFirstChild("HoldLabel")
+							if state.Mode == "Toggle" then
+								state.Mode = "OnHold"
+								if not holdLabel then
+									holdLabel = Instance.new("TextLabel")
+									holdLabel.Name = "HoldLabel"
+									holdLabel.Size = UDim2.new(0, 70, 0, 15)
+									holdLabel.Position = UDim2.new(1, -75, 1, -17)
+									holdLabel.BackgroundTransparency = 1
+									holdLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+									holdLabel.Text = "(On Hold)"
+									holdLabel.Font = Enum.Font.SourceSans
+									holdLabel.TextSize = 12
+									holdLabel.TextXAlignment = Enum.TextXAlignment.Right
+									holdLabel.Parent = container
+								end
+								holdLabel.Visible = true
+							else
+								state.Mode = "Toggle"
+								if holdLabel then
+									holdLabel.Visible = false
+								end
 							end
 						end
 					end)
-
 				elseif scriptType == "Once" then
 					local execButton = Instance.new("TextButton")
 					execButton.Size = UDim2.new(0, 60, 0, 24)
@@ -492,7 +480,6 @@ local function loadGameScripts()
 					local execCorner = Instance.new("UICorner")
 					execCorner.CornerRadius = UDim.new(0, 4)
 					execCorner.Parent = execButton
-					
 					execButton.MouseButton1Click:Connect(function()
 						execButton.Text = "..."
 						executeScript(scriptName)
@@ -517,7 +504,6 @@ submitButton.MouseButton1Click:Connect(function()
 		sendNotification("Please enter a value.")
 		return
 	end
-
 	isVerifying = true
 	submitButton.Text = "Correct"
 	task.wait(0.5)
@@ -529,10 +515,8 @@ submitButton.MouseButton1Click:Connect(function()
 	end
 	task.wait(0.3)
 	keyFrame:Destroy()
-
 	mainFrame.Visible = true
 	tweenService:Create(mainFrame, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
-	
 	local introFrame = Instance.new("Frame")
 	introFrame.Size = UDim2.new(1, 0, 0, 50)
 	introFrame.Position = UDim2.new(0, 0, 0.5, -25)
@@ -559,19 +543,15 @@ submitButton.MouseButton1Click:Connect(function()
 	welcomeLabel.TextXAlignment = Enum.TextXAlignment.Left
 	welcomeLabel.TextTransparency = 1
 	welcomeLabel.Parent = introFrame
-
 	task.wait(0.5)
 	tweenService:Create(pfp, TweenInfo.new(0.5), {ImageTransparency = 0}):Play()
 	tweenService:Create(welcomeLabel, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
-	
 	task.wait(2)
-
 	tweenService:Create(pfp, TweenInfo.new(0.5), {ImageTransparency = 1}):Play()
 	local hideWelcome = tweenService:Create(welcomeLabel, TweenInfo.new(0.5), {TextTransparency = 1})
 	hideWelcome:Play()
 	hideWelcome.Completed:Wait()
 	introFrame:Destroy()
-	
 	contentList.Visible = true
 	loadGameScripts()
 	isVerifying = false
