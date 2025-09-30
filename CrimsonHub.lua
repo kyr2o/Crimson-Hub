@@ -521,7 +521,7 @@ submitButton.MouseButton1Click:Connect(function()
 	isVerifying = true
 	submitButton.Text = "Correct"
 	task.wait(0.5)
-	tweenService:Create(keyFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1)}):Play()
+	tweenService:Create(keyFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
 	for _,v in ipairs(keyFrame:GetChildren()) do
 		if v:IsA("GuiObject") then
 			tweenService:Create(v, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextTransparency = 1, ImageTransparency = 1}):Play()
