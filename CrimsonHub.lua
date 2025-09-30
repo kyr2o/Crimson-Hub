@@ -19,7 +19,7 @@ screenGui.DisplayOrder = 100
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
 local uiSound = Instance.new("Sound")
-uiSound.SoundId = "rbxassetid://6366382384" 
+uiSound.SoundId = "rbxassetid://6366382384"
 uiSound.Volume = 0.5
 uiSound.Parent = screenGui
 
@@ -43,7 +43,7 @@ local function sendNotification(text, duration)
     stroke.Color = Color3.fromRGB(139, 0, 0)
     stroke.Thickness = 1
     stroke.Parent = frame
-    
+
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -10, 1, -5)
     label.Position = UDim2.new(0, 5, 0, 0)
@@ -61,40 +61,40 @@ local function sendNotification(text, duration)
     progressBar.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
     progressBar.BorderSizePixel = 0
     progressBar.Parent = frame
-    
+
     local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 1, -60)})
     local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -60)})
     local progressTween = tweenService:Create(progressBar, TweenInfo.new(notificationDuration), {Size = UDim2.new(1, 0, 0, 4)})
 
     showTween:Play()
     progressTween:Play()
-    
+
     task.wait(notificationDuration)
-    
+
     hideTween:Play()
     hideTween.Completed:Wait()
     frame:Destroy()
 end
 
 local function httpGet(url)
-	local success, result = pcall(function() return httpService:GetAsync(url) end)
-	if success and result then return true, tostring(result) end
-	local function tryRequest(reqFunc)
-		if not reqFunc then return false, nil end
-		local ok, resp = pcall(function()
-			return reqFunc({Url = url, Method = "GET", Headers = { ["User-Agent"] = "CrimsonHub/1.0" }})
-		end)
-		if ok and resp then
-			if type(resp) == "table" then return true, tostring(resp.Body or resp.body or "") end
-			return true, tostring(resp)
-		end
-		return false, nil
-	end
-	local r, res = tryRequest(request)
-	if r then return r, res end
-	local s, res2 = tryRequest(syn and syn.request)
-	if s then return s, res2 end
-	return false, tostring(result or "Failed")
+    local success, result = pcall(function() return httpService:GetAsync(url) end)
+    if success and result then return true, tostring(result) end
+    local function tryRequest(reqFunc)
+        if not reqFunc then return false, nil end
+        local ok, resp = pcall(function()
+            return reqFunc({Url = url, Method = "GET", Headers = { ["User-Agent"] = "CrimsonHub/1.0" }})
+        end)
+        if ok and resp then
+            if type(resp) == "table" then return true, tostring(resp.Body or resp.body or "") end
+            return true, tostring(resp)
+        end
+        return false, nil
+    end
+    local r, res = tryRequest(request)
+    if r then return r, res end
+    local s, res2 = tryRequest(syn and syn.request)
+    if s then return s, res2 end
+    return false, tostring(result or "Failed")
 end
 
 local function httpPost(url, body)
@@ -112,10 +112,10 @@ local function httpPost(url, body)
         end
         return false, nil
     end
-    local r, res = tryRequest(request)
-    if r then return r, res end
-    local s, res2 = tryRequest(syn and syn.request)
-    if s then return s, res2 end
+    local r2, res = tryRequest(request)
+    if r2 then return r2, res end
+    local s2, res2 = tryRequest(syn and syn.request)
+    if s2 then return s2, res2 end
     return false, tostring(r or "Failed")
 end
 
@@ -132,7 +132,7 @@ local mainUI = {}
 
 function mainUI:Create()
     local ui = {}
-    
+
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 500, 0, 320)
     mainFrame.Position = UDim2.new(0.5, -250, 0.5, -160)
@@ -143,8 +143,10 @@ function mainUI:Create()
     mainFrame.Active = true
     mainFrame.ClipsDescendants = true
     mainFrame.Parent = screenGui
-    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 6)
-    Instance.new("UIStroke", mainFrame).Color = Color3.fromRGB(20, 21, 24)
+    local mainFrameCorner = Instance.new("UICorner", mainFrame)
+    mainFrameCorner.CornerRadius = UDim.new(0, 6)
+    local mainFrameStroke = Instance.new("UIStroke", mainFrame)
+    mainFrameStroke.Color = Color3.fromRGB(20, 21, 24)
 
     local header = Instance.new("TextLabel")
     header.Size = UDim2.new(1, 0, 0, 35)
@@ -154,7 +156,7 @@ function mainUI:Create()
     header.Text = "Crimson Hub"
     header.TextSize = 16
     header.Parent = mainFrame
-    
+
     local closeButton = Instance.new("ImageButton")
     closeButton.Size = UDim2.new(0, 16, 0, 16)
     closeButton.Position = UDim2.new(1, -25, 0.5, -8)
@@ -169,7 +171,7 @@ function mainUI:Create()
     sidebar.BackgroundColor3 = Color3.fromRGB(30, 31, 36)
     sidebar.BorderSizePixel = 0
     sidebar.Parent = mainFrame
-    
+
     local activeTabIndicator = Instance.new("Frame")
     activeTabIndicator.Size = UDim2.new(0, 3, 0, 20)
     activeTabIndicator.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
@@ -195,7 +197,7 @@ function mainUI:Create()
     scriptsPage.BorderSizePixel = 0
     scriptsPage.ScrollBarThickness = 4
     scriptsPage.Parent = contentContainer
-    
+
     local gridLayout = Instance.new("UIGridLayout", scriptsPage)
     gridLayout.CellSize = UDim2.new(0, 170, 0, 40)
     gridLayout.CellPadding = UDim2.new(0, 10, 0, 10)
@@ -220,30 +222,36 @@ function mainUI:Create()
         iconLabel.ImageColor3 = Color3.fromRGB(180, 180, 180)
         iconLabel.BackgroundTransparency = 1
         iconLabel.Parent = tab
-        
-        tab.MouseEnter:Connect(function() tweenService:Create(tab, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255), ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play() end)
-        tab.MouseLeave:Connect(function() tweenService:Create(tab, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(180, 180, 180), ImageColor3 = Color3.fromRGB(180, 180, 180)}):Play() end)
+
+        tab.MouseEnter:Connect(function()
+            tweenService:Create(tab, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+            tweenService:Create(iconLabel, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+        end)
+        tab.MouseLeave:Connect(function()
+            tweenService:Create(tab, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(180, 180, 180)}):Play()
+            tweenService:Create(iconLabel, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(180, 180, 180)}):Play()
+        end)
         tab.MouseButton1Click:Connect(function()
             playSound()
             tweenService:Create(activeTabIndicator, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, tab.AbsolutePosition.Y - sidebar.AbsolutePosition.Y + 5)}):Play()
         end)
         return tab
     end
-    
+
     local scriptsTab = createTab("Scripts", "rbxassetid://13516604212")
     task.wait()
     activeTabIndicator.Position = UDim2.new(0, 0, 0, scriptsTab.AbsolutePosition.Y - sidebar.AbsolutePosition.Y + 5)
-    
+
     local function createScriptButton(name, callback)
         local buttonData = {enabled = false, hold = false}
-        
+
         local button = Instance.new("TextButton")
         button.Size = UDim2.new(0, 170, 0, 40)
         button.BackgroundColor3 = Color3.fromRGB(45, 46, 51)
         button.Text = ""
         button.Parent = scriptsPage
         Instance.new("UICorner", button).CornerRadius = UDim.new(0, 4)
-        
+
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, -40, 1, 0)
         label.Position = UDim2.new(0, 10, 0, 0)
@@ -268,7 +276,7 @@ function mainUI:Create()
         toggleKnob.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
         toggleKnob.Parent = toggle
         Instance.new("UICorner", toggleKnob).CornerRadius = UDim.new(1, 0)
-        
+
         local function updateToggle()
             playSound()
             buttonData.enabled = not buttonData.enabled
@@ -282,7 +290,7 @@ function mainUI:Create()
         button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 56, 61)}):Play() end)
         button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 46, 51)}):Play() end)
     end
-    
+
     function ui:LoadScripts(scriptLoader)
         for _, child in ipairs(scriptsPage:GetChildren()) do
             if child:IsA("UIGridLayout") then continue end
@@ -295,20 +303,56 @@ function mainUI:Create()
             end
         end
     end
-    
+
     function ui:Show()
         mainFrame.Visible = true
         mainFrame.Position = UDim2.new(0.5, -250, 0.5, -140)
         mainFrame.BackgroundTransparency = 1
-        for _, v in ipairs(mainFrame:GetDescendants()) do if v:IsA("GuiObject") then v.BackgroundTransparency=1; v.TextTransparency=1; v.ImageTransparency=1; if v:IsA("UIStroke") then v.Transparency=1 end end end
-        
-        tweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -250, 0.5, -160), BackgroundTransparency = 0}):Play()
-        task.wait(0.1)
-        for _, v in ipairs(mainFrame:GetDescendants()) do 
+        mainFrameStroke.Transparency = 1
+
+        local original = {}
+
+        for _, v in ipairs(mainFrame:GetDescendants()) do
             if v:IsA("GuiObject") then
-                local goals = {BackgroundTransparency = v.BackgroundTransparency, TextTransparency = 0, ImageTransparency = 0}
-                if v:IsA("UIStroke") then goals.Transparency = 0 end
-                tweenService:Create(v, TweenInfo.new(0.5), goals):Play()
+                original[v] = original[v] or {}
+                original[v].bg = v.BackgroundTransparency
+                v.BackgroundTransparency = 1
+
+                if v:IsA("TextLabel") or v:IsA("TextButton") then
+                    original[v].text = v.TextTransparency
+                    v.TextTransparency = 1
+                end
+
+                if v:IsA("ImageLabel") or v:IsA("ImageButton") then
+                    original[v].image = v.ImageTransparency
+                    v.ImageTransparency = 1
+                end
+            elseif v:IsA("UIStroke") then
+                original[v] = { stroke = v.Transparency }
+                v.Transparency = 1
+            end
+        end
+
+        local mainTweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        tweenService:Create(mainFrame, mainTweenInfo, {Position = UDim2.new(0.5, -250, 0.5, -160), BackgroundTransparency = 0}):Play()
+        tweenService:Create(mainFrameStroke, mainTweenInfo, {Transparency = 0}):Play()
+
+        task.wait(0.1)
+
+        local childTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        for obj, props in pairs(original) do
+            if obj:IsA("GuiObject") then
+                if props.bg ~= nil then
+                    tweenService:Create(obj, childTweenInfo, {BackgroundTransparency = props.bg}):Play()
+                end
+                if (obj:IsA("TextLabel") or obj:IsA("TextButton")) and props.text ~= nil then
+                    tweenService:Create(obj, childTweenInfo, {TextTransparency = props.text}):Play()
+                end
+                if (obj:IsA("ImageLabel") or obj:IsA("ImageButton")) and props.image ~= nil then
+                    tweenService:Create(obj, childTweenInfo, {ImageTransparency = props.image}):Play()
+                end
+            elseif obj:IsA("UIStroke") then
+                tweenService:Create(obj, childTweenInfo, {Transparency = props.stroke or 0}):Play()
             end
         end
     end
@@ -317,7 +361,7 @@ function mainUI:Create()
         playSound()
         mainFrame.Visible = false
     end)
-    
+
     return ui
 end
 
@@ -329,7 +373,7 @@ local function loadGameScripts()
     if not ok then sendNotification("Error loading scripts.", 4); return end
     local success, decoded = pcall(function() return httpService:JSONDecode(result) end)
     if not success or type(decoded) ~= "table" then sendNotification("No scripts found.", 4); return end
-    
+
     local scriptList = {}
     for _, scriptInfo in ipairs(decoded) do
         if scriptInfo.type == "file" and scriptInfo.download_url then
@@ -395,13 +439,19 @@ submitButton.MouseButton1Click:Connect(function()
     playSound()
     local userInput = keyInput.Text
     if not userInput or userInput == "" then sendNotification("Enter a key.", 2) return end
-    
+
     submitButton.Text = "..."
     local ok, respText = httpPost(serverUrl, userInput)
-    
+
     if ok and isPositiveResponse(respText) then
         tweenService:Create(keyFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
-        for _, v in ipairs(keyFrame:GetDescendants()) do if v:IsA("GuiObject") then tweenService:Create(v, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextTransparency = 1, Transparency = 1}):Play() end end
+        for _, v in ipairs(keyFrame:GetDescendants()) do
+            if v:IsA("GuiObject") then
+                tweenService:Create(v, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextTransparency = 1}):Play()
+            elseif v:IsA("UIStroke") then
+                tweenService:Create(v, TweenInfo.new(0.3), {Transparency = 1}):Play()
+            end
+        end
         task.wait(0.3)
         keyFrame:Destroy()
 
@@ -413,6 +463,6 @@ submitButton.MouseButton1Click:Connect(function()
         local originalPos = keyFrame.Position
         local shake1 = tweenService:Create(keyFrame, TweenInfo.new(0.07), {Position = originalPos + UDim2.fromOffset(7, 0)})
         local shake2 = tweenService:Create(keyFrame, TweenInfo.new(0.07), {Position = originalPos - UDim2.fromOffset(7, 0)})
-        shake1:Play(); shake1.Completed:Wait(); shake2:Play(); shake2.Completed:Wait(); shake1:Play(); shake1.Completed:Wait(); shake2:Play(); shake2.Completed:Wait(); shake1:Play(); shake1.Completed:Wait(); shake2:Play(); shake2.Completed:Wait(); tweenService:Create(keyFrame, TweenInfo.new(0.07), {Position = originalPos}):Play()
+        shake1:Play(); shake1.Completed:Wait(); shake2:Play(); shake2.Completed:Wait(); shake1:Play(); shake1.Completed:Wait(); shake2:Play(); shake2.Completed:Wait(); tweenService:Create(keyFrame, TweenInfo.new(0.07), {Position = originalPos}):Play()
     end
 end)
