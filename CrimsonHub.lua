@@ -9,7 +9,7 @@ local VERBOSE = false
 local githubUsername = "kyr2o"
 local repoName = "Crimson-Hub"
 local branchName = "main"
-local serverUrl = "https://eosd75fjrwrywy7.m.pipedream.net"
+local serverUrl = ""
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
@@ -498,23 +498,11 @@ submitButton.MouseButton1Click:Connect(function()
         return
     end
     isVerifying = true
-    submitButton.Text = "Verifying..."
-    local ok, respText = httpPost(serverUrl, userInput)
-    if VERBOSE then
-        sendNotification("Response: " .. (tostring(respText or "nil"):sub(1, 150)))
-    end
-    if ok and isPositiveResponse(respText) then
-        submitButton.Text = "Correct"
-        task.wait(1)
-        keyFrame:Destroy()
-        mainFrame.Visible = true
-        loadGameScripts()
-    else
-        submitButton.Text = ok and "Incorrect" or "Server Error"
-        task.wait(2)
-        submitButton.Text = "Submit"
-    end
-    isVerifying = false
+    submitButton.Text = "Correct"
+    task.wait(1)
+    keyFrame:Destroy()
+    mainFrame.Visible = true
+    loadGameScripts()
 end)
 
 closeButton.MouseButton1Click:Connect(function()
@@ -548,4 +536,3 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
         end
     end
 end)
-
