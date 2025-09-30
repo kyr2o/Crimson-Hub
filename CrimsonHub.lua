@@ -1,8 +1,3 @@
-Of course. Before I write the script, I have a couple of questions to make sure I get it right:
-
-1.  Since the key verification is being removed, the `httpPost` and `isPositiveResponse` functions are no longer used by the submit button. Do you want me to remove these functions from the script completely, or just leave them in case they are needed for something else later?
-2.  To make the UI feel smooth, I can add a very short delay (like 0.2 seconds) after you click "Submit" so the "Verifying..." text shows briefly before it changes to "Correct". Is that okay?
-
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -553,9 +548,3 @@ toggleNotification.Visible = not mainFrame.Visible
 end
 end
 end)
-
-\-Removed httpPost call from submit button
-\-Removed isPositiveResponse check from submit button
-\-Removed "Incorrect" and "Server Error" logic from submit button
-\-Added a short task.wait to simulate verification
-\-Set serverUrl to be empty
