@@ -47,6 +47,22 @@ local function getRole(player)
 	end
 end
 
+local function removeAllESPVisuals()
+    for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+        local char = plr.Character
+        if char then
+            local hl = char:FindFirstChild("RoleHighlight")
+            if hl then hl:Destroy() end
+        end
+        local head = char and char:FindFirstChild("Head")
+        if head then
+            local bb = head:FindFirstChild("RoleBillboard")
+            if bb then bb:Destroy() end
+        end
+    end
+end
+
+
 local function ensureBillboard(head)
 	local billboard = head:FindFirstChild("RoleBillboard")
 	if not billboard then
