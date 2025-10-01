@@ -1,7 +1,7 @@
-local httpService = game:GetService("HttpService")
-local tweenService = game:GetService("TweenService")
-local lighting = game:GetService("Lighting")
-local players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
 
 local VERBOSE = false
 local verificationUrl = "https://crimson-keys.vercel.app/api/verify" 
@@ -22,7 +22,7 @@ local theme = {
     error = Color3.fromRGB(227, 38, 54)
 }
 
-local localPlayer = players.LocalPlayer
+local localPlayer = Players.LocalPlayer
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonVerifyOnly"
@@ -32,10 +32,9 @@ screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
 local blur = Instance.new("BlurEffect")
 blur.Size = 0
-blur.Parent = lighting
-
+blur.Parent = Lighting
 local function setBlur(active)
-    tweenService:Create(blur, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = active and 12 or 0 }):Play()
+    TweenService:Create(blur, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = active and 12 or 0 }):Play()
 end
 
 local sounds = {
@@ -130,9 +129,9 @@ local function sendNotification(title, text, duration, notifType)
     progressBar.BackgroundColor3 = color
     progressBar.BorderSizePixel = 0
 
-    local showTween = tweenService:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -310, 1, -80)})
-    local hideTween = tweenService:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -80)})
-    local progressTween = tweenService:Create(progressBar, TweenInfo.new(duration), {Size = UDim2.new(1, 0, 0, 2)})
+    local showTween = TweenService:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -310, 1, -80)})
+    local hideTween = TweenService:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -80)})
+    local progressTween = TweenService:Create(progressBar, TweenInfo.new(duration), {Size = UDim2.new(1, 0, 0, 2)})
 
     showTween:Play(); progressTween:Play()
     task.wait(duration)
@@ -140,13 +139,10 @@ local function sendNotification(title, text, duration, notifType)
     frame:Destroy()
 end
 
+local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
+
 local function tryRequest(tbl)
-    local funcs = {
-        request,
-        syn and syn.request,
-        http and http.request,
-        http_request
-    }
+    local funcs = { request, syn and syn.request, http and http.request, http_request }
     for _, f in ipairs(funcs) do
         if f then
             local ok, resp = pcall(function() return f(tbl) end)
@@ -159,35 +155,43 @@ local function tryRequest(tbl)
 end
 
 local function httpGet(url)
-    local ok, res = pcall(function() return httpService:GetAsync(url) end)
+    local ok, res = pcall(function() return HttpService:GetAsync(url) end)
     if ok and res then return true, tostring(res) end
     return tryRequest({ Url = url, Method = "GET" })
 end
 
+local function httpGetWithHeaders(url, headers)
+    headers = headers or {}
+    if not headers["User-Agent"] then headers["User-Agent"] = "Crimson-Hub" end
+    local ok, body = tryRequest({ Url = url, Method = "GET", Headers = headers })
+    if ok and body then return true, body end
+    local s, r = pcall(function() return HttpService:GetAsync(url) end)
+    if s and r then return true, tostring(r) end
+    return false, "GET failed"
+end
+
 local function httpPostText(url, body)
-    local bodyContent = tostring(body or "")
+    local content = tostring(body or "")
     local ok, res = pcall(function()
-        return httpService:PostAsync(url, bodyContent, Enum.HttpContentType.TextPlain)
+        return HttpService:PostAsync(url, content, Enum.HttpContentType.TextPlain)
     end)
     if ok and res then return true, tostring(res) end
-    return tryRequest({ Url = url, Method = "POST", Headers = {["Content-Type"] = "text/plain"}, Body = bodyContent })
+    return tryRequest({ Url = url, Method = "POST", Headers = { ["Content-Type"] = "text/plain" }, Body = content })
 end
 
 local function httpPostJson(url, tbl)
-    local payload = httpService:JSONEncode(tbl or {})
+    local payload = HttpService:JSONEncode(tbl or {})
     local ok, res = pcall(function()
-        return httpService:PostAsync(url, payload, Enum.HttpContentType.ApplicationJson)
+        return HttpService:PostAsync(url, payload, Enum.HttpContentType.ApplicationJson)
     end)
     if ok and res then return true, tostring(res) end
-    return tryRequest({ Url = url, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload })
+    return tryRequest({ Url = url, Method = "POST", Headers = { ["Content-Type"] = "application/json" }, Body = payload })
 end
-
-local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
 
 local function isPositiveResponse(responseText)
     if not responseText or type(responseText) ~= "string" then return false end
     local t = trim(responseText)
-    local ok, dec = pcall(function() return httpService:JSONDecode(t) end)
+    local ok, dec = pcall(function() return HttpService:JSONDecode(t) end)
     if ok and type(dec) == "table" then
         if dec.success == true or dec.Success == true or dec.ok == true or dec.status == 200 then return true end
         if dec.accepted == true or dec.verified == true then return true end
@@ -197,28 +201,46 @@ local function isPositiveResponse(responseText)
     return false
 end
 
-local function extractCode(body)
-    local t = trim(body or "")
-    local ok, dec = pcall(function() return httpService:JSONDecode(t) end)
-    if ok and type(dec) == "table" then
-        if type(dec.code) == "string" then return dec.code end
-        if type(dec.script) == "string" then return dec.script end
-        if type(dec.lua) == "string" then return dec.lua end
-        if type(dec.data) == "string" then return dec.data end
-        if type(dec.payload) == "string" then return dec.payload end
+local function normalizeGithubRaw(url)
+    url = tostring(url or "")
+    local owner, repo, branch, path = url:match("^https://github%.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$")
+    if owner and repo and branch and path then
+        return ("https://raw.githubusercontent.com/%s/%s/%s/%s"):format(owner, repo, branch, path)
     end
-    return t
+    return url
+end
+
+local function extractAndMaybeFetch(body)
+    local t = trim(body or "")
+    local ok, dec = pcall(function() return HttpService:JSONDecode(t) end)
+    if ok and type(dec) == "table" then
+        if type(dec.code) == "string" then return true, dec.code end
+        if type(dec.script) == "string" then return true, dec.script end
+        if type(dec.lua) == "string" then return true, dec.lua end
+        if type(dec.data) == "string" then return true, dec.data end
+        if type(dec.payload) == "string" then return true, dec.payload end
+        if type(dec.url) == "string" then
+            local rawUrl = normalizeGithubRaw(dec.url)
+            local s, c = httpGetWithHeaders(rawUrl, { ["User-Agent"] = "Crimson-Hub" })
+            if s and c and #trim(c) > 0 then
+                return true, c
+            else
+                return false, "Failed to fetch code from URL"
+            end
+        end
+    end
+    return true, t
 end
 
 local function fetchPrivateScript(key)
-    local encoded = httpService:UrlEncode(tostring(key or ""))
+    local encoded = HttpService:UrlEncode(tostring(key or ""))
 
     for _, path in ipairs(privateGetPaths) do
         local url = string.format("%s%s?key=%s", privateApiBase, path, encoded)
         local ok, body = httpGet(url)
         if ok and body and #body > 0 then
-            local code = extractCode(body)
-            if code and #trim(code) > 0 then
+            local got, code = extractAndMaybeFetch(body)
+            if got and code and #trim(code) > 0 then
                 if VERBOSE then sendNotification("Debug", "GET ok (" .. path .. ")", 1, "success") end
                 return true, code
             end
@@ -229,8 +251,8 @@ local function fetchPrivateScript(key)
         local url = string.format("%s%s", privateApiBase, path)
         local ok, body = httpPostJson(url, { key = key })
         if ok and body and #body > 0 then
-            local code = extractCode(body)
-            if code and #trim(code) > 0 then
+            local got, code = extractAndMaybeFetch(body)
+            if got and code and #trim(code) > 0 then
                 if VERBOSE then sendNotification("Debug", "POST JSON ok (" .. path .. ")", 1, "success") end
                 return true, code
             end
@@ -241,8 +263,8 @@ local function fetchPrivateScript(key)
         local url = string.format("%s%s", privateApiBase, path)
         local ok, body = httpPostText(url, key)
         if ok and body and #body > 0 then
-            local code = extractCode(body)
-            if code and #trim(code) > 0 then
+            local got, code = extractAndMaybeFetch(body)
+            if got and code and #trim(code) > 0 then
                 if VERBOSE then sendNotification("Debug", "POST text ok (" .. path .. ")", 1, "success") end
                 return true, code
             end
@@ -324,7 +346,7 @@ local function createVerificationUI()
         task.spawn(function()
             while spinning do
                 spinner.Rotation = 0
-                tweenService:Create(spinner, TweenInfo.new(1, Enum.EasingStyle.Linear), { Rotation = 360 }):Play()
+                TweenService:Create(spinner, TweenInfo.new(1, Enum.EasingStyle.Linear), { Rotation = 360 }):Play()
                 task.wait(1)
             end
             spinner.Visible = false
@@ -355,7 +377,9 @@ local function createVerificationUI()
         task.spawn(function()
 
             local ok, resp = httpPostText(verificationUrl, key)
-            if VERBOSE and resp then sendNotification("Debug", "Verify resp len=" .. tostring(#resp), 1, ok and "success" or "error") end
+            if VERBOSE and resp then
+                sendNotification("Debug", "Verify len=" .. tostring(#resp), 1, ok and "success" or "error")
+            end
 
             if ok and isPositiveResponse(resp) then
                 playSound("success")
@@ -363,17 +387,19 @@ local function createVerificationUI()
 
                 local got, codeOrErr = fetchPrivateScript(key)
                 if got then
-
                     local f, e = loadstring(codeOrErr)
                     if f then
-                        local okRun, runErr = pcall(f)
-                        if okRun then
+                        local ran, runErr = pcall(f)
+                        if ran then
                             sendNotification("Loaded", "Script executed.", 1, "success")
                             playSound("close")
                             stopSpin()
                             submit.Text = oldText
-
-                            tweenService:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)}):Play()
+                            TweenService:Create(
+                                frame,
+                                TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+                                {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)}
+                            ):Play()
                             task.wait(0.35)
                             frame:Destroy()
                             setBlur(false)
@@ -393,16 +419,15 @@ local function createVerificationUI()
             else
                 playSound("error")
                 sendNotification("Failed", "Invalid or rejected key.", 1, "error")
-
                 local originalPos = frame.Position
                 local info = TweenInfo.new(0.07)
                 for _ = 1, 3 do
-                    tweenService:Create(frame, info, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
+                    TweenService:Create(frame, info, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
                     task.wait(0.07)
-                    tweenService:Create(frame, info, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
+                    TweenService:Create(frame, info, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
                     task.wait(0.07)
                 end
-                tweenService:Create(frame, info, {Position = originalPos}):Play()
+                TweenService:Create(frame, info, {Position = originalPos}):Play()
             end
 
             stopSpin()
