@@ -1,221 +1,203 @@
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 
-local COLORS = {
-	Murderer = {fill = Color3.fromRGB(255,120,120), outline = Color3.fromRGB(150,0,0)},
-	Sheriff  = {fill = Color3.fromRGB(120,180,255), outline = Color3.fromRGB(0,60,150)},
-	Innocent = {fill = Color3.fromRGB(150,255,150), outline = Color3.fromRGB(0,120,0)},
-}
+local highlights = {}
+local billboards = {}
+local bumpedOnce = {}
+local lastRole = {}
 
-local function hasItem(player, itemName)
-	if player:GetAttribute(itemName) then
+local function removeHighlight(player)
+	if highlights[player] then
+		highlights[player]:Destroy()
+		highlights[player] = nil
+	end
+	if billboards[player] then
+		billboards[player]:Destroy()
+		billboards[player] = nil
+	end
+	bumpedOnce[player] = nil
+	lastRole[player] = nil
+end
+
+local function createHighlight(character, color, outlineColor)
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = color
+	highlight.FillTransparency = 0.5
+	highlight.OutlineColor = outlineColor
+	highlight.OutlineTransparency = 0
+	highlight.Parent = character
+	return highlight
+end
+
+local function createBillboard(character, text, textColor, strokeColor)
+	local head = character:FindFirstChild("Head")
+	if not head then return nil end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.new(0, 120, 0, 30)
+	billboard.AlwaysOnTop = true
+	billboard.Adornee = head
+	billboard.StudsOffset = Vector3.new(0, 1.5, 0)
+	billboard.Name = "RoleBillboard"
+	billboard.Parent = head
+
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Size = UDim2.new(1, 0, 1, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.Text = text
+	textLabel.TextColor3 = textColor
+	textLabel.TextScaled = false
+	textLabel.TextSize = 14
+	textLabel.Font = Enum.Font.GothamBold
+	textLabel.Parent = billboard
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = strokeColor
+	stroke.Thickness = 2
+	stroke.Parent = textLabel
+
+	return billboard
+end
+
+local function hasItem(character, itemName)
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player then return false end
+	local backpack = player.Backpack
+	if character:FindFirstChild(itemName) then
 		return true
 	end
-
-	local character = player.Character
-	if character then
-		local item = character:FindFirstChild(itemName)
-		if item and item:IsA("Tool") then
-			return true
-		end
-		for _, child in ipairs(character:GetChildren()) do
-			if child:IsA("Tool") and child.Name == itemName then
-				return true
-			end
-		end
+	if backpack and backpack:FindFirstChild(itemName) then
+		return true
 	end
-
-	local backpack = player:FindFirstChild("Backpack")
-	if backpack then
-		local item = backpack:FindFirstChild(itemName)
-		if item and item:IsA("Tool") then
-			return true
-		end
-		for _, child in ipairs(backpack:GetChildren()) do
-			if child:IsA("Tool") and child.Name == itemName then
-				return true
-			end
-		end
-	end
-
 	return false
 end
 
-local function getRole(player)
-	if hasItem(player, "Knife") then
-		return "Murderer"
-	elseif hasItem(player, "Gun") then
-		return "Sheriff"
-	else
-		return "Innocent"
+local function isAlive(player)
+	if not player.Character then return false end
+	local humanoid = player.Character:FindFirstChild("Humanoid")
+	if not humanoid then return false end
+	if player.Character:GetAttribute("Alive") == false then
+		return false
 	end
+	if humanoid.Health <= 0 then
+		return false
+	end
+	return true
 end
 
-local function ensureBillboard(head)
-	local billboard = head:FindFirstChild("RoleBillboard")
-	local existed = billboard ~= nil
-
-	if not billboard then
-		billboard = Instance.new("BillboardGui")
-		billboard.Name = "RoleBillboard"
-		billboard.Adornee = head
-		billboard.AlwaysOnTop = true
-
-		billboard.Size = UDim2.new(0, 120, 0, 28)
-
-		billboard.StudsOffset = Vector3.new(0, 2.2, 0)
-		billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		billboard.Parent = head
-	else
-
-		local off = billboard.StudsOffset or Vector3.new()
-		billboard.StudsOffset = Vector3.new(off.X, off.Y + 0.5, off.Z)
-
-		billboard.AlwaysOnTop = true
-		billboard.Adornee = head
-		billboard.Size = UDim2.new(0, 120, 0, 28)
-	end
-
-	local label = billboard:FindFirstChild("RoleLabel")
-	if not label then
-		label = Instance.new("TextLabel")
-		label.Name = "RoleLabel"
-		label.BackgroundTransparency = 1
-		label.Size = UDim2.new(1, 0, 1, 0)
-		label.Position = UDim2.new(0, 0, 0, 0)
-
-		label.TextScaled = false
-		label.TextSize = 14
-		label.Font = Enum.Font.SourceSansSemibold
-		label.TextStrokeColor3 = Color3.new(0, 0, 0)
-		label.TextStrokeTransparency = 0
-		label.Parent = billboard
-	else
-		label.TextScaled = false
-		label.TextSize = 14
-	end
-
-	return billboard, billboard:FindFirstChild("RoleLabel")
-end
-
-local function removeBillboard(head)
-	local billboard = head and head:FindFirstChild("RoleBillboard")
-	if billboard then
-		billboard:Destroy()
-	end
-end
-
-local function ensureHighlight(character)
-	local hl = character:FindFirstChild("RoleHighlight")
-	if not hl then
-		hl = Instance.new("Highlight")
-		hl.Name = "RoleHighlight"
-		hl.Adornee = character
-		hl.Parent = character
-	end
-	return hl
-end
-
-local function removeHighlight(character)
-	local hl = character and character:FindFirstChild("RoleHighlight")
-	if hl then
-		hl:Destroy()
-	end
-end
-
-local function applyVisuals(player)
-	local character = player.Character
-	if not character then
-		return
-	end
-
+local function setBillboard(player, character, roleText, textColor, strokeColor)
 	local head = character:FindFirstChild("Head")
-	local alive = player:GetAttribute("Alive") == true
-	if not alive then
-		removeHighlight(character)
-		removeBillboard(head)
+	if not head then return end
+
+	if not billboards[player] then
+		billboards[player] = createBillboard(character, roleText, textColor, strokeColor)
+		bumpedOnce[player] = false
+		lastRole[player] = roleText
+	else
+		local billboard = billboards[player]
+		billboard.AlwaysOnTop = true
+		billboard.Adornee = head
+		if billboard.Parent ~= head then
+			billboard.Parent = head
+		end
+		local textLabel = billboard:FindFirstChildOfClass("TextLabel")
+		if textLabel then
+			if textLabel.Text ~= roleText then
+				textLabel.Text = roleText
+				bumpedOnce[player] = false
+				lastRole[player] = roleText
+			end
+			textLabel.TextScaled = false
+			textLabel.TextSize = 14
+			textLabel.TextColor3 = textColor
+			local stroke = textLabel:FindFirstChildOfClass("UIStroke")
+			if stroke then
+				stroke.Color = strokeColor
+			end
+		end
+		if not bumpedOnce[player] then
+			local y = billboard.StudsOffset.Y
+			y = math.clamp(y + 0.25, 0.5, 3)
+			billboard.StudsOffset = Vector3.new(0, y, 0)
+			bumpedOnce[player] = true
+		end
+	end
+end
+
+local function clearBillboard(player)
+	if billboards[player] then
+		billboards[player]:Destroy()
+		billboards[player] = nil
+	end
+	bumpedOnce[player] = nil
+	lastRole[player] = nil
+end
+
+local function setHighlight(player, character, fillColor, outlineColor)
+	if not highlights[player] then
+		highlights[player] = createHighlight(character, fillColor, outlineColor)
+	else
+		local h = highlights[player]
+		h.FillColor = fillColor
+		h.OutlineColor = outlineColor
+	end
+end
+
+local function updatePlayerHighlight(player)
+	if player == LocalPlayer then return end
+	if not isAlive(player) then
+		removeHighlight(player)
 		return
 	end
 
-	local role = getRole(player)
-	local colors = COLORS[role]
+	local character = player.Character
+	if not character then return end
 
-	local hl = ensureHighlight(character)
-	hl.Adornee = character
-	hl.FillColor = colors.fill
-	hl.FillTransparency = 0.5
-	hl.OutlineTransparency = 0
-	hl.OutlineColor = colors.outline
+	local hasGun = hasItem(character, "Gun")
+	local hasKnife = hasItem(character, "Knife")
 
-	if role == "Murderer" or role == "Sheriff" then
-		if head then
-			local billboard, label = ensureBillboard(head)
-			if label then
-				label.Text = role
-				label.TextColor3 = colors.fill
-			end
-		end
+	if hasKnife then
+		setHighlight(player, character, Color3.new(1, 0.7, 0.7), Color3.new(0.7, 0, 0))
+		setBillboard(player, character, "Murderer", Color3.new(1, 0.7, 0.7), Color3.new(0, 0, 0))
+	elseif hasGun then
+		setHighlight(player, character, Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0.7))
+		setBillboard(player, character, "Sheriff", Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0))
 	else
-		removeBillboard(head)
+		setHighlight(player, character, Color3.new(0.7, 1, 0.7), Color3.new(0, 0.7, 0))
+		clearBillboard(player)
 	end
 end
 
-local function trackPlayer(player)
-	local function onCharacterAdded(character)
-		task.defer(applyVisuals, player)
-
-		character.ChildAdded:Connect(function(child)
-			if child:IsA("Tool") then
-				task.defer(applyVisuals, player)
-			end
-		end)
-
-		character.ChildRemoved:Connect(function(child)
-			if child:IsA("Tool") then
-				task.defer(applyVisuals, player)
-			end
-		end)
+local function updateAllPlayers()
+	for _, player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			updatePlayerHighlight(player)
+		end
 	end
+end
 
-	player.CharacterAdded:Connect(onCharacterAdded)
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		task.wait(1)
+		updatePlayerHighlight(player)
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	removeHighlight(player)
+end)
+
+for _, player in pairs(Players:GetPlayers()) do
 	if player.Character then
-		onCharacterAdded(player.Character)
+		updatePlayerHighlight(player)
 	end
-
-	local function watchBackpack(bp)
-		bp.ChildAdded:Connect(function(child)
-			if child:IsA("Tool") then
-				task.defer(applyVisuals, player)
-			end
-		end)
-		bp.ChildRemoved:Connect(function(child)
-			if child:IsA("Tool") then
-				task.defer(applyVisuals, player)
-			end
-		end)
-	end
-
-	local backpack = player:FindFirstChild("Backpack")
-	if backpack then
-		watchBackpack(backpack)
-	end
-
-	player.ChildAdded:Connect(function(child)
-		if child.Name == "Backpack" then
-			watchBackpack(child)
-		end
-	end)
-
-	player.AttributeChanged:Connect(function(attr)
-		if attr == "Alive" or attr == "Gun" or attr == "Knife" then
-			task.defer(applyVisuals, player)
-		end
+	player.CharacterAdded:Connect(function()
+		task.wait(1)
+		updatePlayerHighlight(player)
 	end)
 end
 
-for _, plr in ipairs(Players:GetPlayers()) do
-	trackPlayer(plr)
-end
-
-Players.PlayerAdded:Connect(function(plr)
-	trackPlayer(plr)
+RunService.Heartbeat:Connect(function()
+	updateAllPlayers()
 end)
