@@ -324,3 +324,28 @@ local function createVerificationUI()
                     sendNotification("Info", "Standard verification complete.", 2, "success")
                 end
             else
+                playSound("error")
+                sendNotification("Failed", "Invalid key provided.", 1, "error")
+                local originalPos = frame.Position
+                local shakeInfo = TweenInfo.new(0.07)
+                for i = 1, 3 do
+                    tweenService:Create(frame, shakeInfo, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
+                    task.wait(0.07)
+                    tweenService:Create(frame, shakeInfo, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
+                    task.wait(0.07)
+                end
+                tweenService:Create(frame, shakeInfo, {Position = originalPos}):Play()
+            end
+        end)
+    end)
+
+    setBlur(true)
+end
+
+userInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == toggleKey and userInputService:GetFocusedTextBox() == nil then
+        createVerificationUI()
+    end
+end)
+
+createVerificationUI()
