@@ -554,27 +554,29 @@ function mainUI:Create()
         end
     end)
 
-    task.wait()
-    (function()  -- select Scripts by default
-        local tab = tabs["Scripts"]
-        if tab then
-            for _, other in pairs(sidebar:GetChildren()) do
-                if other:IsA("TextButton") and other ~= tab then
-                    TweenService:Create(other:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
-                    TweenService:Create(other, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
-                end
-            end
-            for _, page in pairs(contentContainer:GetChildren()) do
-                if page:IsA("Frame") or page:IsA("ScrollingFrame") then page.Visible = false end
-            end
-            TweenService:Create(tab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
-            TweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
-            if tabs["Scripts"] then pages["Scripts"].Visible = true end
-        end
-    end)()
+task.wait()
 
-    return ui
+-- select Scripts by default (avoid IIFE ambiguity)
+local function selectDefaultTab()
+    local tab = tabs["Scripts"]
+    if tab then
+        for _, other in pairs(sidebar:GetChildren()) do
+            if other:IsA("TextButton") and other ~= tab then
+                TweenService:Create(other:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
+                TweenService:Create(other, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
+            end
+        end
+        for _, page in pairs(contentContainer:GetChildren()) do
+            if page:IsA("Frame") or page:IsA("ScrollingFrame") then page.Visible = false end
+        end
+        TweenService:Create(tab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
+        TweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
+        if tabs["Scripts"] then pages["Scripts"].Visible = true end
+    end
 end
+
+selectDefaultTab()
+
 
 --==================================================
 -- Verification UI (kept; only adds global flag set on success)
