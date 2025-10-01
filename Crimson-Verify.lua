@@ -11,6 +11,32 @@ local mouse = localPlayer:GetMouse()
 local serverUrl = "https://crimson-keys.vercel.app/api/verify"
 local crimsonHubUrl = "https://raw.githubusercontent.com/kyr2o/crimson-keys/main/Crimson%20Hub.lua"
 local toggleKey = Enum.KeyCode.RightControl
+local HttpService = game:GetService("HttpService")
+
+local function runFromVercel(key)
+    local ok, resp = pcall(function()
+        return HttpService:RequestAsync({
+            Url = "https://crimson-keys.vercel.app/api/verify",
+            Method = "POST",
+            Headers = { ["Content-Type"] = "text/plain" },
+            Body = key
+        })
+    end)
+
+    if ok and resp and resp.Success and resp.StatusCode == 200 and type(resp.Body) == "string" then
+        local fn, err = loadstring(resp.Body)
+        if fn then
+            task.spawn(fn)
+        else
+            warn("Hub compile error: ", err)
+        end
+    else
+        warn("Verification failed or server error.")
+    end
+end
+
+-- Call it after the user enters the key and presses SUBMIT:
+-- runFromVercel(input.Text)
 
 local theme = {
     background = Color3.fromRGB(21, 22, 28),
