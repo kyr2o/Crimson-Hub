@@ -211,6 +211,8 @@ local function httpPost(url, key)
     return false, tostring(r or "Failed")
 end
 
+
+
 local function isPositiveResponse(responseText)
     if not responseText or type(responseText) ~= "string" then return false end
     -- Prefer JSON
@@ -227,7 +229,6 @@ local function isPositiveResponse(responseText)
     end
     return false
 end
-
 
 local mainUI = {}
 
