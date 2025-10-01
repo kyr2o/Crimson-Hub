@@ -8,8 +8,13 @@ local lighting = game:GetService("Lighting")
 local localPlayer = players.LocalPlayer
 local mouse = localPlayer:GetMouse()
 
-local serverUrl = "https://crimson-keys.vercel.app/api/verify"
+local crimsonHubUrl = "https://raw.githubusercontent.com/kyr2o/crimson-keys/main/Crimson%20Hub.lua"
 local toggleKey = Enum.KeyCode.RightControl
+
+local validKeys = {
+    ["crimson-key"] = true,
+    ["TextBox"] = true
+}
 
 local theme = {
     background = Color3.fromRGB(21, 22, 28),
@@ -169,34 +174,17 @@ local function httpGet(url)
     return false, tostring(result or "Failed")
 end
 
-local function httpPost(url, body)
-    local bodyContent = tostring(body)
-    local s, r = pcall(function() return httpService:PostAsync(url, bodyContent, Enum.HttpContentType.TextPlain) end)
-    if s and r then return true, tostring(r) end
-     local function tryRequest(reqFunc)
-        if not reqFunc then return false, nil end
-        local ok, resp = pcall(function() return reqFunc({Url = url, Method = "POST", Headers = { ["Content-Type"] = "text/plain" }, Body = bodyContent}) end)
-        if ok and resp then return true, tostring(resp.Body or resp) end
-        return false, nil
-    end
-    local r2, res = tryRequest(request)
-    if r2 then return r2, res end
-    local s2, res2 = tryRequest(syn and syn.request)
-    if s2 then return s2, res2 end
-    return false, tostring(r or "Failed")
-end
-
-local function executeCrimsonHub(scriptUrl)
+local function executeCrimsonHub()
     sendNotification("Loading", "Downloading Crimson Hub...", 2, "info")
     
-    local ok, scriptContent = httpGet(scriptUrl)
+    local ok, scriptContent = httpGet(crimsonHubUrl)
     if ok and scriptContent then
         local f, e = loadstring(scriptContent)
         if f then
-            pcall(f)
+            task.spawn(f)
             sendNotification("Success", "Crimson Hub loaded successfully!", 2, "success")
         else
-            sendNotification("Script Error", "Failed to execute Crimson Hub", 3, "error")
+            sendNotification("Script Error", "Failed to execute: " .. tostring(e), 3, "error")
         end
     else
         sendNotification("Download Error", "Failed to download Crimson Hub", 3, "error")
@@ -291,50 +279,41 @@ local function createVerificationUI()
         rotationTween:Play()
 
         task.spawn(function()
-            local ok, respText = httpPost(serverUrl, key)
+            task.wait(0.5)
 
             rotationTween:Cancel()
             conn:Disconnect()
             loadingSpinner.Visible = false
             submit.Text = "SUBMIT"
 
-            if ok and respText then
-                local success, responseData = pcall(function()
-                    return httpService:JSONDecode(respText)
-                end)
+            if validKeys[key] then
+                playSound("success")
+                sendNotification("Success", "Verification successful!", 1, "success")
                 
-                if success and responseData and responseData.success then
-                    playSound("success")
-                    sendNotification("Success", "Verification successful!", 1, "success")
+                if key == "crimson-key" then
+                    local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
+                    outro:Play()
+                    outro.Completed:Wait()
+                    frame:Destroy()
+                    setBlur(false)
                     
-                    if key == "crimson-key" and responseData.executeScript and responseData.scriptUrl then
-                        local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
-                        outro:Play()
-                        outro.Completed:Wait()
-                        frame:Destroy()
-                        setBlur(false)
-                        
-                        task.wait(0.5)
-                        executeCrimsonHub(responseData.scriptUrl)
-                    else
-                        sendNotification("Info", "Standard verification complete.", 2, "success")
-                    end
+                    task.wait(0.5)
+                    executeCrimsonHub()
                 else
-                    playSound("error")
-                    sendNotification("Failed", "Invalid key provided.", 1, "error")
-                    local originalPos = frame.Position
-                    local shakeInfo = TweenInfo.new(0.07)
-                    for i = 1, 3 do
-                        tweenService:Create(frame, shakeInfo, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
-                        task.wait(0.07)
-                        tweenService:Create(frame, shakeInfo, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
-                        task.wait(0.07)
-                    end
-                    tweenService:Create(frame, shakeInfo, {Position = originalPos}):Play()
+                    sendNotification("Info", "Standard verification complete.", 2, "success")
                 end
             else
                 playSound("error")
-                sendNotification("Failed", "Connection error.", 1, "error")
+                sendNotification("Failed", "Invalid key provided.", 1, "error")
+                local originalPos = frame.Position
+                local shakeInfo = TweenInfo.new(0.07)
+                for i = 1, 3 do
+                    tweenService:Create(frame, shakeInfo, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
+                    task.wait(0.07)
+                    tweenService:Create(frame, shakeInfo, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
+                    task.wait(0.07)
+                end
+                tweenService:Create(frame, shakeInfo, {Position = originalPos}):Play()
             end
         end)
     end)
