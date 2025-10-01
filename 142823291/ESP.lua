@@ -1,6 +1,7 @@
 local Shared = (getgenv and getgenv()) or _G
+
 if Shared.CRIMSON_ESP and Shared.CRIMSON_ESP.disable then
-    Shared.CRIMSON_ESP.disable(true)
+    pcall(function() Shared.CRIMSON_ESP.disable(true) end)
 end
 
 local Players = game:GetService("Players")
@@ -11,15 +12,19 @@ local State = {
     enabled = false,
     conns = {},
     charConns = {},
-    highlights = {},
-    billboards = {},
+    highlights = {},   
+    billboards = {},   
     bumpedOnce = {},
     lastRole = {},
 }
 
 local function track(conn)
-    table.insert(State.conns, conn)
+    if conn then table.insert(State.conns, conn) end
     return conn
+end
+
+local function destroySafe(x)
+    if x and x.Destroy then pcall(function() x:Destroy() end) end
 end
 
 local function disconnectAll()
@@ -34,23 +39,38 @@ local function disconnectAll()
 end
 
 local function removeVisualsFor(player)
+
     if State.highlights[player] then
-        State.highlights[player]:Destroy()
+        destroySafe(State.highlights[player])
         State.highlights[player] = nil
     end
     if State.billboards[player] then
-        State.billboards[player]:Destroy()
+        destroySafe(State.billboards[player])
         State.billboards[player] = nil
     end
+
+    local character = player.Character
+    if character then
+        local hl = character:FindFirstChildOfClass("Highlight")
+        if hl then destroySafe(hl) end
+        local head = character:FindFirstChild("Head")
+        if head then
+            local bb = head:FindFirstChild("RoleBillboard")
+            if bb then destroySafe(bb) end
+        end
+    end
+
     State.bumpedOnce[player] = nil
     State.lastRole[player] = nil
 end
 
 local function removeAllVisuals()
+
+    for plr, h in pairs(State.highlights) do destroySafe(h); State.highlights[plr] = nil end
+    for plr, b in pairs(State.billboards) do destroySafe(b); State.billboards[plr] = nil end
+
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then
-            removeVisualsFor(plr)
-        end
+        if plr ~= LocalPlayer then removeVisualsFor(plr) end
     end
 end
 
@@ -104,14 +124,13 @@ local function hasItem(character, itemName)
 end
 
 local function isAlive(player)
-    if not player.Character then return false end
-    local humanoid = player.Character:FindFirstChild("Humanoid")
+    local character = player.Character
+    if not character then return false end
+    local humanoid = character:FindFirstChild("Humanoid")
     if not humanoid then return false end
-    if player.Character:GetAttribute("Alive") == false then return false end
-    if humanoid.Health <= 0 then return false end
-    return true
+    if character:GetAttribute("Alive") == false then return false end
+    return humanoid.Health > 0
 end
-
 
 local function setBillboard(player, character, roleText, textColor, strokeColor)
     local head = character:FindFirstChild("Head")
@@ -121,32 +140,33 @@ local function setBillboard(player, character, roleText, textColor, strokeColor)
         State.billboards[player] = createBillboard(character, roleText, textColor, strokeColor)
         State.bumpedOnce[player] = false
         State.lastRole[player] = roleText
-    else
-        local billboard = State.billboards[player]
-        billboard.AlwaysOnTop = true
-        billboard.Adornee = head
-        if billboard.Parent ~= head then billboard.Parent = head end
+        return
+    end
 
-        local textLabel = billboard:FindFirstChildOfClass("TextLabel")
-        if textLabel then
-            if textLabel.Text ~= roleText then
-                textLabel.Text = roleText
-                State.bumpedOnce[player] = false
-                State.lastRole[player] = roleText
-            end
-            textLabel.TextScaled = false
-            textLabel.TextSize = 14
-            textLabel.TextColor3 = textColor
-            local stroke = textLabel:FindFirstChildOfClass("UIStroke")
-            if stroke then stroke.Color = strokeColor end
-        end
+    local billboard = State.billboards[player]
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = head
+    if billboard.Parent ~= head then billboard.Parent = head end
 
-        if not State.bumpedOnce[player] then
-            local y = billboard.StudsOffset.Y
-            y = math.clamp(y + 0.25, 0.5, 3)
-            billboard.StudsOffset = Vector3.new(0, y, 0)
-            State.bumpedOnce[player] = true
+    local textLabel = billboard:FindFirstChildOfClass("TextLabel")
+    if textLabel then
+        if textLabel.Text ~= roleText then
+            textLabel.Text = roleText
+            State.bumpedOnce[player] = false
+            State.lastRole[player] = roleText
         end
+        textLabel.TextScaled = false
+        textLabel.TextSize = 14
+        textLabel.TextColor3 = textColor
+        local stroke = textLabel:FindFirstChildOfClass("UIStroke")
+        if stroke then stroke.Color = strokeColor end
+    end
+
+    if not State.bumpedOnce[player] then
+        local y = billboard.StudsOffset.Y
+        y = math.clamp(y + 0.25, 0.5, 3)
+        billboard.StudsOffset = Vector3.new(0, y, 0)
+        State.bumpedOnce[player] = true
     end
 end
 
@@ -166,6 +186,7 @@ local function updatePlayer(player)
         removeVisualsFor(player)
         return
     end
+
     local character = player.Character
     if not character then return end
 
@@ -179,7 +200,7 @@ local function updatePlayer(player)
         setHighlight(player, character, Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0.7))
         setBillboard(player, character, "Sheriff", Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0))
     else
-        setHighlight(player, character, Color3.new(0.7, 1, 0.7), Color3.new(0, 0.7, 0))
+
         removeVisualsFor(player)
     end
 end
@@ -221,26 +242,22 @@ Shared.CRIMSON_ESP = {
             removeVisualsFor(plr)
         end))
 
-        track(RunService.Heartbeat:Connect(function()
-            updateAll()
-        end))
+        track(RunService.Heartbeat:Connect(updateAll))
     end,
 
     disable = function(silent)
-        if not State.enabled then return end
+        if not State.enabled then
+
+            removeAllVisuals()
+            return
+        end
         State.enabled = false
         disconnectAll()
         removeAllVisuals()
         if not silent then
+
         end
     end
 }
 
-Shared.removeAllESPVisuals = function()
-    if Shared.CRIMSON_ESP and Shared.CRIMSON_ESP.disable then
-        Shared.CRIMSON_ESP.disable()
-    end
-end
-
-_G.removeAllESPVisuals = Shared.removeAllESPVisuals
 Shared.CRIMSON_ESP.enable()
