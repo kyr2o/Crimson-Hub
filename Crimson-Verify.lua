@@ -8,35 +8,12 @@ local lighting = game:GetService("Lighting")
 local localPlayer = players.LocalPlayer
 local mouse = localPlayer:GetMouse()
 
+local VERBOSE = false
+local githubUsername = "kyr2o"
+local repoName = "Crimson-Hub"
+local branchName = "main"
 local serverUrl = "https://crimson-keys.vercel.app/api/verify"
-local crimsonHubUrl = "https://raw.githubusercontent.com/kyr2o/crimson-keys/main/Crimson%20Hub.lua"
 local toggleKey = Enum.KeyCode.RightControl
-local HttpService = game:GetService("HttpService")
-
-local function runFromVercel(key)
-    local ok, resp = pcall(function()
-        return HttpService:RequestAsync({
-            Url = "https://crimson-keys.vercel.app/api/verify",
-            Method = "POST",
-            Headers = { ["Content-Type"] = "text/plain" },
-            Body = key
-        })
-    end)
-
-    if ok and resp and resp.Success and resp.StatusCode == 200 and type(resp.Body) == "string" then
-        local fn, err = loadstring(resp.Body)
-        if fn then
-            task.spawn(fn)
-        else
-            warn("Hub compile error: ", err)
-        end
-    else
-        warn("Verification failed or server error.")
-    end
-end
-
--- Call it after the user enters the key and presses SUBMIT:
--- runFromVercel(input.Text)
 
 local theme = {
     background = Color3.fromRGB(21, 22, 28),
@@ -53,7 +30,7 @@ local theme = {
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
-screenGui.Name = "CrimsonVerify"
+screenGui.Name = "CrimsonHub"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.DisplayOrder = 999
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
@@ -213,24 +190,354 @@ local function httpPost(url, body)
     return false, tostring(r or "Failed")
 end
 
-local function executeCrimsonHub()
-    sendNotification("Loading", "Downloading Crimson Hub...", 2, "info")
-    
-    local ok, scriptContent = httpGet(crimsonHubUrl)
-    if ok and scriptContent then
-        local f, e = loadstring(scriptContent)
-        if f then
-            pcall(f)
-            sendNotification("Success", "Crimson Hub loaded successfully!", 2, "success")
-        else
-            sendNotification("Script Error", "Failed to execute Crimson Hub", 3, "error")
+local function isPositiveResponse(responseText)
+    if not responseText or type(responseText) ~= "string" then return false end
+    local text = responseText:lower():match("^%s*(.-)%s*$")
+    if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then return true end
+    local success, decoded = pcall(function() return httpService:JSONDecode(responseText) end)
+    if success and type(decoded) == "table" and (decoded.success == true or decoded.Success == true) then return true end
+    return false
+end
+
+local mainUI = {}
+
+function mainUI:Create()
+    local ui = { Visible = false }
+    local pages = {}
+    local tabs = {}
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 600, 0, 400)
+    mainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
+    mainFrame.BackgroundColor3 = theme.background
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Visible = false
+    mainFrame.Draggable = true
+    mainFrame.Active = true
+    mainFrame.ClipsDescendants = true
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
+    local mainFrameStroke = Instance.new("UIStroke", mainFrame)
+    mainFrameStroke.Color = theme.accent
+    mainFrameStroke.Thickness = 2
+
+    local bgPattern = Instance.new("ImageLabel", mainFrame)
+    bgPattern.Image = "rbxassetid://2887559971" 
+    bgPattern.ScaleType = Enum.ScaleType.Tile
+    bgPattern.TileSize = UDim2.new(0, 50, 0, 50)
+    bgPattern.Size = UDim2.new(2, 0, 2, 0)
+    bgPattern.Position = UDim2.new(-0.5, 0, -0.5, 0)
+    bgPattern.ImageTransparency = 0.95
+    bgPattern.ImageColor3 = theme.primary
+    bgPattern.BackgroundTransparency = 1
+    bgPattern.ZIndex = 0
+
+    runService.RenderStepped:Connect(function()
+        if mainFrame.Visible then
+            local center = Vector2.new(mainFrame.AbsolutePosition.X + mainFrame.AbsoluteSize.X / 2, mainFrame.AbsolutePosition.Y + mainFrame.AbsoluteSize.Y / 2)
+            local offset = Vector2.new(mouse.X - center.X, mouse.Y - center.Y)
+            bgPattern.Position = UDim2.new(-0.5 - offset.X * 0.0005, 0, -0.5 - offset.Y * 0.0005, 0)
         end
-    else
-        sendNotification("Download Error", "Failed to download Crimson Hub", 3, "error")
+    end)
+
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0, 40)
+    header.BackgroundColor3 = theme.backgroundSecondary
+    header.BorderSizePixel = 0
+    header.ZIndex = 2
+    header.Parent = mainFrame
+
+    local headerGradient = Instance.new("UIGradient")
+    headerGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.primary),
+        ColorSequenceKeypoint.new(1, theme.primaryGlow)
+    })
+    headerGradient.Rotation = 90
+
+    local headerDivider = Instance.new("Frame", mainFrame)
+    headerDivider.Size = UDim2.new(1, 0, 0, 3)
+    headerDivider.Position = UDim2.new(0, 0, 0, 40)
+    headerDivider.BackgroundColor3 = theme.primary
+    headerDivider.BorderSizePixel = 0
+    headerDivider.ZIndex = 3
+    headerDivider.Parent = headerGradient
+
+    local logo = Instance.new("ImageLabel", header)
+    logo.Image = "rbxassetid://3921711226" 
+    logo.Size = UDim2.new(0, 24, 0, 24)
+    logo.Position = UDim2.new(0, 10, 0.5, -12)
+    logo.ImageColor3 = theme.primary
+    logo.BackgroundTransparency = 1
+
+    local title = Instance.new("TextLabel", header)
+    title.Text = "Crimson Hub"
+    title.Font = Enum.Font.Michroma
+    title.TextSize = 18
+    title.TextColor3 = theme.text
+    title.Position = UDim2.new(0, 45, 0, 0)
+    title.Size = UDim2.new(0, 200, 1, 0)
+    title.BackgroundTransparency = 1
+    title.TextXAlignment = Enum.TextXAlignment.Left
+
+    local clock = Instance.new("TextLabel", header)
+    clock.Font = Enum.Font.Michroma
+    clock.TextSize = 14
+    clock.TextColor3 = theme.textSecondary
+    clock.Position = UDim2.new(1, -200, 0, 0)
+    clock.Size = UDim2.new(0, 100, 1, 0)
+    clock.BackgroundTransparency = 1
+    clock.TextXAlignment = Enum.TextXAlignment.Right
+    runService.RenderStepped:Connect(function()
+        clock.Text = os.date("%I:%M %p")
+    end)
+
+    local closeButton = Instance.new("ImageButton", header)
+    closeButton.Size = UDim2.new(0, 18, 0, 18)
+    closeButton.Position = UDim2.new(1, -28, 0.5, -9)
+    closeButton.Image = "rbxassetid://13516603954"
+    closeButton.ImageColor3 = theme.textSecondary
+    closeButton.BackgroundTransparency = 1
+    closeButton.ZIndex = 3
+
+    local minimizeButton = Instance.new("ImageButton", header)
+    minimizeButton.Size = UDim2.new(0, 18, 0, 18)
+    minimizeButton.Position = UDim2.new(1, -56, 0.5, -9)
+    minimizeButton.Image = "rbxassetid://13516604101" 
+    minimizeButton.ImageColor3 = theme.textSecondary
+    minimizeButton.BackgroundTransparency = 1
+    minimizeButton.ZIndex = 3
+
+    local sidebar = Instance.new("Frame", mainFrame)
+    sidebar.Size = UDim2.new(0, 150, 1, -40)
+    sidebar.Position = UDim2.new(0, 0, 0, 40)
+    sidebar.BackgroundColor3 = theme.backgroundSecondary
+    sidebar.BorderSizePixel = 0
+    sidebar.ZIndex = 2
+    local sidebarLayout = Instance.new("UIListLayout", sidebar)
+    sidebarLayout.Padding = UDim.new(0, 5)
+    sidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    sidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    sidebarLayout.Padding = UDim.new(0, 10)
+
+    local welcomeMessage = Instance.new("TextLabel", sidebar)
+    welcomeMessage.Size = UDim2.new(1, -20, 0, 50)
+    welcomeMessage.Text = "Welcome,\n" .. localPlayer.DisplayName
+    welcomeMessage.Font = Enum.Font.Michroma
+    welcomeMessage.TextSize = 14
+    welcomeMessage.TextColor3 = theme.textSecondary
+    welcomeMessage.TextWrapped = true
+    welcomeMessage.BackgroundTransparency = 1
+    welcomeMessage.LayoutOrder = -1
+
+    local contentContainer = Instance.new("Frame", mainFrame)
+    contentContainer.Size = UDim2.new(1, -150, 1, -40)
+    contentContainer.Position = UDim2.new(0, 150, 0, 40)
+    contentContainer.BackgroundTransparency = 1
+    contentContainer.ZIndex = 1
+
+    local function selectTab(tab)
+        playSound("click")
+        for _, otherTab in pairs(tabs) do
+            tweenService:Create(otherTab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
+            tweenService:Create(otherTab, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
+        end
+        for _, page in pairs(pages) do
+            page.Visible = false
+        end
+
+        tweenService:Create(tab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
+        tweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
+        pages[tab.Name].Visible = true
+    end
+
+    local function createTab(name)
+        local tab = Instance.new("TextButton", sidebar)
+        tab.Name = name
+        tab.Size = UDim2.new(1, -20, 0, 40)
+        tab.BackgroundColor3 = theme.accent
+        tab.Text = name
+        tab.Font = Enum.Font.Michroma
+        tab.TextSize = 15
+        tab.TextColor3 = theme.textSecondary
+        tab.TextXAlignment = Enum.TextXAlignment.Center
+        Instance.new("UICorner", tab).CornerRadius = UDim.new(0, 6)
+
+        local indicator = Instance.new("Frame", tab)
+        indicator.Name = "Indicator"
+        indicator.Size = UDim2.new(0, 2, 1, 0)
+        indicator.BackgroundColor3 = theme.primary
+        indicator.BorderSizePixel = 0
+        indicator.BackgroundTransparency = 1
+        Instance.new("UICorner", indicator).CornerRadius = UDim.new(0, 6)
+
+        tab.MouseEnter:Connect(function() tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
+        tab.MouseLeave:Connect(function() tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+        tab.MouseButton1Click:Connect(function() selectTab(tab) end)
+
+        tabs[name] = tab
+        return tab
+    end
+
+    local function createPage(name)
+        local page = Instance.new("ScrollingFrame", contentContainer)
+        page.Name = name
+        page.Size = UDim2.new(1, 0, 1, 0)
+        page.BackgroundTransparency = 1
+        page.BorderSizePixel = 0
+        page.ScrollBarImageColor3 = theme.primary
+        page.ScrollBarThickness = 6
+        page.Visible = false
+        pages[name] = page
+        return page
+    end
+
+    local scriptsPage = createPage("Scripts")
+    local scriptsLayout = Instance.new("UIGridLayout", scriptsPage)
+    scriptsLayout.CellSize = UDim2.new(0, 200, 0, 50)
+    scriptsLayout.CellPadding = UDim2.new(0, 15, 0, 15)
+    scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    scriptsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    local settingsPage = createPage("Settings")
+    local settingsLayout = Instance.new("UIListLayout", settingsPage)
+    settingsLayout.Padding = UDim.new(0, 10)
+
+    local infoPage = createPage("Info")
+    local infoLabel = Instance.new("TextLabel", infoPage)
+    infoLabel.Size = UDim2.new(1, -40, 0, 0)
+    infoLabel.AutomaticSize = Enum.AutomaticSize.Y
+    infoLabel.Position = UDim2.new(0, 20, 0, 20)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Font = Enum.Font.SourceSans
+    infoLabel.Text = "Crimson Hub\n\nThe Latest Script Hub Built for Powerful Executors.\nBy Kyr2o !"
+    infoLabel.TextColor3 = theme.text
+    infoLabel.TextSize = 16
+    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+    infoLabel.TextWrapped = true
+
+    createTab("Scripts")
+    createTab("Settings")
+    createTab("Info")
+
+    local function createScriptButton(name, callback)
+        local buttonData = {enabled = false}
+
+        local button = Instance.new("TextButton", scriptsPage)
+        button.Size = UDim2.new(0, 200, 0, 50)
+        button.BackgroundColor3 = theme.accent
+        button.Text = ""
+        Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+
+        local label = Instance.new("TextLabel", button)
+        label.Size = UDim2.new(1, -50, 1, 0)
+        label.Position = UDim2.new(0, 15, 0, 0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = theme.text
+        label.Text = name
+        label.Font = Enum.Font.Michroma
+        label.TextSize = 14
+        label.TextXAlignment = Enum.TextXAlignment.Left
+
+        local toggle = Instance.new("Frame", button)
+        toggle.Size = UDim2.new(0, 40, 0, 20)
+        toggle.Position = UDim2.new(1, -50, 0.5, -10)
+        toggle.BackgroundColor3 = theme.background
+        Instance.new("UICorner", toggle).CornerRadius = UDim.new(1, 0)
+
+        local toggleKnob = Instance.new("Frame", toggle)
+        toggleKnob.Size = UDim2.new(0, 14, 0, 14)
+        toggleKnob.Position = UDim2.new(0, 3, 0.5, -7)
+        toggleKnob.BackgroundColor3 = theme.primary
+        Instance.new("UICorner", toggleKnob).CornerRadius = UDim.new(1, 0)
+
+        local function updateToggle(manual)
+            buttonData.enabled = not buttonData.enabled
+            playSound(buttonData.enabled and "toggleOn" or "toggleOff")
+
+            local pos = buttonData.enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
+            local color = buttonData.enabled and theme.success or theme.primary
+            tweenService:Create(toggleKnob, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = pos, BackgroundColor3 = color}):Play()
+            if manual then pcall(callback, buttonData.enabled) end
+        end
+
+        button.MouseButton1Click:Connect(function() updateToggle(true) end)
+        button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
+        button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+    end
+
+    local function createScriptActionButton(name, callback)
+        local button = Instance.new("TextButton", scriptsPage)
+        button.Size = UDim2.new(0, 200, 0, 50)
+        button.BackgroundColor3 = theme.accent
+        button.Text = name
+        button.Font = Enum.Font.Michroma
+        button.TextSize = 14
+        button.TextColor3 = theme.text
+        Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+
+        button.MouseButton1Click:Connect(function()
+            playSound("click")
+            pcall(callback)
+        end)
+        button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
+        button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+    end
+
+function ui:LoadScripts(scriptLoader)
+    for _, child in ipairs(scriptsPage:GetChildren()) do
+        if not child:IsA("UIGridLayout") then child:Destroy() end
+    end
+    local scripts = scriptLoader()
+    if scripts then
+        for name, executeFunc in pairs(scripts) do
+            if name == "Break Gun" or name == "KillAll" then
+                createScriptActionButton(name, function() executeFunc(true) end)
+            else
+                createScriptButton(name, executeFunc)
+            end
+        end
     end
 end
 
-local function createVerificationUI()
+
+    function ui:SetVisibility(visible)
+        if ui.Visible == visible then return end
+        ui.Visible = visible
+
+        if visible then
+            playSound("open")
+            setBlur(true)
+            mainFrame.Visible = true
+            local introTween = TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+            mainFrame.Size = UDim2.new(0, 600, 0, 20)
+            mainFrame.Position = UDim2.new(0.5, -300, 0.5, -10)
+            tweenService:Create(mainFrame, introTween, {Size = UDim2.new(0, 600, 0, 400), Position = UDim2.new(0.5, -300, 0.5, -200)}):Play()
+        else
+            playSound("close")
+            setBlur(false)
+            local outroTween = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            tweenService:Create(mainFrame, outroTween, {Size = UDim2.new(0, 600, 0, 0), Position = UDim2.new(0.5, -300, 0.5, 0)}):Play()
+            task.wait(0.4)
+            mainFrame.Visible = false
+        end
+    end
+
+    closeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
+    minimizeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
+
+    userInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == toggleKey and userInputService:GetFocusedTextBox() == nil then
+            ui:SetVisibility(not ui.Visible)
+        end
+    end)
+
+    task.wait()
+    selectTab(tabs["Scripts"])
+
+    return ui
+end
+
+local function createVerificationUI(onSuccess)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 400, 0, 220)
     frame.Position = UDim2.new(0.5, -200, 0.5, -110)
@@ -325,43 +632,26 @@ local function createVerificationUI()
             loadingSpinner.Visible = false
             submit.Text = "SUBMIT"
 
-            if ok and respText then
-                local success, responseData = pcall(function()
-                    return httpService:JSONDecode(respText)
-                end)
-                
-                if success and responseData and responseData.success then
-                    playSound("success")
-                    sendNotification("Success", "Verification successful!", 1, "success")
-                    
-                    if key == "crimson-key" then
-                        local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
-                        outro:Play()
-                        outro.Completed:Wait()
-                        frame:Destroy()
-                        setBlur(false)
-                        
-                        task.wait(0.5)
-                        executeCrimsonHub()
-                    else
-                        sendNotification("Info", "Standard verification complete.", 2, "success")
-                    end
-                else
-                    playSound("error")
-                    sendNotification("Failed", "Invalid key provided.", 1, "error")
-                    local originalPos = frame.Position
-                    local shakeInfo = TweenInfo.new(0.07)
-                    for i = 1, 3 do
-                        tweenService:Create(frame, shakeInfo, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
-                        task.wait(0.07)
-                        tweenService:Create(frame, shakeInfo, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
-                        task.wait(0.07)
-                    end
-                    tweenService:Create(frame, shakeInfo, {Position = originalPos}):Play()
-                end
+            if ok and isPositiveResponse(respText) then
+                playSound("success")
+                sendNotification("Success", "Verification successful!", 1, "success")
+                local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
+                outro:Play()
+                outro.Completed:Wait()
+                frame:Destroy()
+                onSuccess()
             else
                 playSound("error")
-                sendNotification("Failed", "Connection error.", 1, "error")
+                sendNotification("Failed", "Invalid key provided.", 1, "error")
+                local originalPos = frame.Position
+                local shakeInfo = TweenInfo.new(0.07)
+                for i = 1, 3 do
+                    tweenService:Create(frame, shakeInfo, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
+                    task.wait(0.07)
+                    tweenService:Create(frame, shakeInfo, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
+                    task.wait(0.07)
+                end
+                tweenService:Create(frame, shakeInfo, {Position = originalPos}):Play()
             end
         end)
     end)
@@ -369,10 +659,43 @@ local function createVerificationUI()
     setBlur(true)
 end
 
-userInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == toggleKey and userInputService:GetFocusedTextBox() == nil then
-        createVerificationUI()
+local function loadGameScripts()
+    local gameId = tostring(game.PlaceId)
+    if gameId == "0" then sendNotification("Studio", "Cannot load scripts in Studio.", 5, "warning"); return end
+    local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
+    local ok, result = httpGet(apiUrl)
+    if not ok then sendNotification("Error", "Failed to contact GitHub.", 4, "error"); return end
+    local success, decoded = pcall(function() return httpService:JSONDecode(result) end)
+    if not success or type(decoded) ~= "table" or decoded.message then 
+        sendNotification("Not Found", "No scripts found for this game.", 4, "warning")
+        return 
     end
-end)
 
-createVerificationUI()
+    local scriptList = {}
+    for _, scriptInfo in ipairs(decoded) do
+        if scriptInfo.type == "file" and scriptInfo.download_url then
+            local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
+            scriptList[scriptName] = function(state)
+                if state == false then return end
+                local s, content = httpGet(scriptInfo.download_url)
+                if s and content then
+                    local f, e = loadstring(content)
+                    if f then 
+                        pcall(f)
+                    else 
+                        sendNotification("Script Error", tostring(e), 5, "error") 
+                    end
+                else
+                    sendNotification("Download Failed", "Could not download script.", 3, "error")
+                end
+            end
+        end
+    end
+    return scriptList
+end
+
+createVerificationUI(function()
+    local hub = mainUI:Create()
+    hub:LoadScripts(loadGameScripts)
+    hub:SetVisibility(true)
+end)
