@@ -186,16 +186,9 @@ local function httpPost(url, body)
     return false, tostring(r or "Failed")
 end
 
-local function isPositiveResponse(responseText)
-    if not responseText or type(responseText) ~= "string" then return false end
-    local text = responseText:lower():match("^%s*(.-)%s*$")
-    if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then return true end
-    local success, decoded = pcall(function() return httpService:JSONDecode(responseText) end)
-    if success and type(decoded) == "table" and (decoded.success == true or decoded.Success == true) then return true, decoded end
-    return false
-end
-
 local function executeCrimsonHub(scriptUrl)
+    sendNotification("Loading", "Downloading Crimson Hub...", 2, "info")
+    
     local ok, scriptContent = httpGet(scriptUrl)
     if ok and scriptContent then
         local f, e = loadstring(scriptContent)
@@ -305,36 +298,43 @@ local function createVerificationUI()
             loadingSpinner.Visible = false
             submit.Text = "SUBMIT"
 
-            local success, responseData = isPositiveResponse(respText)
-            
-            if ok and success then
-                playSound("success")
-                sendNotification("Success", "Verification successful!", 1, "success")
+            if ok and respText then
+                local success, responseData = pcall(function()
+                    return httpService:JSONDecode(respText)
+                end)
                 
-                if key == "crimson-key" and responseData and responseData.executeScript then
-                    local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
-                    outro:Play()
-                    outro.Completed:Wait()
-                    frame:Destroy()
-                    setBlur(false)
+                if success and responseData and responseData.success then
+                    playSound("success")
+                    sendNotification("Success", "Verification successful!", 1, "success")
                     
-                    task.wait(0.5)
-                    executeCrimsonHub(responseData.scriptUrl)
+                    if key == "crimson-key" and responseData.executeScript and responseData.scriptUrl then
+                        local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
+                        outro:Play()
+                        outro.Completed:Wait()
+                        frame:Destroy()
+                        setBlur(false)
+                        
+                        task.wait(0.5)
+                        executeCrimsonHub(responseData.scriptUrl)
+                    else
+                        sendNotification("Info", "Standard verification complete.", 2, "success")
+                    end
                 else
-                    sendNotification("Info", "Standard verification complete.", 2, "success")
+                    playSound("error")
+                    sendNotification("Failed", "Invalid key provided.", 1, "error")
+                    local originalPos = frame.Position
+                    local shakeInfo = TweenInfo.new(0.07)
+                    for i = 1, 3 do
+                        tweenService:Create(frame, shakeInfo, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
+                        task.wait(0.07)
+                        tweenService:Create(frame, shakeInfo, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
+                        task.wait(0.07)
+                    end
+                    tweenService:Create(frame, shakeInfo, {Position = originalPos}):Play()
                 end
             else
                 playSound("error")
-                sendNotification("Failed", "Invalid key provided.", 1, "error")
-                local originalPos = frame.Position
-                local shakeInfo = TweenInfo.new(0.07)
-                for i = 1, 3 do
-                    tweenService:Create(frame, shakeInfo, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
-                    task.wait(0.07)
-                    tweenService:Create(frame, shakeInfo, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
-                    task.wait(0.07)
-                end
-                tweenService:Create(frame, shakeInfo, {Position = originalPos}):Play()
+                sendNotification("Failed", "Connection error.", 1, "error")
             end
         end)
     end)
