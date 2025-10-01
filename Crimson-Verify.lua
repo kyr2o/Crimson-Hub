@@ -1,168 +1,326 @@
--- Crimson-Verify.lua (verification-only)
--- Expects Vercel to return: { success: true, script: "<lua code>" }
+local httpService = game:GetService("HttpService")
+local userInputService = game:GetService("UserInputService")
+local players = game:GetService("Players")
+local tweenService = game:GetService("TweenService")
+local runService = game:GetService("RunService")
+local lighting = game:GetService("Lighting")
 
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
+local localPlayer = players.LocalPlayer
+local mouse = localPlayer:GetMouse()
 
-local localPlayer = Players.LocalPlayer
+local serverUrl = "https://crimson-keys.vercel.app/api/verify"
+local toggleKey = Enum.KeyCode.RightControl
 
--- CONFIG
-local SERVER_URL = "https://crimson-keys.vercel.app/api/verify" -- POST JSON {key, placeId}
-
--- Simple theme + blur
 local theme = {
-  bg = Color3.fromRGB(21,22,28),
-  bg2 = Color3.fromRGB(30,32,40),
-  accent = Color3.fromRGB(227,38,54),
-  text = Color3.fromRGB(240,240,240),
-  text2 = Color3.fromRGB(150,150,150),
-  success = Color3.fromRGB(0,255,127),
-  error = Color3.fromRGB(227,38,54)
+    background = Color3.fromRGB(21, 22, 28),
+    backgroundSecondary = Color3.fromRGB(30, 32, 40),
+    accent = Color3.fromRGB(45, 48, 61),
+    primary = Color3.fromRGB(227, 38, 54),
+    primaryGlow = Color3.fromRGB(255, 60, 75),
+    text = Color3.fromRGB(240, 240, 240),
+    textSecondary = Color3.fromRGB(150, 150, 150),
+    success = Color3.fromRGB(0, 255, 127),
+    warning = Color3.fromRGB(255, 165, 0),
+    error = Color3.fromRGB(227, 38, 54)
 }
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
-screenGui.Name = "CrimsonVerifyOnly"
+screenGui.Name = "CrimsonVerify"
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 999
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
 local blur = Instance.new("BlurEffect")
 blur.Size = 0
-blur.Parent = Lighting
+blur.Parent = lighting
 
-local function setBlur(on)
-  TweenService:Create(blur, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = on and 12 or 0}):Play()
+local function setBlur(active)
+    tweenService:Create(blur, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = active and 12 or 0 }):Play()
 end
 
-local function notify(msg, color)
-  local m = Instance.new("Message")
-  m.Text = msg
-  m.Parent = workspace
-  task.delay(1.2, function() m:Destroy() end)
+local sounds = {
+    open = "rbxassetid://6366382384",
+    close = "rbxassetid://6366382384", 
+    toggleOn = "rbxassetid://6366382384",
+    toggleOff = "rbxassetid://6366382384",
+    click = "rbxassetid://6366382384",
+    error = "rbxassetid://5778393172",
+    success = "rbxassetid://8621028374",
+}
+
+for name, id in pairs(sounds) do
+    local sound = Instance.new("Sound")
+    sound.SoundId = id
+    sound.Name = name
+    sound.Volume = 0.4
+    sound.Parent = screenGui
+    sounds[name] = sound
 end
 
--- Minimal request helpers (JSON)
-local function postJson(url, jsonBody)
-  -- Prefer exploit request if available to preserve status codes
-  if request or (syn and syn.request) then
-    local req = request or syn.request
-    local ok, resp = pcall(function()
-      return req({
-        Url = url,
-        Method = "POST",
-        Headers = {["Content-Type"] = "application/json"},
-        Body = jsonBody
-      })
-    end)
-    if ok and resp and type(resp.Body) == "string" then
-      return true, resp.Body
+local function playSound(soundName)
+    if sounds[soundName] then
+        sounds[soundName]:Play()
     end
-  end
-  -- Fallback to Roblox HttpService (no status), still returns body
-  local ok, body = pcall(function()
-    return HttpService:PostAsync(url, jsonBody, Enum.HttpContentType.ApplicationJson)
-  end)
-  return ok, body
 end
 
--- UI
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 380, 0, 180)
-frame.Position = UDim2.new(0.5, -190, 0.5, -90)
-frame.BackgroundColor3 = theme.bg
-frame.Active = true
-frame.Draggable = true
-frame.Parent = screenGui
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
-Instance.new("UIStroke", frame).Color = theme.accent
+local notificationContainer = Instance.new("Frame")
+notificationContainer.Size = UDim2.new(1, 0, 1, 0)
+notificationContainer.BackgroundTransparency = 1
+notificationContainer.Parent = screenGui
+local notificationLayout = Instance.new("UIListLayout", notificationContainer)
+notificationLayout.FillDirection = Enum.FillDirection.Vertical
+notificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
+notificationLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+notificationLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+notificationLayout.Padding = UDim.new(0, 10)
 
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, 0, 0, 36)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.Michroma
-title.Text = "CRIMSON VERIFICATION"
-title.TextColor3 = theme.text
-title.TextSize = 16
+local function sendNotification(title, text, duration, notifType)
+    duration = duration or 1
+    notifType = notifType or "info"
 
-local input = Instance.new("TextBox", frame)
-input.Size = UDim2.new(1, -40, 0, 40)
-input.Position = UDim2.new(0, 20, 0, 60)
-input.BackgroundColor3 = theme.bg2
-input.TextColor3 = theme.text
-input.PlaceholderText = "Enter key"
-input.PlaceholderColor3 = theme.text2
-input.Font = Enum.Font.SourceSans
-input.TextSize = 16
-Instance.new("UICorner", input).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", input).Color = theme.accent
-
-local submit = Instance.new("TextButton", frame)
-submit.Size = UDim2.new(1, -40, 0, 38)
-submit.Position = UDim2.new(0, 20, 0, 116)
-submit.BackgroundColor3 = theme.accent
-submit.Text = "VERIFY"
-submit.Font = Enum.Font.Michroma
-submit.TextColor3 = Color3.new(1,1,1)
-submit.TextSize = 16
-Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 6)
-
-setBlur(true)
-
-local busy = false
-submit.MouseButton1Click:Connect(function()
-  if busy then return end
-  busy = true
-  local key = (input.Text or ""):gsub("^%s*(.-)%s*$","%1")
-  if key == "" then
-    notify("Please enter a key.", theme.error)
-    busy = false
-    return
-  end
-
-  submit.Text = "Checking..."
-  local payload = HttpService:JSONEncode({ key = key, placeId = game.PlaceId })
-
-  task.spawn(function()
-    local ok, body = postJson(SERVER_URL, payload)
-    submit.Text = "VERIFY"
-    if not ok or type(body) ~= "string" then
-      notify("Verification server error.", theme.error)
-      busy = false
-      return
+    local icon, color = "rbxassetid://7998631525", theme.primary
+    if notifType == "success" then
+        icon, color = "rbxassetid://8620935528", theme.success
+    elseif notifType == "warning" then
+        icon, color = "rbxassetid://8620936395", theme.warning
+    elseif notifType == "error" then
+        icon, color = "rbxassetid://8620934661", theme.error
     end
 
-    local good, data = pcall(function() return HttpService:JSONDecode(body) end)
-    if not good or type(data) ~= "table" then
-      notify("Invalid server response.", theme.error)
-      busy = false
-      return
-    end
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 70)
+    frame.Position = UDim2.new(1, 10, 1, -80)
+    frame.BackgroundColor3 = theme.backgroundSecondary
+    frame.BorderSizePixel = 0
+    frame.Parent = notificationContainer
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", frame)
+    stroke.Color = theme.accent
+    stroke.Thickness = 1.5
 
-    if data.success and type(data.script) == "string" then
-      -- Close UI and run hub
-      setBlur(false)
-      frame:Destroy()
-      local fn, err = loadstring(data.script)
-      if not fn then
-        notify("Hub load failed: "..tostring(err), theme.error)
-        busy = false
-        return
-      end
-      task.defer(fn)
-      -- Done, verification-only flow complete
+    local colorBar = Instance.new("Frame", frame)
+    colorBar.Size = UDim2.new(0, 5, 1, 0)
+    colorBar.BackgroundColor3 = color
+    colorBar.BorderSizePixel = 0
+    Instance.new("UICorner", colorBar).CornerRadius = UDim.new(0, 8)
+
+    local iconLabel = Instance.new("ImageLabel", frame)
+    iconLabel.Size = UDim2.new(0, 24, 0, 24)
+    iconLabel.Position = UDim2.new(0, 15, 0, 15)
+    iconLabel.Image = icon
+    iconLabel.ImageColor3 = color
+    iconLabel.BackgroundTransparency = 1
+
+    local titleLabel = Instance.new("TextLabel", frame)
+    titleLabel.Size = UDim2.new(1, -50, 0, 20)
+    titleLabel.Position = UDim2.new(0, 45, 0, 12)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title
+    titleLabel.Font = Enum.Font.Michroma
+    titleLabel.TextColor3 = theme.text
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local textLabel = Instance.new("TextLabel", frame)
+    textLabel.Size = UDim2.new(1, -50, 0, 20)
+    textLabel.Position = UDim2.new(0, 45, 0, 35)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text
+    textLabel.Font = Enum.Font.SourceSans
+    textLabel.TextColor3 = theme.textSecondary
+    textLabel.TextSize = 14
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextWrapped = true
+
+    local progressBar = Instance.new("Frame", frame)
+    progressBar.Size = UDim2.new(0, 0, 0, 2)
+    progressBar.Position = UDim2.new(0, 0, 1, -2)
+    progressBar.BackgroundColor3 = color
+    progressBar.BorderSizePixel = 0
+
+    local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -310, 1, -80)})
+    local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -80)})
+    local progressTween = tweenService:Create(progressBar, TweenInfo.new(duration), {Size = UDim2.new(1, 0, 0, 2)})
+
+    showTween:Play()
+    progressTween:Play()
+
+    task.wait(duration)
+
+    hideTween:Play()
+    hideTween.Completed:Wait()
+    frame:Destroy()
+end
+
+local function httpGet(url)
+    local success, result = pcall(function() return httpService:GetAsync(url) end)
+    if success and result then return true, tostring(result) end
+    local function tryRequest(reqFunc)
+        if not reqFunc then return false, nil end
+        local ok, resp = pcall(function() return reqFunc({Url = url, Method = "GET"}) end)
+        if ok and resp then return true, tostring(resp.Body or resp) end
+        return false, nil
+    end
+    local r, res = tryRequest(request)
+    if r then return r, res end
+    local s, res2 = tryRequest(syn and syn.request)
+    if s then return s, res2 end
+    return false, tostring(result or "Failed")
+end
+
+local function httpPost(url, body)
+    local bodyContent = tostring(body)
+    local s, r = pcall(function() return httpService:PostAsync(url, bodyContent, Enum.HttpContentType.TextPlain) end)
+    if s and r then return true, tostring(r) end
+     local function tryRequest(reqFunc)
+        if not reqFunc then return false, nil end
+        local ok, resp = pcall(function() return reqFunc({Url = url, Method = "POST", Headers = { ["Content-Type"] = "text/plain" }, Body = bodyContent}) end)
+        if ok and resp then return true, tostring(resp.Body or resp) end
+        return false, nil
+    end
+    local r2, res = tryRequest(request)
+    if r2 then return r2, res end
+    local s2, res2 = tryRequest(syn and syn.request)
+    if s2 then return s2, res2 end
+    return false, tostring(r or "Failed")
+end
+
+local function isPositiveResponse(responseText)
+    if not responseText or type(responseText) ~= "string" then return false end
+    local text = responseText:lower():match("^%s*(.-)%s*$")
+    if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then return true end
+    local success, decoded = pcall(function() return httpService:JSONDecode(responseText) end)
+    if success and type(decoded) == "table" and (decoded.success == true or decoded.Success == true) then return true, decoded end
+    return false
+end
+
+local function executeCrimsonHub(scriptUrl)
+    local ok, scriptContent = httpGet(scriptUrl)
+    if ok and scriptContent then
+        local f, e = loadstring(scriptContent)
+        if f then
+            pcall(f)
+            sendNotification("Success", "Crimson Hub loaded successfully!", 2, "success")
+        else
+            sendNotification("Script Error", "Failed to execute Crimson Hub", 3, "error")
+        end
     else
-      notify(data.message or "Invalid key.", theme.error)
+        sendNotification("Download Error", "Failed to download Crimson Hub", 3, "error")
     end
-    busy = false
-  end)
-end)
+end
 
--- Hide with RightControl for convenience
-UserInputService.InputBegan:Connect(function(inputObj)
-  if inputObj.KeyCode == Enum.KeyCode.RightControl then
-    frame.Visible = not frame.Visible
-    setBlur(frame.Visible)
-  end
-end)
+local function createVerificationUI()
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 400, 0, 220)
+    frame.Position = UDim2.new(0.5, -200, 0.5, -110)
+    frame.BackgroundColor3 = theme.background
+    frame.Draggable = true
+    frame.Active = true
+    frame.Parent = screenGui
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+    Instance.new("UIStroke", frame).Color = theme.accent
+
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, 0, 0, 60)
+    title.BackgroundTransparency = 1
+    title.Text = "VERIFICATION"
+    title.Font = Enum.Font.Michroma
+    title.TextColor3 = theme.text
+    title.TextSize = 28
+
+    local titleGlow = Instance.new("TextLabel", frame)
+    titleGlow.Size = title.Size
+    titleGlow.Position = title.Position
+    titleGlow.BackgroundTransparency = 1
+    titleGlow.Text = title.Text
+    titleGlow.Font = title.Font
+    titleGlow.TextColor3 = theme.primary
+    titleGlow.TextSize = title.TextSize
+    titleGlow.TextTransparency = 0.7
+    titleGlow.ZIndex = -1
+
+    local subtitle = Instance.new("TextLabel", frame)
+    subtitle.Size = UDim2.new(1, 0, 0, 20)
+    subtitle.Position = UDim2.new(0, 0, 0, 60)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = "Please enter your key to continue"
+    subtitle.Font = Enum.Font.SourceSans
+    subtitle.TextColor3 = theme.textSecondary
+    subtitle.TextSize = 16
+
+    local input = Instance.new("TextBox")
+    input.Size = UDim2.new(1, -40, 0, 45)
+    input.Position = UDim2.new(0, 20, 0, 100)
+    input.BackgroundColor3 = theme.backgroundSecondary
+    input.TextColor3 = theme.text
+    input.PlaceholderText = "Your Key"
+    input.PlaceholderColor3 = theme.textSecondary
+    input.Font = Enum.Font.SourceSans
+    input.TextSize = 16
+    input.Parent = frame
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", input).Color = theme.accent
+
+    local submit = Instance.new("TextButton", frame)
+    submit.Size = UDim2.new(1, -40, 0, 40)
+    submit.Position = UDim2.new(0, 20, 0, 160)
+    submit.BackgroundColor3 = theme.primary
+    submit.Text = "SUBMIT"
+    submit.Font = Enum.Font.Michroma
+    submit.TextColor3 = Color3.new(1, 1, 1)
+    submit.TextSize = 18
+    Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 6)
+
+    local loadingSpinner = Instance.new("ImageLabel", submit)
+    loadingSpinner.Image = "rbxassetid://5107930337" 
+    loadingSpinner.Size = UDim2.new(0, 24, 0, 24)
+    loadingSpinner.Position = UDim2.new(0.5, -12, 0.5, -12)
+    loadingSpinner.BackgroundTransparency = 1
+    loadingSpinner.ImageColor3 = Color3.new(1, 1, 1)
+    loadingSpinner.Visible = false
+
+    submit.MouseButton1Click:Connect(function()
+        playSound("click")
+        local key = input.Text
+        if not key or key == "" then
+            sendNotification("Error", "Please enter a key.", 1, "error")
+            return
+        end
+
+        submit.Text = ""
+        loadingSpinner.Visible = true
+        local rotationTween = tweenService:Create(loadingSpinner, TweenInfo.new(1, Enum.EasingStyle.Linear), { Rotation = 360 })
+        local conn
+        conn = rotationTween.Completed:Connect(function()
+             if loadingSpinner.Visible then rotationTween:Play() end
+        end)
+        rotationTween:Play()
+
+        task.spawn(function()
+            local ok, respText = httpPost(serverUrl, key)
+
+            rotationTween:Cancel()
+            conn:Disconnect()
+            loadingSpinner.Visible = false
+            submit.Text = "SUBMIT"
+
+            local success, responseData = isPositiveResponse(respText)
+            
+            if ok and success then
+                playSound("success")
+                sendNotification("Success", "Verification successful!", 1, "success")
+                
+                if key == "crimson-key" and responseData and responseData.executeScript then
+                    local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
+                    outro:Play()
+                    outro.Completed:Wait()
+                    frame:Destroy()
+                    setBlur(false)
+                    
+                    task.wait(0.5)
+                    executeCrimsonHub(responseData.scriptUrl)
+                else
+                    sendNotification("Info", "Standard verification complete.", 2, "success")
+                end
+            else
