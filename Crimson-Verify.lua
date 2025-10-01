@@ -1,14 +1,9 @@
 local GENV = (getgenv and getgenv()) or _G
 GENV.CRIMSON = GENV.CRIMSON or { ok = false, ts = 0, reason = "unset" }
-
--- Helper exposed to modules (optional convenience):
 GENV.CrimsonVerified = function()
     return (GENV.CRIMSON and GENV.CRIMSON.ok == true) or false
 end
 
---==================================================
--- Services and configuration
---==================================================
 local HttpService       = game:GetService("HttpService")
 local UserInputService  = game:GetService("UserInputService")
 local Players           = game:GetService("Players")
@@ -19,20 +14,12 @@ local Lighting          = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 local Mouse      = LocalPlayer:GetMouse()
 
-local VERBOSE        = false
 local githubUsername = "kyr2o"
 local repoName       = "Crimson-Hub"
 local branchName     = "main"
-
--- Your verify endpoint (provided)
 local serverUrl      = "https://crimson-keys.vercel.app/api/verify"
-
--- UI toggle
 local toggleKey      = Enum.KeyCode.RightControl
 
---==================================================
--- Theme and sounds
---==================================================
 local theme = {
     background = Color3.fromRGB(21, 22, 28),
     backgroundSecondary = Color3.fromRGB(30, 32, 40),
@@ -76,25 +63,23 @@ local sounds = {
 }
 
 for name, id in pairs(sounds) do
-    local sound = Instance.new("Sound")
-    sound.SoundId = id
-    sound.Name = name
-    sound.Volume = 0.4
-    sound.Parent = screenGui
-    sounds[name] = sound
+    local s = Instance.new("Sound")
+    s.SoundId = id
+    s.Name = name
+    s.Volume = 0.4
+    s.Parent = screenGui
+    sounds[name] = s
 end
 
-local function playSound(soundName)
-    if sounds[soundName] then sounds[soundName]:Play() end
+local function playSound(name)
+    if sounds[name] then sounds[name]:Play() end
 end
 
---==================================================
--- Notifications
---==================================================
 local notificationContainer = Instance.new("Frame")
 notificationContainer.Size = UDim2.new(1, 0, 1, 0)
 notificationContainer.BackgroundTransparency = 1
 notificationContainer.Parent = screenGui
+
 local notificationLayout = Instance.new("UIListLayout", notificationContainer)
 notificationLayout.FillDirection = Enum.FillDirection.Vertical
 notificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -178,9 +163,6 @@ local function sendNotification(title, text, duration, notifType)
     frame:Destroy()
 end
 
---==================================================
--- HTTP helpers
---==================================================
 local function httpGet(url)
     local success, result = pcall(function() return HttpService:GetAsync(url) end)
     if success and result then return true, tostring(result) end
@@ -236,9 +218,6 @@ local function isPositiveResponse(responseText)
     return false
 end
 
---==================================================
--- Main UI (kept as provided; only minimal glue added)
---==================================================
 local mainUI = {}
 
 function mainUI:Create()
@@ -344,6 +323,7 @@ function mainUI:Create()
     sidebar.BackgroundColor3 = theme.backgroundSecondary
     sidebar.BorderSizePixel = 0
     sidebar.ZIndex = 2
+
     local sidebarLayout = Instance.new("UIListLayout", sidebar)
     sidebarLayout.Padding = UDim.new(0, 10)
     sidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -378,7 +358,7 @@ function mainUI:Create()
         end
         TweenService:Create(tab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
         TweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
-        if tabs[tab.Name] then tabs[tab.Name].Visible = true end
+        if tabs[tab.Name] then pages[tab.Name].Visible = true end
     end
 
     local function createTab(name)
@@ -554,31 +534,13 @@ function mainUI:Create()
         end
     end)
 
-task.wait()
-
-local function selectDefaultTab()
-    local tab = tabs["Scripts"]
-    if tab then
-        for _, other in pairs(sidebar:GetChildren()) do
-            if other:IsA("TextButton") and other ~= tab then
-                TweenService:Create(other:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
-                TweenService:Create(other, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
-            end
-        end
-        for _, page in pairs(contentContainer:GetChildren()) do
-            if page:IsA("Frame") or page:IsA("ScrollingFrame") then page.Visible = false end
-        end
-        TweenService:Create(tab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
-        TweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
-        if tabs["Scripts"] then pages["Scripts"].Visible = true end
+    if tabs["Scripts"] then
+        selectTab(tabs["Scripts"])
     end
+
+    return ui
 end
 
-selectDefaultTab()
-
---==================================================
--- Verification UI (kept; only adds global flag set on success)
---==================================================
 local function createVerificationUI(onSuccess)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 400, 0, 220)
@@ -670,20 +632,17 @@ local function createVerificationUI(onSuccess)
             local ok, respText = httpPost(serverUrl, key)
 
             rotationTween:Cancel()
-            conn:Disconnect()
+            if conn then conn:Disconnect() end
             loadingSpinner.Visible = false
             submit.Text = "SUBMIT"
 
             if ok and isPositiveResponse(respText) then
-                -- Mark verified globally for all modules
                 local now = (tick and tick()) or os.time()
                 GENV.CRIMSON.ok = true
                 GENV.CRIMSON.ts = now
                 GENV.CRIMSON.reason = "verified"
-                -- Optional: simple event for listeners
                 if not GENV.CRIMSON.Event then
-                    local ev = Instance.new("BindableEvent")
-                    GENV.CRIMSON.Event = ev
+                    GENV.CRIMSON.Event = Instance.new("BindableEvent")
                 end
                 GENV.CRIMSON.Event:Fire(true)
 
@@ -718,9 +677,6 @@ local function createVerificationUI(onSuccess)
     setBlur(true)
 end
 
---==================================================
--- Script discovery/loader from GitHub
---==================================================
 local function loadGameScripts()
     local gameId = tostring(game.PlaceId)
     if gameId == "0" then
@@ -745,13 +701,11 @@ local function loadGameScripts()
         if scriptInfo.type == "file" and scriptInfo.download_url then
             local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
             scriptList[scriptName] = function(state)
-                -- Gate: do not execute if not verified
                 if state == false then return end
                 if not ((GENV.CRIMSON and GENV.CRIMSON.ok) == true) then
                     sendNotification("Locked", "Verify to run scripts.", 2, "warning")
                     return
                 end
-
                 local s, content = httpGet(scriptInfo.download_url)
                 if s and content then
                     local f, e = loadstring(content)
@@ -769,11 +723,10 @@ local function loadGameScripts()
     return scriptList
 end
 
---==================================================
--- Boot
---==================================================
-createVerificationUI(function()
+local function startHub()
     local hub = mainUI:Create()
     hub:LoadScripts(loadGameScripts)
     hub:SetVisibility(true)
-end)
+end
+
+createVerificationUI(startHub)
