@@ -409,7 +409,7 @@ function mainUI:Create()
     infoLabel.Position = UDim2.new(0, 20, 0, 20)
     infoLabel.BackgroundTransparency = 1
     infoLabel.Font = Enum.Font.SourceSans
-    infoLabel.Text = "Crimson Hub\n\nUI Revamped by HackMrTank\nOriginal script by kyr2o."
+    infoLabel.Text = "Crimson Hub\n\nThe Latest Script Hub Built for Powerful Executors.\nBy Kyr2o !"
     infoLabel.TextColor3 = theme.text
     infoLabel.TextSize = 16
     infoLabel.TextXAlignment = Enum.TextXAlignment.Left
