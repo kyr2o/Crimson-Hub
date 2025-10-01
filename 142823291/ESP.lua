@@ -1,19 +1,21 @@
 local Shared = (getgenv and getgenv()) or _G
+local G = Shared
+G.CRIMSON = G.CRIMSON or { ok = false }
 
 if Shared.CRIMSON_ESP and Shared.CRIMSON_ESP.disable then
     pcall(function() Shared.CRIMSON_ESP.disable(true) end)
 end
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local Players     = game:GetService("Players")
+local RunService  = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 local State = {
     enabled = false,
     conns = {},
     charConns = {},
-    highlights = {},   
-    billboards = {},   
+    highlights = {},
+    billboards = {},
     bumpedOnce = {},
     lastRole = {},
 }
@@ -39,7 +41,6 @@ local function disconnectAll()
 end
 
 local function removeVisualsFor(player)
-
     if State.highlights[player] then
         destroySafe(State.highlights[player])
         State.highlights[player] = nil
@@ -65,10 +66,8 @@ local function removeVisualsFor(player)
 end
 
 local function removeAllVisuals()
-
     for plr, h in pairs(State.highlights) do destroySafe(h); State.highlights[plr] = nil end
     for plr, b in pairs(State.billboards) do destroySafe(b); State.billboards[plr] = nil end
-
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then removeVisualsFor(plr) end
     end
@@ -190,7 +189,7 @@ local function updatePlayer(player)
     local character = player.Character
     if not character then return end
 
-    local hasGun = hasItem(character, "Gun")
+    local hasGun  = hasItem(character, "Gun")
     local hasKnife = hasItem(character, "Knife")
 
     if hasKnife then
@@ -200,7 +199,6 @@ local function updatePlayer(player)
         setHighlight(player, character, Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0.7))
         setBillboard(player, character, "Sheriff", Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0))
     else
-
         removeVisualsFor(player)
     end
 end
@@ -247,7 +245,6 @@ Shared.CRIMSON_ESP = {
 
     disable = function(silent)
         if not State.enabled then
-
             removeAllVisuals()
             return
         end
@@ -260,4 +257,17 @@ Shared.CRIMSON_ESP = {
     end
 }
 
-Shared.CRIMSON_ESP.enable()
+if G.CRIMSON.ok == true then
+    Shared.CRIMSON_ESP.enable()
+else
+    if G.CRIMSON.Event and G.CRIMSON.Event.Event then
+        local conn
+        conn = G.CRIMSON.Event.Event:Connect(function(ok)
+            if ok == true then
+                if conn then conn:Disconnect() end
+                Shared.CRIMSON_ESP.enable()
+            end
+        end)
+    end
+    return
+end
