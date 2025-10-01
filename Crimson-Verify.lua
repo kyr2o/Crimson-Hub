@@ -181,19 +181,23 @@ local function httpGet(url)
     return false, tostring(result or "Failed")
 end
 
-local function httpPost(url, body)
-    local bodyContent = tostring(body or "")
-    local s, r = pcall(function() return HttpService:PostAsync(url, bodyContent, Enum.HttpContentType.TextPlain) end)
+local function httpPost(url, key)
+    local payload = HttpService:JSONEncode({ key = key })
+    -- Native JSON post
+    local s, r = pcall(function()
+        return HttpService:PostAsync(url, payload, Enum.HttpContentType.ApplicationJson)
+    end)
     if s and r then return true, tostring(r) end
 
+    -- Exploit/compat fallbacks
     local function tryRequest(reqFunc)
         if not reqFunc then return false, nil end
         local ok, resp = pcall(function()
             return reqFunc({
                 Url = url,
                 Method = "POST",
-                Headers = { ["Content-Type"] = "text/plain" },
-                Body = bodyContent
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = payload
             })
         end)
         if ok and resp then return true, tostring(resp.Body or resp) end
@@ -209,14 +213,21 @@ end
 
 local function isPositiveResponse(responseText)
     if not responseText or type(responseText) ~= "string" then return false end
+    -- Prefer JSON
+    local okJ, decoded = pcall(function() return HttpService:JSONDecode(responseText) end)
+    if okJ and type(decoded) == "table" then
+        if decoded.success == true or decoded.ok == true or decoded.Success == true then
+            return true
+        end
+    end
+    -- Fallback to simple text checks
     local text = responseText:lower():match("^%s*(.-)%s*$")
-    if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then return true end
-    local success, decoded = pcall(function() return HttpService:JSONDecode(responseText) end)
-    if success and type(decoded) == "table" and (decoded.ok == true or decoded.success == true or decoded.Success == true) then
+    if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then
         return true
     end
     return false
 end
+
 
 local mainUI = {}
 
