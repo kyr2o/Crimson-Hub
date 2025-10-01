@@ -556,7 +556,6 @@ function mainUI:Create()
 
 task.wait()
 
--- select Scripts by default (avoid IIFE ambiguity)
 local function selectDefaultTab()
     local tab = tabs["Scripts"]
     if tab then
@@ -576,7 +575,6 @@ local function selectDefaultTab()
 end
 
 selectDefaultTab()
-
 
 --==================================================
 -- Verification UI (kept; only adds global flag set on success)
