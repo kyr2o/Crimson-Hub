@@ -80,7 +80,7 @@ notificationLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 notificationLayout.Padding = UDim.new(0, 10)
 
 local function sendNotification(title, text, duration, notifType)
-    duration = duration or 5
+    duration = duration or 1
     notifType = notifType or "info"
 
     local icon, color = "rbxassetid://7998631525", theme.primary
@@ -611,7 +611,7 @@ local function createVerificationUI(onSuccess)
         playSound("click")
         local key = input.Text
         if not key or key == "" then
-            sendNotification("Error", "Please enter a key.", 3, "error")
+            sendNotification("Error", "Please enter a key.", 1, "error")
             return
         end
 
@@ -634,7 +634,7 @@ local function createVerificationUI(onSuccess)
 
             if ok and isPositiveResponse(respText) then
                 playSound("success")
-                sendNotification("Success", "Verification successful!", 3, "success")
+                sendNotification("Success", "Verification successful!", 1, "success")
                 local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
                 outro:Play()
                 outro.Completed:Wait()
@@ -642,7 +642,7 @@ local function createVerificationUI(onSuccess)
                 onSuccess()
             else
                 playSound("error")
-                sendNotification("Failed", "Invalid key provided.", 4, "error")
+                sendNotification("Failed", "Invalid key provided.", 1, "error")
                 local originalPos = frame.Position
                 local shakeInfo = TweenInfo.new(0.07)
                 for i = 1, 3 do
