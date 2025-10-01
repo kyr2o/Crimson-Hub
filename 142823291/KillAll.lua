@@ -1,4 +1,4 @@
-etgenv and getgenv()) or _G
+getgenv and getgenv()) or _G
 G.CRIMSON = G.CRIMSON or { ok = false }
 
 local players = game:GetService("Players")
