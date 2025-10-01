@@ -483,21 +483,29 @@ function mainUI:Create()
         button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
     end
 
-    function ui:LoadScripts(scriptLoader)
-        for _, child in ipairs(scriptsPage:GetChildren()) do
-            if not child:IsA("UIGridLayout") then child:Destroy() end
-        end
-        local scripts = scriptLoader()
-        if scripts then
-            for name, executeFunc in pairs(scripts) do
-                if name == "Break Gun" then
-                    createScriptActionButton(name, function() executeFunc(true) end)
-                else
-                    createScriptButton(name, executeFunc)
-                end
+function ui:LoadScripts(scriptLoader)
+    for _, child in ipairs(scriptsPage:GetChildren()) do
+        if not child:IsA("UIGridLayout") then child:Destroy() end
+    end
+    local scripts = scriptLoader()
+    if scripts then
+        for name, executeFunc in pairs(scripts) do
+            if name == "Break Gun" then
+                createScriptActionButton(name, function() executeFunc(true) end)
+            elseif name == "ESP" then
+                createScriptButton(name, function(state)
+                    executeFunc(state)
+                    if not state then
+                        removeAllESPVisuals()
+                    end
+                end)
+            else
+                createScriptButton(name, executeFunc)
             end
         end
     end
+end
+
 
     function ui:SetVisibility(visible)
         if ui.Visible == visible then return end
