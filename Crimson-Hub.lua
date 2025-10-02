@@ -197,6 +197,22 @@ if s then return s, res2 end
 return false, tostring(result or "Failed")
 end
 
+local function enableAutoScroll(sf)
+    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sf.CanvasSize = UDim2.new(0, 0, 0, 0)
+    local layout = sf:FindFirstChildOfClass("UIListLayout") or sf:FindFirstChildOfClass("UIGridLayout")
+    if not layout then return end
+    local function resize()
+        sf.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+    end
+    resize()
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
+end
+
+enableAutoScroll(scriptsPage)
+enableAutoScroll(universalPage)
+
+
 local function httpPost(url, body)
 local bodyContent = tostring(body)
 local s, r = pcall(function() return httpService:PostAsync(url, bodyContent, Enum.HttpContentType.TextPlain) end)
@@ -543,12 +559,14 @@ local scriptsPage = createPage("Scripts")
 local scriptsLayout = Instance.new("UIListLayout", scriptsPage)
 scriptsLayout.Padding = UDim.new(0, 8)
 scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+enableAutoScroll(scriptsPage)
 
 local universalPage = createPage("Universal")
 local universalLayout = Instance.new("UIListLayout", universalPage)
 universalLayout.Padding = UDim.new(0, 15)
 universalLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 universalLayout.SortOrder = Enum.SortOrder.LayoutOrder
+enableAutoScroll(universalPage)
 
 local settingsPage = createPage("Settings")
 local settingsLayout = Instance.new("UIListLayout", settingsPage)
@@ -891,20 +909,18 @@ function ui:LoadScripts(scriptLoader)
         end
     else
 
-        local grid = Instance.new("UIGridLayout", scriptsPage)
-        grid.CellSize = UDim2.new(0, 200, 0, 50)
-        grid.CellPadding = UDim2.new(0, 15, 0, 15)
-        grid.SortOrder = Enum.SortOrder.LayoutOrder
-        grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        for name, executeFunc in pairs(scripts) do
-            if name == "Break Gun" or name == "KillAll" then
-                createActionButton(scriptsPage, name, function() executeFunc(true) end)
-            else
-                createScriptButton(scriptsPage, name, executeFunc)
-            end
-        end
-    end
+local grid = Instance.new("UIGridLayout", row)
+grid.CellSize = UDim2.new(0, 200, 0, 50)
+grid.CellPadding = UDim2.new(0, 10, 0, 10)
+grid.SortOrder = Enum.SortOrder.LayoutOrder
+grid.FillDirection = Enum.FillDirection.Horizontal
+grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
+
+local function resizeRow()
+    row.Size = UDim2.new(1, 0, 0, math.max(50, grid.AbsoluteContentSize.Y))
 end
+resizeRow()
+grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeRow)
 
 function ui:SetVisibility(visible)
     if ui.Visible == visible then return end
