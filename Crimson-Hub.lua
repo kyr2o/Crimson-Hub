@@ -645,6 +645,7 @@ function mainUI:Create()
                     local row = Instance.new("Frame", scriptsPage)
                     row.Size = UDim2.new(1, 0, 0, 50) -- Adjusted height to fit 50px buttons
                     row.BackgroundTransparency = 1
+                    -- row.AutomaticSize = Enum.AutomaticSize.Y -- Removed for consistency with fixed height
                     local hlist = Instance.new("UIListLayout", row)
                     hlist.FillDirection = Enum.FillDirection.Horizontal
                     hlist.Padding = UDim.new(0, 10)
@@ -659,7 +660,7 @@ function mainUI:Create()
                             elseif modName == "Auto Shoot" then
                                 -- Auto Shoot Toggle
                                 local autoRow = Instance.new("Frame", scriptsPage)
-                                autoRow.Size = UDim2.new(1, 0, 0, 48)
+                                autoRow.Size = UDim2.new(1, 0, 0, 50) -- Adjusted height to fit 50px button
                                 autoRow.BackgroundTransparency = 1
 
                                 local autoToggle = createScriptButton(autoRow, "Auto Shoot", function(state)
@@ -668,9 +669,8 @@ function mainUI:Create()
                                     G.CRIMSON_AUTO_SHOOT.enabled = state
                                     if state then fn(true) end -- Load script on first toggle
                                 end)
-                                autoToggle.Size = UDim2.new(0, 260, 0, 40)
-                                autoToggle.AnchorPoint = Vector2.new(0, 0)
-                                autoToggle.Position = UDim2.new(0, 0, 0, 4)
+                                autoToggle.AnchorPoint = Vector2.new(0, 0.5) -- Snap to left edge, vertically centered
+                                autoToggle.Position = UDim2.new(0, 10, 0.5, 0) -- 10px left margin
 
                                 -- Shoot Prediction Card
                                 local predRow = Instance.new("Frame", scriptsPage)
@@ -678,9 +678,9 @@ function mainUI:Create()
                                 predRow.BackgroundTransparency = 1
 
                                 local predCard = Instance.new("Frame", predRow)
-                                predCard.Size = UDim2.new(0, 260, 0, 40)
-                                predCard.AnchorPoint = Vector2.new(0, 0)
-                                predCard.Position = UDim2.new(0, 0, 0, 0)
+                                predCard.Size = UDim2.new(0, 240, 0, 40)
+                                predCard.AnchorPoint = Vector2.new(0, 0.5) -- Snap to left edge, vertically centered
+                                predCard.Position = UDim2.new(0, 10, 0.5, 0)
                                 predCard.BackgroundColor3 = theme.accent
                                 Instance.new("UICorner", predCard).CornerRadius = UDim.new(0, 6)
 
@@ -738,6 +738,7 @@ function mainUI:Create()
                         local row = Instance.new("Frame", scriptsPage)
                         row.Size = UDim2.new(1, 0, 0, 50)
                         row.BackgroundTransparency = 1
+                        -- row.AutomaticSize = Enum.AutomaticSize.Y -- Removed for consistency with fixed height
                         local hlist = Instance.new("UIListLayout", row)
                         hlist.FillDirection = Enum.FillDirection.Horizontal
                         hlist.Padding = UDim.new(0, 10)
@@ -806,7 +807,7 @@ local function createVerificationUI(onSuccess)
     frame.Draggable = true
     frame.Active = true
     frame.Parent = screenGui
-    Instance.new("UICorner", frame).CornerRadius = UDim2.new(0, 10)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
     Instance.new("UIStroke", frame).Color = theme.accent
 
     local title = Instance.new("TextLabel", frame)
