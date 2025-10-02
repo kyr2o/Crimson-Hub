@@ -1,40 +1,28 @@
 local CoreGui = game:GetService("CoreGui")
 local Players  = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 
+local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 if not CoreGui:FindFirstChild(MARKER_NAME) then return end
 
-local function notifyWaiting()
-    local sg = CoreGui:FindFirstChild("RobloxGui") 
-    local ok, fn = pcall(function() return getgenv and getgenv().sendNotification end)
-    if ok and typeof(fn) == "function" then
-        pcall(function() fn("Crimson Hub", "Waiting for Sheriff to Equip Gun", 2, "info") end)
-    else
-
-        local ok2, fn2 = pcall(function() return _G and _G.sendNotification end)
-        if ok2 and typeof(fn2) == "function" then
-            pcall(function() fn2("Crimson Hub", "Waiting for Sheriff to Equip Gun", 2, "info") end)
-        end
-    end
-end
+local Shared = (getgenv and getgenv()) or _G
+local notify = Shared.CRIMSON_NOTIFY 
 
 local function isAlive(plr)
-    local c = plr.Character
-    if not c then return false end
-    local h = c:FindFirstChildOfClass("Humanoid")
-    if not h then return false end
-    if c:GetAttribute("Alive") == false then return false end
-    return h.Health > 0
+    local ch = plr.Character
+    if not ch then return false end
+    local hum = ch:FindFirstChildOfClass("Humanoid")
+    if not hum then return false end
+    if ch:GetAttribute("Alive") == false then return false end
+    return hum.Health > 0
 end
 
-local function getSheriff()
+local function findSheriff()
     for _, p in ipairs(Players:GetPlayers()) do
-        if p.Character then
-            local gunInChar = p.Character:FindFirstChild("Gun") or p.Character:FindFirstChild("Gun", true)
+        if p ~= Players.LocalPlayer and p.Character and isAlive(p) then
+            local ch = p.Character
             local backpack = p:FindFirstChild("Backpack")
-            local gunInPack = backpack and backpack:FindFirstChild("Gun")
-            if gunInChar or gunInPack then
+            if ch:FindFirstChild("Gun") or (backpack and backpack:FindFirstChild("Gun")) then
                 return p
             end
         end
@@ -42,55 +30,58 @@ local function getSheriff()
     return nil
 end
 
-local function waitForSheriffEquipped(sheriff)
-    if not (sheriff and isAlive(sheriff)) then return nil end
+local function waitForSheriffGunEquipped(sheriff)
+    local ch = sheriff.Character
+    if not (ch and isAlive(sheriff)) then return false end
 
-    notifyWaiting()
+    if ch:FindFirstChild("Gun") then return true end
 
-    local diedConn
-    local function died()
-        if diedConn then diedConn:Disconnect() end
-        diedConn = nil
-    end
-    local char = sheriff.Character or sheriff.CharacterAdded:Wait()
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        diedConn = hum.Died:Connect(died)
-    end
+    if notify then pcall(function() notify("Break Gun", "Waiting for sheriff to equip gun…", 2, "info") end) end
 
-    while sheriff and isAlive(sheriff) do
-        char = sheriff.Character
-        if not char then sheriff.CharacterAdded:Wait() end
-        char = sheriff.Character
-        if not char then break end
-        local gunEquipped = char:FindFirstChild("Gun") or char:FindFirstChild("Gun", true)
-        if gunEquipped then
-            if diedConn then diedConn:Disconnect() end
-            return gunEquipped
+    local hum = ch:FindFirstChildOfClass("Humanoid")
+    local equipped = false
+    local died = false
+    local connAdded, connDied
+
+    connAdded = ch.ChildAdded:Connect(function(inst)
+        if inst and inst:IsA("Tool") and inst.Name == "Gun" then
+            equipped = true
         end
+    end)
+
+    if hum then
+        connDied = hum.Died:Connect(function() died = true end)
+    end
+
+    while not equipped and not died and isAlive(sheriff) do
         RunService.Heartbeat:Wait()
     end
 
-    if diedConn then diedConn:Disconnect() end
-    return nil
+    if connAdded then connAdded:Disconnect() end
+    if connDied then connDied:Disconnect() end
+    return equipped and isAlive(sheriff)
 end
 
-local function run()
+local function breakGunLoop(gun)
+    local shoot = gun and gun:FindFirstChild("ShootGun", true)
+    while shoot and shoot.Parent do
 
-    local sheriff = getSheriff()
-    if not sheriff then return end
-    if not isAlive(sheriff) then return end
-
-    local equippedGun = waitForSheriffEquipped(sheriff)
-    if not equippedGun then return end
-
-    local shoot = equippedGun:FindFirstChild("ShootGun", true)
-    if not shoot then return end
-
-    while shoot and shoot.Parent and sheriff and isAlive(sheriff) do
         shoot:InvokeServer(1, 0, "AH2")
         RunService.Heartbeat:Wait()
     end
 end
 
-run()
+local sheriff = findSheriff()
+if not sheriff then return end
+if not isAlive(sheriff) then return end
+
+if not waitForSheriffGunEquipped(sheriff) then
+
+    return
+end
+
+local ch = sheriff.Character
+local gun = ch and (ch:FindFirstChild("Gun") or ch:FindFirstChild("Gun", true))
+if gun then
+    breakGunLoop(gun)
+end
