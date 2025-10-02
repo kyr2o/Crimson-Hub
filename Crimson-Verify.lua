@@ -241,6 +241,46 @@ local function tryDisableByName(scriptName)
     end
 end
 
+local function tryCopyToClipboard(text, parentForFallback)
+    local ok = false
+    local function try(f)
+        if not ok and typeof(f) == "function" then
+            local s = pcall(function() f(text) end)
+            if s then ok = true end
+        end
+    end
+
+    local env = (getgenv and getgenv()) or _G
+    try(rawget(env or {}, "setclipboard"))
+    try(rawget(_G, "setclipboard"))
+    try(rawget(env or {}, "toclipboard"))
+    if not ok and typeof(setclipboard) == "function" then try(setclipboard) end
+    if not ok and typeof(toclipboard) == "function" then try(toclipboard) end
+    if not ok and syn and typeof(syn.write_clipboard) == "function" then try(syn.write_clipboard) end
+    if not ok and clipboard and typeof(clipboard.set) == "function" then try(clipboard.set) end
+
+    if ok then return true end
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(1, -40, 0, 36)
+    box.Position = UDim2.new(0, 20, 1, 10)
+    box.BackgroundColor3 = theme.backgroundSecondary
+    box.TextColor3 = theme.text
+    box.TextEditable = false
+    box.ClearTextOnFocus = false
+    box.Text = text
+    box.Parent = parentForFallback
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", box).Color = theme.accent
+
+    box:CaptureFocus()
+    box.SelectionStart = 1
+    box.CursorPosition = string.len(box.Text) + 1
+
+    task.delay(5, function() if box and box.Parent then box:Destroy() end end)
+    return false
+end
+
 local mainUI = {}
 
 function mainUI:Create()
@@ -584,8 +624,8 @@ end
 
 local function createVerificationUI(onSuccess)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 220)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -110)
+    frame.Size = UDim2.new(0, 400, 0, 270) 
+    frame.Position = UDim2.new(0.5, -200, 0.5, -135)
     frame.BackgroundColor3 = theme.background
     frame.Draggable = true
     frame.Active = true
@@ -627,7 +667,7 @@ local function createVerificationUI(onSuccess)
     submit.Size = UDim2.new(1, -40, 0, 40)
     submit.Position = UDim2.new(0, 20, 0, 160)
     submit.BackgroundColor3 = theme.primary
-    submit.Text = "SUBMIT"
+    submit.Text = "VERIFY"
     submit.Font = Enum.Font.Michroma
     submit.TextColor3 = Color3.new(1, 1, 1)
     submit.TextSize = 18
@@ -640,6 +680,29 @@ local function createVerificationUI(onSuccess)
     loadingSpinner.BackgroundTransparency = 1
     loadingSpinner.ImageColor3 = Color3.new(1, 1, 1)
     loadingSpinner.Visible = false
+
+    local getLink = Instance.new("TextButton", frame)
+    getLink.Size = UDim2.new(1, -40, 0, 36)
+    getLink.Position = UDim2.new(0, 20, 0, 208)
+    getLink.BackgroundColor3 = theme.accent
+    getLink.Text = "GET LINK"
+    getLink.Font = Enum.Font.Michroma
+    getLink.TextColor3 = theme.text
+    getLink.TextSize = 16
+    Instance.new("UICorner", getLink).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", getLink).Color = theme.accent
+
+    local LINK_TO_COPY = "https://workink.net/25bz/0qrqef0f"
+
+    getLink.MouseButton1Click:Connect(function()
+        playSound("click")
+        local ok = tryCopyToClipboard(LINK_TO_COPY, frame)
+        if ok then
+            sendNotification("Copied", "Link copied to clipboard.", 1, "success")
+        else
+            sendNotification("Copy", "Clipboard not available; select and copy.", 2, "warning")
+        end
+    end)
 
     submit.MouseButton1Click:Connect(function()
         playSound("click")
@@ -664,10 +727,9 @@ local function createVerificationUI(onSuccess)
             rotationTween:Cancel()
             conn:Disconnect()
             loadingSpinner.Visible = false
-            submit.Text = "SUBMIT"
+            submit.Text = "VERIFY"
 
             if ok and isPositiveResponse(respText) then
-
                 local marker = CoreGui:FindFirstChild(MARKER_NAME) or Instance.new("Folder")
                 marker.Name = MARKER_NAME
                 marker:SetAttribute("ver", 1)
@@ -718,7 +780,6 @@ local function loadGameScripts()
             local url = scriptInfo.download_url
 
             scriptList[scriptName] = function(state)
-
                 if state == false then
                     tryDisableByName(scriptName)
                     return
