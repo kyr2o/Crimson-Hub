@@ -36,7 +36,7 @@ local CATEGORY_SPEC = {
     [MM2_PLACEID] = {
         { title = "ESP",     modules = { "RoleESP", "Trap ESP" } },
         { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun" } },
-        { title = "Farming", modules = { "Coin Farm" } }, -- NEW
+        { title = "Farming", modules = { "Coin Farm" } },
         { title = "Other",   modules = "REMAINDER" },
     },
 }
@@ -733,7 +733,7 @@ do
         for _, player in ipairs(players:GetPlayers()) do setupESP(player) end
         table.insert(G.CRIMSON_ESP_DATA.connections, players.PlayerAdded:Connect(setupESP))
     end
-    createScriptButton(universalPage, "ESP", toggleESP)
+    createScriptButton(universalPage, "RoleESP", toggleESP)
 
     localPlayer.CharacterAdded:Connect(function(char)
         local humanoid = char:WaitForChild("Humanoid")
