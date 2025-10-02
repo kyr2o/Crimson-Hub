@@ -1,6 +1,15 @@
+-- Crimson ESP (CoreGui marker-gated)
+
+local CoreGui = game:GetService("CoreGui")
+local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
+
+-- fail closed unless the hub’s marker exists
+if not CoreGui:FindFirstChild(MARKER_NAME) then
+    return
+end
+
 local Shared = (getgenv and getgenv()) or _G
 local G = Shared
-G.CRIMSON = G.CRIMSON or { ok = false }
 
 if Shared.CRIMSON_ESP and Shared.CRIMSON_ESP.disable then
     pcall(function() Shared.CRIMSON_ESP.disable(true) end)
@@ -41,23 +50,15 @@ local function disconnectAll()
 end
 
 local function removeVisualsFor(player)
-    if State.highlights[player] then
-        destroySafe(State.highlights[player])
-        State.highlights[player] = nil
-    end
-    if State.billboards[player] then
-        destroySafe(State.billboards[player])
-        State.billboards[player] = nil
-    end
+    if State.highlights[player] then destroySafe(State.highlights[player]); State.highlights[player] = nil end
+    if State.billboards[player] then destroySafe(State.billboards[player]); State.billboards[player] = nil end
 
     local character = player.Character
     if character then
-        local hl = character:FindFirstChildOfClass("Highlight")
-        if hl then destroySafe(hl) end
+        local hl = character:FindFirstChildOfClass("Highlight"); if hl then destroySafe(hl) end
         local head = character:FindFirstChild("Head")
         if head then
-            local bb = head:FindFirstChild("RoleBillboard")
-            if bb then destroySafe(bb) end
+            local bb = head:FindFirstChild("RoleBillboard"); if bb then destroySafe(bb) end
         end
     end
 
@@ -189,7 +190,7 @@ local function updatePlayer(player)
     local character = player.Character
     if not character then return end
 
-    local hasGun  = hasItem(character, "Gun")
+    local hasGun   = hasItem(character, "Gun")
     local hasKnife = hasItem(character, "Knife")
 
     if hasKnife then
@@ -206,9 +207,7 @@ end
 local function updateAll()
     if not State.enabled then return end
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then
-            updatePlayer(plr)
-        end
+        if plr ~= LocalPlayer then updatePlayer(plr) end
     end
 end
 
@@ -252,22 +251,10 @@ Shared.CRIMSON_ESP = {
         disconnectAll()
         removeAllVisuals()
         if not silent then
-
+            -- optionally notify here
         end
     end
 }
 
-if G.CRIMSON.ok == true then
-    Shared.CRIMSON_ESP.enable()
-else
-    if G.CRIMSON.Event and G.CRIMSON.Event.Event then
-        local conn
-        conn = G.CRIMSON.Event.Event:Connect(function(ok)
-            if ok == true then
-                if conn then conn:Disconnect() end
-                Shared.CRIMSON_ESP.enable()
-            end
-        end)
-    end
-    return
-end
+-- auto-enable when loaded via hub (marker already exists)
+Shared.CRIMSON_ESP.enable()
