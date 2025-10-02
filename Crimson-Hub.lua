@@ -928,7 +928,7 @@ function mainUI:Create()
             list.Padding = UDim.new(0, 8)
             list.SortOrder = Enum.SortOrder.LayoutOrder
 
-            addCategory(content, "ESP --------")
+            addCategory(content, "ESP")
             local espRow = Instance.new("Frame", content)
             espRow.Size = UDim2.new(1, 0, 0, 48)
             espRow.BackgroundTransparency = 1
@@ -936,7 +936,7 @@ function mainUI:Create()
             espList.FillDirection = Enum.FillDirection.Horizontal
             espList.Padding = UDim.new(0, 10)
 
-            addCategory(content, "Actions ----")
+            addCategory(content, "Actions")
             local actRow = Instance.new("Frame", content)
             actRow.Size = UDim2.new(1, 0, 0, 48)
             actRow.BackgroundTransparency = 1
@@ -951,7 +951,7 @@ function mainUI:Create()
                 createActionButton(actRow, "Kill All", function() scripts["KillAll"](true) end)
             end
 
-            addCategory(content, "Other ------")
+            addCategory(content, "Other")
             for name, fn in pairs(scripts) do
                 if name ~= "ESP" and name ~= "Trap ESP" and name ~= "Break Gun" and name ~= "KillAll" then
                     createScriptButton(content, name, fn)
