@@ -1,3 +1,5 @@
+-- Crimson Hub (with global notifier export)
+
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -17,6 +19,7 @@ local serverUrl = "https://crimson-keys.vercel.app/api/verify"
 local toggleKey = Enum.KeyCode.RightControl
 
 local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
+local MM2_PLACEID = 142823291
 
 local theme = {
     background = Color3.fromRGB(21, 22, 28),
@@ -30,6 +33,16 @@ local theme = {
     warning = Color3.fromRGB(255, 165, 0),
     error = Color3.fromRGB(227, 38, 54)
 }
+
+-- Per-game category specification
+local CATEGORY_SPEC = {
+    [MM2_PLACEID] = { -- MM2
+        { title = "ESP", modules = { "ESP", "Trap ESP" } }, -- names must match repo filenames (minus .lua)
+        { title = "Actions", modules = { "Break Gun", "KillAll", "Auto Shoot" } },
+        { title = "Other", modules = "REMAINDER" }, -- fill any remaining modules here automatically
+    },
+}
+
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
@@ -291,6 +304,31 @@ end
 
 local mainUI = {}
 
+-- Category Row Builder
+local function addCategoryRow(parent, titleText)
+    local container = Instance.new("Frame", parent)
+    container.Size = UDim2.new(1, 0, 0, 28)
+    container.BackgroundTransparency = 1
+
+    local title = Instance.new("TextLabel", container)
+    title.Size = UDim2.new(0, 120, 1, 0) -- keep label width fixed so line can hug it
+    title.Text = titleText
+    title.Font = Enum.Font.Michroma
+    title.TextSize = 14
+    title.TextColor3 = theme.text
+    title.BackgroundTransparency = 1
+    title.TextXAlignment = Enum.TextXAlignment.Left
+
+    -- longer line right next to the text, not inside it
+    local line = Instance.new("Frame", container)
+    line.BorderSizePixel = 0
+    line.BackgroundColor3 = theme.accent
+    line.Size = UDim2.new(1, -(120 + 20), 0, 2) -- 120 label width + 20 padding
+    line.Position = UDim2.new(0, 120 + 10, 0.5, -1)
+
+    return container
+end
+
 function mainUI:Create()
     local ui = { Visible = false }
     local pages = {}
@@ -486,7 +524,7 @@ function mainUI:Create()
     end
 
     local scriptsPage = createPage("Scripts")
-    local scriptsLayout = Instance.new("UIGridLayout", scriptsPage)
+    local scriptsLayout = Instance.new("UIGridLayout", scriptsPage) -- Fallback layout
     scriptsLayout.CellSize = UDim2.new(0, 200, 0, 50)
     scriptsLayout.CellPadding = UDim2.new(0, 15, 0, 15)
     scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -513,10 +551,10 @@ function mainUI:Create()
     createTab("Settings")
     createTab("Info")
 
-    local function createScriptButton(name, callback)
+    local function createScriptButton(parent, name, callback)
         local buttonData = {enabled = false}
 
-        local button = Instance.new("TextButton", scriptsPage)
+        local button = Instance.new("TextButton", parent)
         button.Size = UDim2.new(0, 200, 0, 50)
         button.BackgroundColor3 = theme.accent
         button.Text = ""
@@ -557,10 +595,11 @@ function mainUI:Create()
         button.MouseButton1Click:Connect(function() updateToggle(true) end)
         button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
         button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+        return button
     end
 
-    local function createScriptActionButton(name, callback)
-        local button = Instance.new("TextButton", scriptsPage)
+    local function createActionButton(parent, name, callback)
+        local button = Instance.new("TextButton", parent)
         button.Size = UDim2.new(0, 200, 0, 50)
         button.BackgroundColor3 = theme.accent
         button.Text = name
@@ -575,23 +614,149 @@ function mainUI:Create()
         end)
         button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
         button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+        return button
     end
 
     function ui:LoadScripts(scriptLoader)
         for _, child in ipairs(scriptsPage:GetChildren()) do
-            if not child:IsA("UIGridLayout") then child:Destroy() end
+            if not child:IsA("UILayout") then child:Destroy() end
         end
+        scriptsPage.CanvasSize = UDim2.new(0, 0, 0, 0)
+
         local scripts = scriptLoader()
-        if scripts then
+        if not scripts then return end
+
+        local spec = CATEGORY_SPEC[game.PlaceId]
+        if spec then
+            -- Use a vertical list layout for categorized games
+            if scriptsPage:FindFirstChildOfClass("UIGridLayout") then
+                scriptsPage:FindFirstChildOfClass("UIGridLayout"):Destroy()
+            end
+            if not scriptsPage:FindFirstChildOfClass("UIListLayout") then
+                local vertList = Instance.new("UIListLayout", scriptsPage)
+                vertList.Padding = UDim.new(0, 8)
+                vertList.SortOrder = Enum.SortOrder.LayoutOrder
+            end
+
+            local used = {}
+            for _, cat in ipairs(spec) do
+                if cat.modules ~= "REMAINDER" then
+                    addCategoryRow(scriptsPage, cat.title)
+                    local row = Instance.new("Frame", scriptsPage)
+                    row.Size = UDim2.new(1, 0, 0, 50)
+                    row.BackgroundTransparency = 1
+                    row.AutomaticSize = Enum.AutomaticSize.Y
+                    local hlist = Instance.new("UIListLayout", row)
+                    hlist.FillDirection = Enum.FillDirection.Horizontal
+                    hlist.Padding = UDim.new(0, 10)
+                    hlist.VerticalAlignment = Enum.VerticalAlignment.Top
+                    
+                    local hasContentInRow = false
+
+                    for _, modName in ipairs(cat.modules) do
+                        local fn = scripts[modName]
+                        if fn then
+                            used[modName] = true
+                            if modName == "Break Gun" or modName == "KillAll" then
+                                createActionButton(row, modName, function() fn(true) end)
+                                hasContentInRow = true
+                            elseif modName == "Auto Shoot" then
+                                -- This gets its own vertical rows below the horizontal ones
+                                local autoRow = Instance.new("Frame", scriptsPage)
+                                autoRow.Size = UDim2.new(1, 0, 0, 40)
+                                autoRow.BackgroundTransparency = 1
+                                local autoToggle = createScriptButton(autoRow, "Auto Shoot", function(state)
+                                    local G = (getgenv and getgenv()) or _G
+                                    G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.15 }
+                                    G.CRIMSON_AUTO_SHOOT.enabled = state
+                                    if state then fn(true) end -- Load script on first toggle
+                                end)
+                                autoToggle.Position = UDim2.new(0, 10, 0, 0)
+
+
+                                local predRow = Instance.new("Frame", scriptsPage)
+                                predRow.Size = UDim2.new(1, -20, 0, 34)
+                                predRow.Position = UDim2.new(0,10,0,0)
+                                predRow.BackgroundTransparency = 1
+
+                                local predLabel = Instance.new("TextLabel", predRow)
+                                predLabel.Size = UDim2.new(0, 140, 1, 0)
+                                predLabel.BackgroundTransparency = 1
+                                predLabel.Text = "Shoot Prediction"
+                                predLabel.Font = Enum.Font.Michroma
+                                predLabel.TextSize = 14
+                                predLabel.TextColor3 = theme.text
+                                predLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+                                local predBox = Instance.new("TextBox", predRow)
+                                predBox.Size = UDim2.new(0, 80, 0, 28)
+                                predBox.Position = UDim2.new(0, 150, 0.5, -14)
+                                predBox.BackgroundColor3 = theme.accent
+                                predBox.Font = Enum.Font.SourceSans
+                                predBox.TextSize = 16
+                                predBox.TextColor3 = theme.text
+                                predBox.Text = "0.15"
+                                Instance.new("UICorner", predBox).CornerRadius = UDim.new(0, 6)
+
+                                local last = predBox.Text
+                                predBox:GetPropertyChangedSignal("Text"):Connect(function()
+                                    if predBox.Text == "" then last = "" return end
+                                    if tonumber(predBox.Text) then last = predBox.Text else predBox.Text = last end
+                                end)
+                                predBox.FocusLost:Connect(function()
+                                    local v = tonumber(predBox.Text) or 0
+                                    local G = (getgenv and getgenv()) or _G
+                                    G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.15 }
+                                    G.CRIMSON_AUTO_SHOOT.prediction = v
+                                end)
+
+                            else
+                                createScriptButton(row, modName, fn)
+                                hasContentInRow = true
+                            end
+                        end
+                    end
+                    if not hasContentInRow then row.Visible = false end
+                end
+            end
+
+            for _, cat in ipairs(spec) do
+                if cat.modules == "REMAINDER" then
+                    local remainderScripts = {}
+                    for name, fn in pairs(scripts) do
+                        if not used[name] then
+                           table.insert(remainderScripts, {name=name, fn=fn})
+                        end
+                    end
+
+                    if #remainderScripts > 0 then
+                        addCategoryRow(scriptsPage, cat.title)
+                        local row = Instance.new("Frame", scriptsPage)
+                        row.Size = UDim2.new(1, 0, 0, 50)
+                        row.BackgroundTransparency = 1
+                        row.AutomaticSize = Enum.AutomaticSize.Y
+                        local hlist = Instance.new("UIListLayout", row)
+                        hlist.FillDirection = Enum.FillDirection.Horizontal
+                        hlist.Padding = UDim.new(0, 10)
+                        
+                        for _, scriptData in pairs(remainderScripts) do
+                            createScriptButton(row, scriptData.name, scriptData.fn)
+                        end
+                    end
+                end
+            end
+        else
+            -- Fallback for games without a specific category layout
             for name, executeFunc in pairs(scripts) do
                 if name == "Break Gun" or name == "KillAll" then
-                    createScriptActionButton(name, function() executeFunc(true) end)
+                    createActionButton(scriptsPage, name, function() executeFunc(true) end)
                 else
-                    createScriptButton(name, executeFunc)
+                    createScriptButton(scriptsPage, name, executeFunc)
                 end
             end
         end
     end
+
 
     function ui:SetVisibility(visible)
         if ui.Visible == visible then return end
