@@ -36,7 +36,6 @@ local CATEGORY_SPEC = {
 [MM2_PLACEID] = { 
 { title = "ESP", modules = { "ESP", "Trap ESP" } }, 
 { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun" } },
-{ title = "Farming", modules = { "Coin Farm" } },
 { title = "Other", modules = "REMAINDER" }, 
 },
 }
