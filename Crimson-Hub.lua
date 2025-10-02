@@ -882,6 +882,7 @@ function ui:LoadScripts(scriptLoader)
                     local hlist = Instance.new("UIListLayout", row)
                     hlist.FillDirection = Enum.FillDirection.Horizontal
                     hlist.Padding = UDim.new(0, 10)
+                    hlist.VerticalAlignment = Enum.VerticalAlignment.Top
 
                     for _, scriptData in pairs(remainderScripts) do
                         createScriptButton(row, scriptData.name, scriptData.fn)
@@ -893,9 +894,16 @@ function ui:LoadScripts(scriptLoader)
 
         local grid = Instance.new("UIGridLayout", scriptsPage)
         grid.CellSize = UDim2.new(0, 200, 0, 50)
-        grid.CellPadding = UDim2.new(0, 15, 0, 15)
+        grid.CellPadding = UDim2.new(0, 10, 0, 10)
         grid.SortOrder = Enum.SortOrder.LayoutOrder
+        grid.FillDirection = Enum.FillDirection.Horizontal
         grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+        local function resizeRow()
+            row.Size = UDim2.new(1, 0, 0, math.max(50, grid.AbsoluteContentSize.Y))
+         end
+       resizeRow()
+       grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeRow
         for name, executeFunc in pairs(scripts) do
             if name == "Break Gun" or name == "KillAll" then
                 createActionButton(scriptsPage, name, function() executeFunc(true) end)
