@@ -1,3 +1,5 @@
+-- Crimson Hub (with global notifier export)
+
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -32,13 +34,15 @@ local theme = {
     error = Color3.fromRGB(227, 38, 54)
 }
 
+-- Per-game category specification
 local CATEGORY_SPEC = {
-    [MM2_PLACEID] = { 
-        { title = "ESP", modules = { "ESP", "Trap ESP" } }, 
+    [MM2_PLACEID] = { -- MM2
+        { title = "ESP", modules = { "ESP", "Trap ESP" } }, -- names must match repo filenames (minus .lua)
         { title = "Actions", modules = { "Break Gun", "KillAll", "Auto Shoot" } },
-        { title = "Other", modules = "REMAINDER" }, 
+        { title = "Other", modules = "REMAINDER" }, -- fill any remaining modules here automatically
     },
 }
+
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
@@ -172,6 +176,7 @@ local function sendNotification(title, text, duration, notifType)
     frame:Destroy()
 end
 
+-- EXPORT: global notifier so modules can toast via the hub
 do
     local Shared = (getgenv and getgenv()) or _G
     Shared.CRIMSON_NOTIFY = function(title, text, duration, kind)
@@ -299,13 +304,14 @@ end
 
 local mainUI = {}
 
+-- Category Row Builder
 local function addCategoryRow(parent, titleText)
     local container = Instance.new("Frame", parent)
     container.Size = UDim2.new(1, 0, 0, 28)
     container.BackgroundTransparency = 1
 
     local title = Instance.new("TextLabel", container)
-    title.Size = UDim2.new(0, 120, 1, 0) 
+    title.Size = UDim2.new(0, 120, 1, 0) -- keep label width fixed so line can hug it
     title.Text = titleText
     title.Font = Enum.Font.Michroma
     title.TextSize = 14
@@ -313,10 +319,11 @@ local function addCategoryRow(parent, titleText)
     title.BackgroundTransparency = 1
     title.TextXAlignment = Enum.TextXAlignment.Left
 
+    -- longer line right next to the text, not inside it
     local line = Instance.new("Frame", container)
     line.BorderSizePixel = 0
     line.BackgroundColor3 = theme.accent
-    line.Size = UDim2.new(1, -(120 + 20), 0, 2) 
+    line.Size = UDim2.new(1, -(120 + 20), 0, 2) -- 120 label width + 20 padding
     line.Position = UDim2.new(0, 120 + 10, 0.5, -1)
 
     return container
@@ -517,7 +524,7 @@ function mainUI:Create()
     end
 
     local scriptsPage = createPage("Scripts")
-    local scriptsLayout = Instance.new("UIGridLayout", scriptsPage) 
+    local scriptsLayout = Instance.new("UIGridLayout", scriptsPage) -- Fallback layout
     scriptsLayout.CellSize = UDim2.new(0, 200, 0, 50)
     scriptsLayout.CellPadding = UDim2.new(0, 15, 0, 15)
     scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -621,7 +628,7 @@ function mainUI:Create()
 
         local spec = CATEGORY_SPEC[game.PlaceId]
         if spec then
-
+            -- Use a vertical list layout for categorized games
             if scriptsPage:FindFirstChildOfClass("UIGridLayout") then
                 scriptsPage:FindFirstChildOfClass("UIGridLayout"):Destroy()
             end
@@ -636,14 +643,14 @@ function mainUI:Create()
                 if cat.modules ~= "REMAINDER" then
                     addCategoryRow(scriptsPage, cat.title)
                     local row = Instance.new("Frame", scriptsPage)
-                    row.Size = UDim2.new(1, 0, 0, 50) 
+                    row.Size = UDim2.new(1, 0, 0, 50) -- Adjusted height to fit 50px buttons
                     row.BackgroundTransparency = 1
-
+                    -- row.AutomaticSize = Enum.AutomaticSize.Y -- Removed for consistency with fixed height
                     local hlist = Instance.new("UIListLayout", row)
                     hlist.FillDirection = Enum.FillDirection.Horizontal
                     hlist.Padding = UDim.new(0, 10)
                     hlist.VerticalAlignment = Enum.VerticalAlignment.Top
-
+                    
                     for _, modName in ipairs(cat.modules) do
                         local fn = scripts[modName]
                         if fn then
@@ -651,36 +658,29 @@ function mainUI:Create()
                             if modName == "Break Gun" or modName == "KillAll" then
                                 createActionButton(row, modName, function() fn(true) end)
                             elseif modName == "Auto Shoot" then
-
+                                -- Auto Shoot Toggle
                                 local autoRow = Instance.new("Frame", scriptsPage)
-                                autoRow.Size = UDim2.new(1, 0, 0, 50) 
+                                autoRow.Size = UDim2.new(1, 0, 0, 50) -- Adjusted height to fit 50px button
                                 autoRow.BackgroundTransparency = 1
-                                local autoRowLayout = Instance.new("UIListLayout", autoRow)
-                                autoRowLayout.FillDirection = Enum.FillDirection.Horizontal
-                                autoRowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-                                autoRowLayout.Padding = UDim.new(0, 10)
 
                                 local autoToggle = createScriptButton(autoRow, "Auto Shoot", function(state)
                                     local G = (getgenv and getgenv()) or _G
                                     G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.15 }
                                     G.CRIMSON_AUTO_SHOOT.enabled = state
-                                    if state then fn(true) end 
+                                    if state then fn(true) end -- Load script on first toggle
                                 end)
-                                autoToggle.AnchorPoint = Vector2.new(1, 0.5) 
-                                autoToggle.Position = UDim2.new(1, -10, 0.5, 0) 
+                                autoToggle.AnchorPoint = Vector2.new(0, 0.5) -- Snap to left edge, vertically centered
+                                autoToggle.Position = UDim2.new(0, 10, 0.5, 0) -- 10px left margin
 
+                                -- Shoot Prediction Card
                                 local predRow = Instance.new("Frame", scriptsPage)
                                 predRow.Size = UDim2.new(1, 0, 0, 40)
                                 predRow.BackgroundTransparency = 1
-                                local predRowLayout = Instance.new("UIListLayout", predRow)
-                                predRowLayout.FillDirection = Enum.FillDirection.Horizontal
-                                predRowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-                                predRowLayout.Padding = UDim.new(0, 10)
 
                                 local predCard = Instance.new("Frame", predRow)
                                 predCard.Size = UDim2.new(0, 240, 0, 40)
-                                predCard.AnchorPoint = Vector2.new(1, 0.5) 
-                                predCard.Position = UDim2.new(1, -10, 0.5, 0)
+                                predCard.AnchorPoint = Vector2.new(0, 0.5) -- Snap to left edge, vertically centered
+                                predCard.Position = UDim2.new(0, 10, 0.5, 0)
                                 predCard.BackgroundColor3 = theme.accent
                                 Instance.new("UICorner", predCard).CornerRadius = UDim.new(0, 6)
 
@@ -738,11 +738,11 @@ function mainUI:Create()
                         local row = Instance.new("Frame", scriptsPage)
                         row.Size = UDim2.new(1, 0, 0, 50)
                         row.BackgroundTransparency = 1
-
+                        -- row.AutomaticSize = Enum.AutomaticSize.Y -- Removed for consistency with fixed height
                         local hlist = Instance.new("UIListLayout", row)
                         hlist.FillDirection = Enum.FillDirection.Horizontal
                         hlist.Padding = UDim.new(0, 10)
-
+                        
                         for _, scriptData in pairs(remainderScripts) do
                             createScriptButton(row, scriptData.name, scriptData.fn)
                         end
@@ -750,7 +750,7 @@ function mainUI:Create()
                 end
             end
         else
-
+            -- Fallback for games without a specific category layout
             for name, executeFunc in pairs(scripts) do
                 if name == "Break Gun" or name == "KillAll" then
                     createActionButton(scriptsPage, name, function() executeFunc(true) end)
@@ -760,6 +760,7 @@ function mainUI:Create()
             end
         end
     end
+
 
     function ui:SetVisibility(visible)
         if ui.Visible == visible then return end
@@ -991,3 +992,4 @@ createVerificationUI(function()
     hub:LoadScripts(loadGameScripts)
     hub:SetVisibility(true)
 end)
+
