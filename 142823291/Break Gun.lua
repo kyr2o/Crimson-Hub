@@ -1,3 +1,5 @@
+local marker = game:GetService("CoreGui"):FindFirstChild("_cr1m50n__kv_ok__7F2B1D")
+if not marker then return end
 local G = (getgenv and getgenv()) or _G
 if not (G.CRIMSON and G.CRIMSON.ok == true) then
     return
