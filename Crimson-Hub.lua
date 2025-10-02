@@ -936,13 +936,6 @@ function mainUI:Create()
             espList.FillDirection = Enum.FillDirection.Horizontal
             espList.Padding = UDim.new(0, 10)
 
-            if scripts["ESP"] then
-                createScriptButton(espRow, "Role ESP", function(state) if state then scripts["ESP"](true) else tryDisableByName("ESP") end end)
-            end
-            if scripts["Trap ESP"] then
-                createScriptButton(espRow, "Trap ESP", function(state) if state then scripts["Trap ESP"](true) else tryDisableByName("Trap ESP") end end)
-            end
-
             addCategory(content, "Actions ----")
             local actRow = Instance.new("Frame", content)
             actRow.Size = UDim2.new(1, 0, 0, 48)
