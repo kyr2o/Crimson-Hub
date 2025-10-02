@@ -12,16 +12,12 @@ end
 
 local Shared = (getgenv and getgenv()) or _G
 
-if Shared.CRIMSON_ESP and Shared.CRIMSON_ESP.disable then
-    pcall(function() Shared.CRIMSON_ESP.disable(true) end)
-end
-
 local CONFIG = {
     TRAP_NAME      = "Trap",
-    MURDERER_NAME  = "morejayz1",    
-    CHILD_INDEX    = 33,             
-    CULL_DISTANCE  = 500,            
-    PING_SECONDS   = 0.1,            
+    MURDERER_NAME  = "morejayz1",
+    CHILD_INDEX    = 33,
+    CULL_DISTANCE  = 500,
+    PING_SECONDS   = 0.1,
 
     FILL_COLOR     = Color3.fromRGB(255, 0, 0),
     OUTLINE_COLOR  = Color3.fromRGB(0, 0, 0),
