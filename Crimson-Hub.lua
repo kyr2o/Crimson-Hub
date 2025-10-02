@@ -903,6 +903,7 @@ function ui:LoadScripts(scriptLoader)
             row.Size = UDim2.new(1, 0, 0, math.max(50, grid.AbsoluteContentSize.Y))
          end
        resizeRow()
+            
        grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeRow
         for name, executeFunc in pairs(scripts) do
             if name == "Break Gun" or name == "KillAll" then
