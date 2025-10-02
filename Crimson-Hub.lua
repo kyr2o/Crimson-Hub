@@ -239,9 +239,28 @@ if Shared.CRIMSON_SCRIPTS and Shared.CRIMSON_SCRIPTS[scriptName] then
     if rec and rec.disable then pcall(function() rec.disable(true) end) end
 end
 
-if (lowered == "esp" or lowered:find("^esp$")) and Shared.CRIMSON_ESP and Shared.CRIMSON_ESP.disable then
-    pcall(function() Shared.CRIMSON_ESP.disable(true) end)
+-- Replace the ESP branch inside tryDisableByName with this:
+if (lowered == "roleesp" or lowered:find("role") or lowered == "esp") then
+    if Shared.CRIMSON_ROLEESP and Shared.CRIMSON_ROLEESP.disable then
+        pcall(function() Shared.CRIMSON_ROLEESP.disable(true) end)
+    end
+    if Shared.CRIMSON_ESP and Shared.CRIMSON_ESP.disable then
+        pcall(function() Shared.CRIMSON_ESP.disable(true) end)
+    end
+    for _, plr in ipairs(players:GetPlayers()) do
+        local ch = plr.Character
+        if ch then
+            local hl = ch:FindFirstChildOfClass("Highlight")
+            if hl then pcall(function() hl:Destroy() end) end
+            local head = ch:FindFirstChild("Head")
+            if head then
+                local bb = head:FindFirstChild("RoleBillboard")
+                if bb then pcall(function() bb:Destroy() end) end
+            end
+        end
+    end
 end
+
 if (lowered:find("trap")) and Shared.CRIMSON_TRAP and Shared.CRIMSON_TRAP.disable then
     pcall(function() Shared.CRIMSON_TRAP.disable(true) end)
 end
