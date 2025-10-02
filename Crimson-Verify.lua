@@ -1,25 +1,22 @@
 local GENV = (getgenv and getgenv()) or _G
 GENV.CRIMSON = { ok = false, ts = 0, reason = "unset" }
-GENV.CrimsonVerified = function()
-    return (GENV.CRIMSON and GENV.CRIMSON.ok == true) or false
-end
 
-local httpService       = game:GetService("HttpService")
-local userInputService  = game:GetService("UserInputService")
-local players           = game:GetService("Players")
-local tweenService      = game:GetService("TweenService")
-local runService        = game:GetService("RunService")
-local lighting          = game:GetService("Lighting")
+local httpService = game:GetService("HttpService")
+local userInputService = game:GetService("UserInputService")
+local players = game:GetService("Players")
+local tweenService = game:GetService("TweenService")
+local runService = game:GetService("RunService")
+local lighting = game:GetService("Lighting")
 
 local localPlayer = players.LocalPlayer
-local mouse      = localPlayer:GetMouse()
+local mouse = localPlayer:GetMouse()
 
 local VERBOSE = false
 local githubUsername = "kyr2o"
-local repoName       = "Crimson-Hub"
-local branchName     = "main"
-local serverUrl      = "https://crimson-keys.vercel.app/api/verify"
-local toggleKey      = Enum.KeyCode.RightControl
+local repoName = "Crimson-Hub"
+local branchName = "main"
+local serverUrl = "https://crimson-keys.vercel.app/api/verify"
+local toggleKey = Enum.KeyCode.RightControl
 
 local theme = {
     background = Color3.fromRGB(21, 22, 28),
@@ -46,16 +43,12 @@ blur.Size = 0
 blur.Parent = lighting
 
 local function setBlur(active)
-    tweenService:Create(
-        blur,
-        TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-        { Size = active and 12 or 0 }
-    ):Play()
+    tweenService:Create(blur, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = active and 12 or 0 }):Play()
 end
 
 local sounds = {
     open = "rbxassetid://6366382384",
-    close = "rbxassetid://6366382384",
+    close = "rbxassetid://6366382384", 
     toggleOn = "rbxassetid://6366382384",
     toggleOff = "rbxassetid://6366382384",
     click = "rbxassetid://6366382384",
@@ -64,22 +57,25 @@ local sounds = {
 }
 
 for name, id in pairs(sounds) do
-    local s = Instance.new("Sound")
-    s.SoundId = id
-    s.Name = name
-    s.Volume = 0.4
-    s.Parent = screenGui
-    sounds[name] = s
+    local sound = Instance.new("Sound")
+    sound.SoundId = id
+    sound.Name = name
+    sound.Volume = 0.4
+    sound.Parent = screenGui
+    sounds[name] = sound
 end
 
-local function playSound(name)
-    if sounds[name] then sounds[name]:Play() end
+local function playSound(soundName)
+    if sounds[soundName] then
+        sounds[soundName]:Play()
+    end
 end
 
 local notificationContainer = Instance.new("Frame")
 notificationContainer.Size = UDim2.new(1, 0, 1, 0)
 notificationContainer.BackgroundTransparency = 1
 notificationContainer.Parent = screenGui
+
 local notificationLayout = Instance.new("UIListLayout", notificationContainer)
 notificationLayout.FillDirection = Enum.FillDirection.Vertical
 notificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -166,12 +162,14 @@ end
 local function httpGet(url)
     local success, result = pcall(function() return httpService:GetAsync(url) end)
     if success and result then return true, tostring(result) end
+
     local function tryRequest(reqFunc)
         if not reqFunc then return false, nil end
         local ok, resp = pcall(function() return reqFunc({ Url = url, Method = "GET" }) end)
         if ok and resp then return true, tostring(resp.Body or resp) end
         return false, nil
     end
+
     local r, res = tryRequest(request)
     if r then return r, res end
     local s, res2 = tryRequest(syn and syn.request)
@@ -180,9 +178,10 @@ local function httpGet(url)
 end
 
 local function httpPost(url, body)
-    local bodyContent = tostring(body or "")
+    local bodyContent = tostring(body)
     local s, r = pcall(function() return httpService:PostAsync(url, bodyContent, Enum.HttpContentType.TextPlain) end)
     if s and r then return true, tostring(r) end
+
     local function tryRequest(reqFunc)
         if not reqFunc then return false, nil end
         local ok, resp = pcall(function()
@@ -196,6 +195,7 @@ local function httpPost(url, body)
         if ok and resp then return true, tostring(resp.Body or resp) end
         return false, nil
     end
+
     local r2, res = tryRequest(request)
     if r2 then return r2, res end
     local s2, res2 = tryRequest(syn and syn.request)
@@ -343,18 +343,24 @@ function mainUI:Create()
 
     local function selectTab(tab)
         playSound("click")
-        for _, otherTab in pairs(sidebar:GetChildren()) do
-            if otherTab:IsA("TextButton") and otherTab ~= tab then
-                tweenService:Create(otherTab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
-                tweenService:Create(otherTab, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
+        for _, other in ipairs(sidebar:GetChildren()) do
+            if other:IsA("TextButton") and other ~= tab then
+                local ind = other:FindFirstChild("Indicator")
+                if ind then
+                    tweenService:Create(ind, TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
+                end
+                tweenService:Create(other, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
             end
         end
-        for _, page in pairs(contentContainer:GetChildren()) do
+        for _, page in ipairs(contentContainer:GetChildren()) do
             if page:IsA("Frame") or page:IsA("ScrollingFrame") then page.Visible = false end
         end
-        tweenService:Create(tab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
+        local curInd = tab:FindFirstChild("Indicator")
+        if curInd then
+            tweenService:Create(curInd, TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
+        end
         tweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
-        if tabs[tab.Name] then pages[tab.Name].Visible = true end
+        if pages[tab.Name] then pages[tab.Name].Visible = true end
     end
 
     local function createTab(name)
@@ -381,6 +387,7 @@ function mainUI:Create()
         tab.MouseLeave:Connect(function() tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
         tab.MouseButton1Click:Connect(function() selectTab(tab) end)
 
+        tabs[name] = tab
         return tab
     end
 
@@ -393,6 +400,7 @@ function mainUI:Create()
         page.ScrollBarImageColor3 = theme.primary
         page.ScrollBarThickness = 6
         page.Visible = false
+        pages[name] = page
         return page
     end
 
@@ -420,23 +428,12 @@ function mainUI:Create()
     infoLabel.TextXAlignment = Enum.TextXAlignment.Left
     infoLabel.TextWrapped = true
 
-    local tabScripts = createTab("Scripts")
-    local tabSettings = createTab("Settings")
-    local tabInfo    = createTab("Info")
-
-    local pages = {
-        Scripts  = scriptsPage,
-        Settings = settingsPage,
-        Info     = infoPage
-    }
-    local tabs = {
-        Scripts  = tabScripts,
-        Settings = tabSettings,
-        Info     = tabInfo
-    }
+    createTab("Scripts")
+    createTab("Settings")
+    createTab("Info")
 
     local function createScriptButton(name, callback)
-        local buttonData = { enabled = false }
+        local buttonData = {enabled = false}
 
         local button = Instance.new("TextButton", scriptsPage)
         button.Size = UDim2.new(0, 200, 0, 50)
@@ -460,18 +457,18 @@ function mainUI:Create()
         toggle.BackgroundColor3 = theme.background
         Instance.new("UICorner", toggle).CornerRadius = UDim.new(1, 0)
 
-        local knob = Instance.new("Frame", toggle)
-        knob.Size = UDim2.new(0, 14, 0, 14)
-        knob.Position = UDim2.new(0, 3, 0.5, -7)
-        knob.BackgroundColor3 = theme.primary
-        Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+        local toggleKnob = Instance.new("Frame", toggle)
+        toggleKnob.Size = UDim2.new(0, 14, 0, 14)
+        toggleKnob.Position = UDim2.new(0, 3, 0.5, -7)
+        toggleKnob.BackgroundColor3 = theme.primary
+        Instance.new("UICorner", toggleKnob).CornerRadius = UDim.new(1, 0)
 
         local function updateToggle(manual)
             buttonData.enabled = not buttonData.enabled
             playSound(buttonData.enabled and "toggleOn" or "toggleOff")
             local pos = buttonData.enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
             local color = buttonData.enabled and theme.success or theme.primary
-            tweenService:Create(knob, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = pos, BackgroundColor3 = color }):Play()
+            tweenService:Create(toggleKnob, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = pos, BackgroundColor3 = color}):Play()
             if manual then pcall(callback, buttonData.enabled) end
         end
 
@@ -489,6 +486,7 @@ function mainUI:Create()
         button.TextSize = 14
         button.TextColor3 = theme.text
         Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+
         button.MouseButton1Click:Connect(function()
             playSound("click")
             pcall(callback)
@@ -497,10 +495,12 @@ function mainUI:Create()
         button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
     end
 
+    -- FIX: Keep LoadScripts INSIDE mainUI:Create so local functions/vars are in scope
     function ui:LoadScripts(scriptLoader)
         for _, child in ipairs(scriptsPage:GetChildren()) do
             if not child:IsA("UIGridLayout") then child:Destroy() end
         end
+
         local scripts = scriptLoader()
         if scripts then
             for name, executeFunc in pairs(scripts) do
@@ -516,39 +516,71 @@ function mainUI:Create()
     function ui:SetVisibility(visible)
         if ui.Visible == visible then return end
         ui.Visible = visible
+
         if visible then
             playSound("open")
             setBlur(true)
             mainFrame.Visible = true
-            local intro = TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+            local introTween = TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
             mainFrame.Size = UDim2.new(0, 600, 0, 20)
             mainFrame.Position = UDim2.new(0.5, -300, 0.5, -10)
-            tweenService:Create(mainFrame, intro, { Size = UDim2.new(0, 600, 0, 400), Position = UDim2.new(0.5, -300, 0.5, -200) }):Play()
+            tweenService:Create(mainFrame, introTween, {Size = UDim2.new(0, 600, 0, 400), Position = UDim2.new(0.5, -300, 0.5, -200)}):Play()
         else
             playSound("close")
             setBlur(false)
-            local outro = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-            tweenService:Create(mainFrame, outro, { Size = UDim2.new(0, 600, 0, 0), Position = UDim2.new(0.5, -300, 0.5, 0) }):Play()
+            local outroTween = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            tweenService:Create(mainFrame, outroTween, {Size = UDim2.new(0, 600, 0, 0), Position = UDim2.new(0.5, -300, 0.5, 0)}):Play()
             task.wait(0.4)
             mainFrame.Visible = false
         end
     end
 
-    closeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
-    minimizeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
-
-    userInputService.InputBegan:Connect(function(input)
-        if input.KeyCode == toggleKey and userInputService:GetFocusedTextBox() == nil then
-            ui:SetVisibility(not ui.Visible)
-        end
-    end)
-
     -- default tab
-    if tabs and tabs["Scripts"] then
-        selectTab(tabs["Scripts"])
-    end
+    selectTab(createTab("Scripts"))
 
     return ui
+end
+
+local function loadGameScripts()
+    local gameId = tostring(game.PlaceId)
+    if gameId == "0" then
+        sendNotification("Studio", "Cannot load scripts in Studio.", 5, "warning")
+        return
+    end
+    local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
+    local ok, result = httpGet(apiUrl)
+    if not ok then
+        sendNotification("Error", "Failed to contact GitHub.", 4, "error")
+        return
+    end
+    local success, decoded = pcall(function() return httpService:JSONDecode(result) end)
+    if not success or type(decoded) ~= "table" or decoded.message then
+        sendNotification("Not Found", "No scripts found for this game.", 4, "warning")
+        return
+    end
+
+    local scriptList = {}
+    for _, scriptInfo in ipairs(decoded) do
+        if scriptInfo.type == "file" and scriptInfo.download_url then
+            local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
+            scriptList[scriptName] = function(state)
+                if state == false then return end
+                -- Gate each module: only run after verification success
+                if not (GENV.CRIMSON and GENV.CRIMSON.ok == true) then
+                    sendNotification("Locked", "Verify to run scripts.", 2, "warning")
+                    return
+                end
+                local s, content = httpGet(scriptInfo.download_url)
+                if s and content then
+                    local f, e = loadstring(content)
+                    if f then pcall(f) else sendNotification("Script Error", tostring(e), 5, "error") end
+                else
+                    sendNotification("Download Failed", "Could not download script.", 3, "error")
+                end
+            end
+        end
+    end
+    return scriptList
 end
 
 local function createVerificationUI(onSuccess)
@@ -569,17 +601,6 @@ local function createVerificationUI(onSuccess)
     title.Font = Enum.Font.Michroma
     title.TextColor3 = theme.text
     title.TextSize = 28
-
-    local titleGlow = Instance.new("TextLabel", frame)
-    titleGlow.Size = title.Size
-    titleGlow.Position = title.Position
-    titleGlow.BackgroundTransparency = 1
-    titleGlow.Text = title.Text
-    titleGlow.Font = title.Font
-    titleGlow.TextColor3 = theme.primary
-    titleGlow.TextSize = title.TextSize
-    titleGlow.TextTransparency = 0.7
-    titleGlow.ZIndex = -1
 
     local subtitle = Instance.new("TextLabel", frame)
     subtitle.Size = UDim2.new(1, 0, 0, 20)
@@ -632,9 +653,8 @@ local function createVerificationUI(onSuccess)
         submit.Text = ""
         loadingSpinner.Visible = true
         local rotationTween = tweenService:Create(loadingSpinner, TweenInfo.new(1, Enum.EasingStyle.Linear), { Rotation = 360 })
-        local conn
-        conn = rotationTween.Completed:Connect(function()
-             if loadingSpinner.Visible then rotationTween:Play() end
+        local conn; conn = rotationTween.Completed:Connect(function()
+            if loadingSpinner.Visible then rotationTween:Play() end
         end)
         rotationTween:Play()
 
@@ -647,7 +667,7 @@ local function createVerificationUI(onSuccess)
             submit.Text = "SUBMIT"
 
             if ok and isPositiveResponse(respText) then
-                -- success: set flag so modules can run
+                -- Mark verified so modules can run
                 GENV.CRIMSON.ok = true
                 GENV.CRIMSON.ts = (tick and tick()) or os.time()
                 GENV.CRIMSON.reason = "verified"
@@ -660,7 +680,7 @@ local function createVerificationUI(onSuccess)
                 outro.Completed:Wait()
                 frame:Destroy()
 
-                -- now build and load scripts; modules will check the flag
+                -- Build UI and load scripts after verification
                 local hub = mainUI:Create()
                 hub:LoadScripts(loadGameScripts)
                 hub:SetVisibility(true)
@@ -683,56 +703,7 @@ local function createVerificationUI(onSuccess)
             end
         end)
     end)
-
-    setBlur(true)
 end
 
-local function loadGameScripts()
-    local gameId = tostring(game.PlaceId)
-    if gameId == "0" then
-        sendNotification("Studio", "Cannot load scripts in Studio.", 5, "warning")
-        return
-    end
-
-    local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
-    local ok, result = httpGet(apiUrl)
-    if not ok then
-        sendNotification("Error", "Failed to contact GitHub.", 4, "error")
-        return
-    end
-    local success, decoded = pcall(function() return httpService:JSONDecode(result) end)
-    if not success or type(decoded) ~= "table" or decoded.message then
-        sendNotification("Not Found", "No scripts found for this game.", 4, "warning")
-        return
-    end
-
-    local scriptList = {}
-    for _, scriptInfo in ipairs(decoded) do
-        if scriptInfo.type == "file" and scriptInfo.download_url then
-            local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
-            scriptList[scriptName] = function(state)
-                if state == false then return end
-                -- modules must check GENV.CRIMSON.ok == true before doing anything
-                if not (GENV.CRIMSON and GENV.CRIMSON.ok == true) then
-                    sendNotification("Locked", "Verify to run scripts.", 2, "warning")
-                    return
-                end
-                local s, content = httpGet(scriptInfo.download_url)
-                if s and content then
-                    local f, e = loadstring(content)
-                    if f then
-                        pcall(f)
-                    else
-                        sendNotification("Script Error", tostring(e), 5, "error")
-                    end
-                else
-                    sendNotification("Download Failed", "Could not download script.", 3, "error")
-                end
-            end
-        end
-    end
-    return scriptList
-end
-
--- boot: show verification UI; hub + scripts are created after success
+-- show verification; hub loads on success inside createVerificationUI
 createVerificationUI(function() end)
