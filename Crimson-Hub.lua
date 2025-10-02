@@ -33,12 +33,14 @@ error = Color3.fromRGB(227, 38, 54)
 }
 
 local CATEGORY_SPEC = {
-[MM2_PLACEID] = { 
-{ title = "ESP", modules = { "ESP", "Trap ESP" } }, 
-{ title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun" } },
-{ title = "Other", modules = "REMAINDER" }, 
-},
+    [MM2_PLACEID] = {
+        { title = "ESP",     modules = { "RoleESP", "Trap ESP" } },
+        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun" } },
+        { title = "Farming", modules = { "Coin Farm" } }, -- NEW
+        { title = "Other",   modules = "REMAINDER" },
+    },
 }
+
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
