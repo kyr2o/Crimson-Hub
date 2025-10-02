@@ -1,6 +1,3 @@
-local GENV = (getgenv and getgenv()) or _G
-GENV.CRIMSON = { ok = false, ts = 0, reason = "unset" }
-
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -16,6 +13,8 @@ local githubUsername = "kyr2o"
 local repoName = "Crimson-Hub"
 local branchName = "main"
 local serverUrl = "https://crimson-keys.vercel.app/api/verify"
+local CoreGui = game:GetService("CoreGui")
+local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 local toggleKey = Enum.KeyCode.RightControl
 
 local theme = {
@@ -36,7 +35,10 @@ screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonHub"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.DisplayOrder = 999
-screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+screenGui.Parent = localPlayer:WaitForChild("PlayerGui")s
+local old = CoreGui:FindFirstChild(MARKER_NAME)
+if old then old:Destroy() end
+
 
 local blur = Instance.new("BlurEffect")
 blur.Size = 0
@@ -75,7 +77,6 @@ local notificationContainer = Instance.new("Frame")
 notificationContainer.Size = UDim2.new(1, 0, 1, 0)
 notificationContainer.BackgroundTransparency = 1
 notificationContainer.Parent = screenGui
-
 local notificationLayout = Instance.new("UIListLayout", notificationContainer)
 notificationLayout.FillDirection = Enum.FillDirection.Vertical
 notificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -153,7 +154,9 @@ local function sendNotification(title, text, duration, notifType)
 
     showTween:Play()
     progressTween:Play()
+
     task.wait(duration)
+
     hideTween:Play()
     hideTween.Completed:Wait()
     frame:Destroy()
@@ -162,14 +165,12 @@ end
 local function httpGet(url)
     local success, result = pcall(function() return httpService:GetAsync(url) end)
     if success and result then return true, tostring(result) end
-
     local function tryRequest(reqFunc)
         if not reqFunc then return false, nil end
-        local ok, resp = pcall(function() return reqFunc({ Url = url, Method = "GET" }) end)
+        local ok, resp = pcall(function() return reqFunc({Url = url, Method = "GET"}) end)
         if ok and resp then return true, tostring(resp.Body or resp) end
         return false, nil
     end
-
     local r, res = tryRequest(request)
     if r then return r, res end
     local s, res2 = tryRequest(syn and syn.request)
@@ -181,21 +182,12 @@ local function httpPost(url, body)
     local bodyContent = tostring(body)
     local s, r = pcall(function() return httpService:PostAsync(url, bodyContent, Enum.HttpContentType.TextPlain) end)
     if s and r then return true, tostring(r) end
-
-    local function tryRequest(reqFunc)
+     local function tryRequest(reqFunc)
         if not reqFunc then return false, nil end
-        local ok, resp = pcall(function()
-            return reqFunc({
-                Url = url,
-                Method = "POST",
-                Headers = { ["Content-Type"] = "text/plain" },
-                Body = bodyContent
-            })
-        end)
+        local ok, resp = pcall(function() return reqFunc({Url = url, Method = "POST", Headers = { ["Content-Type"] = "text/plain" }, Body = bodyContent}) end)
         if ok and resp then return true, tostring(resp.Body or resp) end
         return false, nil
     end
-
     local r2, res = tryRequest(request)
     if r2 then return r2, res end
     local s2, res2 = tryRequest(syn and syn.request)
@@ -208,9 +200,7 @@ local function isPositiveResponse(responseText)
     local text = responseText:lower():match("^%s*(.-)%s*$")
     if text == "true" or text == "1" or text == "ok" or text == "success" or text == "200" then return true end
     local success, decoded = pcall(function() return httpService:JSONDecode(responseText) end)
-    if success and type(decoded) == "table" and (decoded.success == true or decoded.Success == true) then
-        return true
-    end
+    if success and type(decoded) == "table" and (decoded.success == true or decoded.Success == true) then return true end
     return false
 end
 
@@ -218,7 +208,8 @@ local mainUI = {}
 
 function mainUI:Create()
     local ui = { Visible = false }
-    local pages, tabs = {}, {}
+    local pages = {}
+    local tabs = {}
 
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 600, 0, 400)
@@ -236,7 +227,7 @@ function mainUI:Create()
     mainFrameStroke.Thickness = 2
 
     local bgPattern = Instance.new("ImageLabel", mainFrame)
-    bgPattern.Image = "rbxassetid://2887559971"
+    bgPattern.Image = "rbxassetid://2887559971" 
     bgPattern.ScaleType = Enum.ScaleType.Tile
     bgPattern.TileSize = UDim2.new(0, 50, 0, 50)
     bgPattern.Size = UDim2.new(2, 0, 2, 0)
@@ -261,15 +252,23 @@ function mainUI:Create()
     header.ZIndex = 2
     header.Parent = mainFrame
 
+    local headerGradient = Instance.new("UIGradient")
+    headerGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.primary),
+        ColorSequenceKeypoint.new(1, theme.primaryGlow)
+    })
+    headerGradient.Rotation = 90
+
     local headerDivider = Instance.new("Frame", mainFrame)
     headerDivider.Size = UDim2.new(1, 0, 0, 3)
     headerDivider.Position = UDim2.new(0, 0, 0, 40)
     headerDivider.BackgroundColor3 = theme.primary
     headerDivider.BorderSizePixel = 0
     headerDivider.ZIndex = 3
+    headerDivider.Parent = headerGradient
 
     local logo = Instance.new("ImageLabel", header)
-    logo.Image = "rbxassetid://3921711226"
+    logo.Image = "rbxassetid://3921711226" 
     logo.Size = UDim2.new(0, 24, 0, 24)
     logo.Position = UDim2.new(0, 10, 0.5, -12)
     logo.ImageColor3 = theme.primary
@@ -308,7 +307,7 @@ function mainUI:Create()
     local minimizeButton = Instance.new("ImageButton", header)
     minimizeButton.Size = UDim2.new(0, 18, 0, 18)
     minimizeButton.Position = UDim2.new(1, -56, 0.5, -9)
-    minimizeButton.Image = "rbxassetid://13516604101"
+    minimizeButton.Image = "rbxassetid://13516604101" 
     minimizeButton.ImageColor3 = theme.textSecondary
     minimizeButton.BackgroundTransparency = 1
     minimizeButton.ZIndex = 3
@@ -319,11 +318,11 @@ function mainUI:Create()
     sidebar.BackgroundColor3 = theme.backgroundSecondary
     sidebar.BorderSizePixel = 0
     sidebar.ZIndex = 2
-
     local sidebarLayout = Instance.new("UIListLayout", sidebar)
-    sidebarLayout.Padding = UDim.new(0, 10)
+    sidebarLayout.Padding = UDim.new(0, 5)
     sidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     sidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    sidebarLayout.Padding = UDim.new(0, 10)
 
     local welcomeMessage = Instance.new("TextLabel", sidebar)
     welcomeMessage.Size = UDim2.new(1, -20, 0, 50)
@@ -343,24 +342,17 @@ function mainUI:Create()
 
     local function selectTab(tab)
         playSound("click")
-        for _, other in ipairs(sidebar:GetChildren()) do
-            if other:IsA("TextButton") and other ~= tab then
-                local ind = other:FindFirstChild("Indicator")
-                if ind then
-                    tweenService:Create(ind, TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
-                end
-                tweenService:Create(other, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
-            end
+        for _, otherTab in pairs(tabs) do
+            tweenService:Create(otherTab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
+            tweenService:Create(otherTab, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
         end
-        for _, page in ipairs(contentContainer:GetChildren()) do
-            if page:IsA("Frame") or page:IsA("ScrollingFrame") then page.Visible = false end
+        for _, page in pairs(pages) do
+            page.Visible = false
         end
-        local curInd = tab:FindFirstChild("Indicator")
-        if curInd then
-            tweenService:Create(curInd, TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
-        end
+
+        tweenService:Create(tab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
         tweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
-        if pages[tab.Name] then pages[tab.Name].Visible = true end
+        pages[tab.Name].Visible = true
     end
 
     local function createTab(name)
@@ -466,6 +458,7 @@ function mainUI:Create()
         local function updateToggle(manual)
             buttonData.enabled = not buttonData.enabled
             playSound(buttonData.enabled and "toggleOn" or "toggleOff")
+
             local pos = buttonData.enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
             local color = buttonData.enabled and theme.success or theme.primary
             tweenService:Create(toggleKnob, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = pos, BackgroundColor3 = color}):Play()
@@ -495,23 +488,22 @@ function mainUI:Create()
         button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
     end
 
-    -- FIX: Keep LoadScripts INSIDE mainUI:Create so local functions/vars are in scope
-    function ui:LoadScripts(scriptLoader)
-        for _, child in ipairs(scriptsPage:GetChildren()) do
-            if not child:IsA("UIGridLayout") then child:Destroy() end
-        end
-
-        local scripts = scriptLoader()
-        if scripts then
-            for name, executeFunc in pairs(scripts) do
-                if name == "Break Gun" or name == "KillAll" then
-                    createScriptActionButton(name, function() executeFunc(true) end)
-                else
-                    createScriptButton(name, executeFunc)
-                end
+function ui:LoadScripts(scriptLoader)
+    for _, child in ipairs(scriptsPage:GetChildren()) do
+        if not child:IsA("UIGridLayout") then child:Destroy() end
+    end
+    local scripts = scriptLoader()
+    if scripts then
+        for name, executeFunc in pairs(scripts) do
+            if name == "Break Gun" or name == "KillAll" then
+                createScriptActionButton(name, function() executeFunc(true) end)
+            else
+                createScriptButton(name, executeFunc)
             end
         end
     end
+end
+
 
     function ui:SetVisibility(visible)
         if ui.Visible == visible then return end
@@ -535,56 +527,27 @@ function mainUI:Create()
         end
     end
 
-    -- default tab
-    selectTab(createTab("Scripts"))
+    closeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
+    minimizeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
+
+    userInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == toggleKey and userInputService:GetFocusedTextBox() == nil then
+            ui:SetVisibility(not ui.Visible)
+        end
+    end)
+
+    task.wait()
+    selectTab(tabs["Scripts"])
 
     return ui
 end
 
-local function loadGameScripts()
-    local gameId = tostring(game.PlaceId)
-    if gameId == "0" then
-        sendNotification("Studio", "Cannot load scripts in Studio.", 5, "warning")
-        return
-    end
-    local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
-    local ok, result = httpGet(apiUrl)
-    if not ok then
-        sendNotification("Error", "Failed to contact GitHub.", 4, "error")
-        return
-    end
-    local success, decoded = pcall(function() return httpService:JSONDecode(result) end)
-    if not success or type(decoded) ~= "table" or decoded.message then
-        sendNotification("Not Found", "No scripts found for this game.", 4, "warning")
-        return
-    end
-
-    local scriptList = {}
-    for _, scriptInfo in ipairs(decoded) do
-        if scriptInfo.type == "file" and scriptInfo.download_url then
-            local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
-            scriptList[scriptName] = function(state)
-                if state == false then return end
-                -- Gate each module: only run after verification success
-                if not (GENV.CRIMSON and GENV.CRIMSON.ok == true) then
-                    sendNotification("Locked", "Verify to run scripts.", 2, "warning")
-                    return
-                end
-                local s, content = httpGet(scriptInfo.download_url)
-                if s and content then
-                    local f, e = loadstring(content)
-                    if f then pcall(f) else sendNotification("Script Error", tostring(e), 5, "error") end
-                else
-                    sendNotification("Download Failed", "Could not download script.", 3, "error")
-                end
-            end
-        end
-    end
-    return scriptList
-end
-
 local function createVerificationUI(onSuccess)
     local frame = Instance.new("Frame")
+    local marker = CoreGui:FindFirstChild(MARKER_NAME) or Instance.new("Folder")
+    marker.Name = MARKER_NAME
+    marker:SetAttribute("ver", 1)
+    marker.Parent = CoreGui
     frame.Size = UDim2.new(0, 400, 0, 220)
     frame.Position = UDim2.new(0.5, -200, 0.5, -110)
     frame.BackgroundColor3 = theme.background
@@ -601,6 +564,17 @@ local function createVerificationUI(onSuccess)
     title.Font = Enum.Font.Michroma
     title.TextColor3 = theme.text
     title.TextSize = 28
+
+    local titleGlow = Instance.new("TextLabel", frame)
+    titleGlow.Size = title.Size
+    titleGlow.Position = title.Position
+    titleGlow.BackgroundTransparency = 1
+    titleGlow.Text = title.Text
+    titleGlow.Font = title.Font
+    titleGlow.TextColor3 = theme.primary
+    titleGlow.TextSize = title.TextSize
+    titleGlow.TextTransparency = 0.7
+    titleGlow.ZIndex = -1
 
     local subtitle = Instance.new("TextLabel", frame)
     subtitle.Size = UDim2.new(1, 0, 0, 20)
@@ -635,7 +609,7 @@ local function createVerificationUI(onSuccess)
     Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 6)
 
     local loadingSpinner = Instance.new("ImageLabel", submit)
-    loadingSpinner.Image = "rbxassetid://5107930337"
+    loadingSpinner.Image = "rbxassetid://5107930337" 
     loadingSpinner.Size = UDim2.new(0, 24, 0, 24)
     loadingSpinner.Position = UDim2.new(0.5, -12, 0.5, -12)
     loadingSpinner.BackgroundTransparency = 1
@@ -653,8 +627,9 @@ local function createVerificationUI(onSuccess)
         submit.Text = ""
         loadingSpinner.Visible = true
         local rotationTween = tweenService:Create(loadingSpinner, TweenInfo.new(1, Enum.EasingStyle.Linear), { Rotation = 360 })
-        local conn; conn = rotationTween.Completed:Connect(function()
-            if loadingSpinner.Visible then rotationTween:Play() end
+        local conn
+        conn = rotationTween.Completed:Connect(function()
+             if loadingSpinner.Visible then rotationTween:Play() end
         end)
         rotationTween:Play()
 
@@ -662,35 +637,21 @@ local function createVerificationUI(onSuccess)
             local ok, respText = httpPost(serverUrl, key)
 
             rotationTween:Cancel()
-            if conn then conn:Disconnect() end
+            conn:Disconnect()
             loadingSpinner.Visible = false
             submit.Text = "SUBMIT"
 
             if ok and isPositiveResponse(respText) then
-                -- Mark verified so modules can run
-                GENV.CRIMSON.ok = true
-                GENV.CRIMSON.ts = (tick and tick()) or os.time()
-                GENV.CRIMSON.reason = "verified"
-
                 playSound("success")
                 sendNotification("Success", "Verification successful!", 1, "success")
-
                 local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
                 outro:Play()
                 outro.Completed:Wait()
                 frame:Destroy()
-
-                -- Build UI and load scripts after verification
-                local hub = mainUI:Create()
-                hub:LoadScripts(loadGameScripts)
-                hub:SetVisibility(true)
+                onSuccess()
             else
-                GENV.CRIMSON.ok = false
-                GENV.CRIMSON.reason = "not_verified"
-
                 playSound("error")
                 sendNotification("Failed", "Invalid key provided.", 1, "error")
-
                 local originalPos = frame.Position
                 local shakeInfo = TweenInfo.new(0.07)
                 for i = 1, 3 do
@@ -703,7 +664,47 @@ local function createVerificationUI(onSuccess)
             end
         end)
     end)
+
+    setBlur(true)
 end
 
--- show verification; hub loads on success inside createVerificationUI
-createVerificationUI(function() end)
+local function loadGameScripts()
+    local gameId = tostring(game.PlaceId)
+    if gameId == "0" then sendNotification("Studio", "Cannot load scripts in Studio.", 5, "warning"); return end
+    local apiUrl = ("https://api.github.com/repos/%s/%s/contents/%s?ref=%s"):format(githubUsername, repoName, gameId, branchName)
+    local ok, result = httpGet(apiUrl)
+    if not ok then sendNotification("Error", "Failed to contact GitHub.", 4, "error"); return end
+    local success, decoded = pcall(function() return httpService:JSONDecode(result) end)
+    if not success or type(decoded) ~= "table" or decoded.message then 
+        sendNotification("Not Found", "No scripts found for this game.", 4, "warning")
+        return 
+    end
+
+    local scriptList = {}
+    for _, scriptInfo in ipairs(decoded) do
+        if scriptInfo.type == "file" and scriptInfo.download_url then
+            local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
+            scriptList[scriptName] = function(state)
+                if state == false then return end
+                local s, content = httpGet(scriptInfo.download_url)
+                if s and content then
+                    local f, e = loadstring(content)
+                    if f then 
+                        pcall(f)
+                    else 
+                        sendNotification("Script Error", tostring(e), 5, "error") 
+                    end
+                else
+                    sendNotification("Download Failed", "Could not download script.", 3, "error")
+                end
+            end
+        end
+    end
+    return scriptList
+end
+
+createVerificationUI(function()
+    local hub = mainUI:Create()
+    hub:LoadScripts(loadGameScripts)
+    hub:SetVisibility(true)
+end)
