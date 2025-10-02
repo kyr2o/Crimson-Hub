@@ -4,6 +4,7 @@ local players = game:GetService("Players")
 local tweenService = game:GetService("TweenService")
 local runService = game:GetService("RunService")
 local lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
 
 local localPlayer = players.LocalPlayer
 local mouse = localPlayer:GetMouse()
@@ -13,9 +14,10 @@ local githubUsername = "kyr2o"
 local repoName = "Crimson-Hub"
 local branchName = "main"
 local serverUrl = "https://crimson-keys.vercel.app/api/verify"
-local CoreGui = game:GetService("CoreGui")
-local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 local toggleKey = Enum.KeyCode.RightControl
+
+-- unique local-only marker name
+local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 
 local theme = {
     background = Color3.fromRGB(21, 22, 28),
@@ -35,10 +37,13 @@ screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonHub"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.DisplayOrder = 999
-screenGui.Parent = localPlayer:WaitForChild("PlayerGui")s
-local old = CoreGui:FindFirstChild(MARKER_NAME)
-if old then old:Destroy() end
+screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
+-- clear any stale marker from previous attaches
+do
+    local old = CoreGui:FindFirstChild(MARKER_NAME)
+    if old then old:Destroy() end
+end
 
 local blur = Instance.new("BlurEffect")
 blur.Size = 0
@@ -154,9 +159,7 @@ local function sendNotification(title, text, duration, notifType)
 
     showTween:Play()
     progressTween:Play()
-
     task.wait(duration)
-
     hideTween:Play()
     hideTween.Completed:Wait()
     frame:Destroy()
@@ -182,9 +185,16 @@ local function httpPost(url, body)
     local bodyContent = tostring(body)
     local s, r = pcall(function() return httpService:PostAsync(url, bodyContent, Enum.HttpContentType.TextPlain) end)
     if s and r then return true, tostring(r) end
-     local function tryRequest(reqFunc)
+    local function tryRequest(reqFunc)
         if not reqFunc then return false, nil end
-        local ok, resp = pcall(function() return reqFunc({Url = url, Method = "POST", Headers = { ["Content-Type"] = "text/plain" }, Body = bodyContent}) end)
+        local ok, resp = pcall(function()
+            return reqFunc({
+                Url = url,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "text/plain" },
+                Body = bodyContent
+            })
+        end)
         if ok and resp then return true, tostring(resp.Body or resp) end
         return false, nil
     end
@@ -319,10 +329,9 @@ function mainUI:Create()
     sidebar.BorderSizePixel = 0
     sidebar.ZIndex = 2
     local sidebarLayout = Instance.new("UIListLayout", sidebar)
-    sidebarLayout.Padding = UDim.new(0, 5)
+    sidebarLayout.Padding = UDim.new(0, 10)
     sidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     sidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    sidebarLayout.Padding = UDim.new(0, 10)
 
     local welcomeMessage = Instance.new("TextLabel", sidebar)
     welcomeMessage.Size = UDim2.new(1, -20, 0, 50)
@@ -343,14 +352,19 @@ function mainUI:Create()
     local function selectTab(tab)
         playSound("click")
         for _, otherTab in pairs(tabs) do
-            tweenService:Create(otherTab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
+            local ind = otherTab:FindFirstChild("Indicator")
+            if ind then
+                tweenService:Create(ind, TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
+            end
             tweenService:Create(otherTab, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
         end
         for _, page in pairs(pages) do
             page.Visible = false
         end
-
-        tweenService:Create(tab:FindFirstChild("Indicator"), TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
+        local myInd = tab:FindFirstChild("Indicator")
+        if myInd then
+            tweenService:Create(myInd, TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
+        end
         tweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
         pages[tab.Name].Visible = true
     end
@@ -488,22 +502,21 @@ function mainUI:Create()
         button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
     end
 
-function ui:LoadScripts(scriptLoader)
-    for _, child in ipairs(scriptsPage:GetChildren()) do
-        if not child:IsA("UIGridLayout") then child:Destroy() end
-    end
-    local scripts = scriptLoader()
-    if scripts then
-        for name, executeFunc in pairs(scripts) do
-            if name == "Break Gun" or name == "KillAll" then
-                createScriptActionButton(name, function() executeFunc(true) end)
-            else
-                createScriptButton(name, executeFunc)
+    function ui:LoadScripts(scriptLoader)
+        for _, child in ipairs(scriptsPage:GetChildren()) do
+            if not child:IsA("UIGridLayout") then child:Destroy() end
+        end
+        local scripts = scriptLoader()
+        if scripts then
+            for name, executeFunc in pairs(scripts) do
+                if name == "Break Gun" or name == "KillAll" then
+                    createScriptActionButton(name, function() executeFunc(true) end)
+                else
+                    createScriptButton(name, executeFunc)
+                end
             end
         end
     end
-end
-
 
     function ui:SetVisibility(visible)
         if ui.Visible == visible then return end
@@ -544,10 +557,6 @@ end
 
 local function createVerificationUI(onSuccess)
     local frame = Instance.new("Frame")
-    local marker = CoreGui:FindFirstChild(MARKER_NAME) or Instance.new("Folder")
-    marker.Name = MARKER_NAME
-    marker:SetAttribute("ver", 1)
-    marker.Parent = CoreGui
     frame.Size = UDim2.new(0, 400, 0, 220)
     frame.Position = UDim2.new(0.5, -200, 0.5, -110)
     frame.BackgroundColor3 = theme.background
@@ -564,17 +573,6 @@ local function createVerificationUI(onSuccess)
     title.Font = Enum.Font.Michroma
     title.TextColor3 = theme.text
     title.TextSize = 28
-
-    local titleGlow = Instance.new("TextLabel", frame)
-    titleGlow.Size = title.Size
-    titleGlow.Position = title.Position
-    titleGlow.BackgroundTransparency = 1
-    titleGlow.Text = title.Text
-    titleGlow.Font = title.Font
-    titleGlow.TextColor3 = theme.primary
-    titleGlow.TextSize = title.TextSize
-    titleGlow.TextTransparency = 0.7
-    titleGlow.ZIndex = -1
 
     local subtitle = Instance.new("TextLabel", frame)
     subtitle.Size = UDim2.new(1, 0, 0, 20)
@@ -642,6 +640,12 @@ local function createVerificationUI(onSuccess)
             submit.Text = "SUBMIT"
 
             if ok and isPositiveResponse(respText) then
+                -- Create the hidden marker so modules can detect verification
+                local marker = CoreGui:FindFirstChild(MARKER_NAME) or Instance.new("Folder")
+                marker.Name = MARKER_NAME
+                marker:SetAttribute("ver", 1)
+                marker.Parent = CoreGui
+
                 playSound("success")
                 sendNotification("Success", "Verification successful!", 1, "success")
                 local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
@@ -686,6 +690,11 @@ local function loadGameScripts()
             local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
             scriptList[scriptName] = function(state)
                 if state == false then return end
+                -- Require the marker before running anything
+                if not CoreGui:FindFirstChild(MARKER_NAME) then
+                    sendNotification("Locked", "Verify to run scripts.", 2, "warning")
+                    return
+                end
                 local s, content = httpGet(scriptInfo.download_url)
                 if s and content then
                     local f, e = loadstring(content)
