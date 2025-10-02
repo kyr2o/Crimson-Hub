@@ -1,15 +1,25 @@
+-- Auto-throw Knife (CoreGui marker-gated + typo fix)
+
+local CoreGui = game:GetService("CoreGui")
+local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
+
+-- require the hub’s verification marker
+if not CoreGui:FindFirstChild(MARKER_NAME) then
+    return
+end
+
 local G = (getgenv and getgenv()) or _G
-G.CRIMSON = G.CRIMSON or { ok = false }
+G.CRIMSON = G.CRIMSON or { ok = false }  -- retained but not relied upon
 
 local players = game:GetService("Players")
 local lp = players.LocalPlayer
 
 local function run()
     local char = lp.Character or lp.CharacterAdded:Wait()
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
     if not (char and humanoid) then return end
 
-    local knife = lp.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife")
+    local knife = (lp.Backpack and lp.Backpack:FindFirstChild("Knife")) or char:FindFirstChild("Knife")
     if not knife then return end
 
     if knife.Parent == lp.Backpack then
@@ -23,20 +33,19 @@ local function run()
 
     while knife and knife.Parent == char do
         local targetsFound = false
-        for _, v in ipairs(players:GetPlayers()) do
-            local targetChar = v.Character
-            local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
 
-            if v ~= lp and targetHum and targetHum.Health > 0 then
-                targetsFound = true
-                local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-                if targetRoot then
-                    local args = {
-                        char.HumanoidRootPart.CFrame,
-                        targetRoot.Position
-                    }
-                    throw:FireServer(unpack(args))
-                    task.wait()
+        for _, v in ipairs(players:GetPlayers()) do
+            if v ~= lp then
+                local targetChar = v.Character
+                local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+                if targetHum and targetHum.Health > 0 then
+                    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                    local myRoot = char:FindFirstChild("HumanoidRootPart")
+                    if targetRoot and myRoot then
+                        targetsFound = true
+                        throw:FireServer(myRoot.CFrame, targetRoot.Position)
+                        task.wait()
+                    end
                 end
             end
         end
@@ -49,18 +58,5 @@ local function run()
     end
 end
 
-if G.CRIMSON.ok == true then
-    run()
-else
-
-    if G.CRIMSON.Event and G.CRIMSON.Event.Event then
-        local conn
-        conn = G.CRIMSON.Event.Event:Connect(function(ok)
-            if ok == true then
-                if conn then conn:Disconnect() end
-                run()
-            end
-        end)
-    end
-    return
-end
+-- run immediately when loaded via hub (marker already present)
+run()
