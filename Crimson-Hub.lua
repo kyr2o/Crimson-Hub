@@ -41,7 +41,6 @@ local CATEGORY_SPEC = {
     },
 }
 
-
 local screenGui = Instance.new("ScreenGui")
 screenGui.ResetOnSpawn = false
 screenGui.Name = "CrimsonHub"
@@ -239,7 +238,6 @@ local function tryDisableByName(scriptName)
         if rec and rec.disable then pcall(function() rec.disable(true) end) end
     end
 
-    -- Replace the ESP branch inside tryDisableByName with this:
     if (lowered == "roleesp" or lowered:find("role") or lowered == "esp") then
         if Shared.CRIMSON_ROLEESP and Shared.CRIMSON_ROLEESP.disable then
             pcall(function() Shared.CRIMSON_ROLEESP.disable(true) end)
@@ -322,11 +320,10 @@ local mainUI = {}
 
 local function addCategoryRow(parent, titleText)
     local container = Instance.new("Frame", parent)
-    -- The container must allow the UIListLayout in the parent to stack it, so Size.Y is a static offset.
+
     container.Size = UDim2.new(1, 0, 0, 28) 
     container.BackgroundTransparency = 1
-    
-    -- Add padding to separate category rows from buttons
+
     local padding = Instance.new("UIPadding", container)
     padding.PaddingTop = UDim.new(0, 10)
     padding.PaddingBottom = UDim.new(0, 5)
@@ -541,7 +538,7 @@ function mainUI:Create()
         page.ScrollBarImageColor3 = theme.primary
         page.ScrollBarThickness = 6
         page.Visible = false
-        -- FIX: Use AutomaticCanvasSize to enable scrolling when content overflows
+
         page.AutomaticCanvasSize = Enum.AutomaticSize.Y
         pages[name] = page
         return page
@@ -549,9 +546,9 @@ function mainUI:Create()
 
     local scriptsPage = createPage("Scripts")
     local scriptsLayout = Instance.new("UIListLayout", scriptsPage)
-    scriptsLayout.Padding = UDim.new(0, 14) -- Increased vertical padding between categories (was 12)
+    scriptsLayout.Padding = UDim.new(0, 14) 
     scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    scriptsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left -- Align to left for category titles
+    scriptsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left 
 
     local universalPage = createPage("Universal")
     local universalLayout = Instance.new("UIListLayout", universalPage)
@@ -774,8 +771,7 @@ function mainUI:Create()
         for _, child in ipairs(scriptsPage:GetChildren()) do
             if not child:IsA("UILayout") then child:Destroy() end
         end
-        -- CanvasSize is correctly set to UDim2.new(0, 0, 0, 0), and scrolling is enabled 
-        -- by scriptsPage.AutomaticCanvasSize = Enum.AutomaticSize.Y in createPage.
+
         scriptsPage.CanvasSize = UDim2.new(0, 0, 0, 0) 
 
         local scripts = scriptLoader()
@@ -783,63 +779,60 @@ function mainUI:Create()
 
         local spec = CATEGORY_SPEC[game.PlaceId]
         if spec then
-            -- Remove UIGridLayout if it was used for the non-spec layout previously
+
             if scriptsPage:FindFirstChildOfClass("UIGridLayout") then
                 scriptsPage:FindFirstChildOfClass("UIGridLayout"):Destroy()
             end
-            -- Ensure UIListLayout is present and configured for category stacking
+
             local vertList = scriptsPage:FindFirstChildOfClass("UIListLayout")
             if not vertList then
                 vertList = Instance.new("UIListLayout", scriptsPage)
-                vertList.Padding = UDim.new(0, 14) -- Increased vertical padding between categories (was 12)
+                vertList.Padding = UDim.new(0, 14) 
                 vertList.SortOrder = Enum.SortOrder.LayoutOrder
                 vertList.HorizontalAlignment = Enum.HorizontalAlignment.Left
             end
-            
+
             local used = {}
             for _, cat in ipairs(spec) do
                 if cat.modules ~= "REMAINDER" then
-                    -- 1. Add Category Title
+
                     addCategoryRow(scriptsPage, cat.title)
-                    
+
                     local row = Instance.new("Frame", scriptsPage)
-                    row.Size = UDim2.new(1, 0, 0, 50) -- Adjusted height to fit 50px buttons
+                    row.Size = UDim2.new(1, 0, 0, 50) 
                     row.BackgroundTransparency = 1
                     row.AutomaticSize = Enum.AutomaticSize.Y
-                        
-                    -- NEW: inset container so buttons sit inside the category block
+
                     local content = Instance.new("Frame", row)
                     content.Name = "RowContent"
                     content.BackgroundTransparency = 1
-                    content.Position = UDim2.new(0, 160, 0, 10)  -- left + top offset away from title/line
-                    content.Size = UDim2.new(1, -190, 0, 0)      -- shrink width so right edge breathes
+                    content.Position = UDim2.new(0, 160, 0, 10)  
+                    content.Size = UDim2.new(1, -190, 0, 0)      
                     content.AutomaticSize = Enum.AutomaticSize.Y
-                    
-                    -- Use the same layout you already had, but parent it to 'content'
+
                     local grid = Instance.new("UIGridLayout", content)
-                    grid.CellSize = UDim2.new(0, 200, 0, 100)   -- CHANGED: Increased height to 100px to fit Auto Shoot prediction card
-                    grid.CellPadding = UDim2.new(0, 16, 0, 16)   -- a touch more spacing between buttons
+                    grid.CellSize = UDim2.new(0, 200, 0, 100)   
+                    grid.CellPadding = UDim2.new(0, 16, 0, 16)   
                     grid.SortOrder = Enum.SortOrder.LayoutOrder
                     grid.FillDirection = Enum.FillDirection.Horizontal
                     grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
-                    
+
                     local function resizeRow()
-                        -- Recalculate row size based on content size + the 20px offset applied by content.Position's Y (10) and content.AutomaticSize's bottom padding.
+
                         row.Size = UDim2.new(1, 0, 0, math.max(50, grid.AbsoluteContentSize.Y + 20))
                     end
                     resizeRow()
                     grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeRow)
-                                                
+
                     for _, modName in ipairs(cat.modules) do
                         local fn = scripts[modName]
                         if fn then
                             used[modName] = true
                             if modName == "Break Gun" or modName == "KillAll" then
-                                -- NOTE: parent is now 'content' (not 'row')
+
                                 createActionButton(content, modName, function() fn(true) end)
                             elseif modName == "Auto Shoot" then
-                                -- Auto Shoot toggle + Shoot Prediction (restored)
-                                -- Parent inside RowContent if present (newer UI), otherwise use the row itself (older UI)
+
                                 local parentContainer = row:FindFirstChild("RowContent") or row
                                 local autoContainer = Instance.new("Frame", parentContainer)
                                 autoContainer.Size = UDim2.new(0, 200, 0, 100)
@@ -849,9 +842,9 @@ function mainUI:Create()
                                 vList.SortOrder = Enum.SortOrder.LayoutOrder
                                 local autoBtn = createScriptButton(autoContainer, "Auto Shoot", function(state)
                                     local G = (getgenv and getgenv()) or _G
-                                    G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.15 }
+                                    G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
                                     G.CRIMSON_AUTO_SHOOT.enabled = state
-                                    if state then fn(true) end -- Load the shooter once when toggled on
+                                    if state then fn(true) end 
                                 end)
                                 autoBtn.LayoutOrder = 1
                                 local predCard = Instance.new("Frame", autoContainer)
@@ -894,14 +887,14 @@ function mainUI:Create()
                                     G.CRIMSON_AUTO_SHOOT.prediction = v
                                 end)
                             else
-                                -- Regular script buttons also parent to 'content'
+
                                 createScriptButton(content, modName, fn)
                             end
                         end
                     end
                 end
             end
-            
+
             for _, cat in ipairs(spec) do
                 if cat.modules == "REMAINDER" then
                     local remainderScripts = {}
@@ -916,30 +909,29 @@ function mainUI:Create()
                         local row = Instance.new("Frame", scriptsPage)
                         row.Size = UDim2.new(1, 0, 0, 50)
                         row.BackgroundTransparency = 1
-                        -- FIX 3: Allow the 'row' frame to automatically size its height based on the grid content
+
                         row.AutomaticSize = Enum.AutomaticSize.Y 
 
-                        -- NEW inset container for remainder
                         local content = Instance.new("Frame", row)
                         content.Name = "RowContent"
                         content.BackgroundTransparency = 1
                         content.Position = UDim2.new(0, 160, 0, 10)
                         content.Size = UDim2.new(1, -190, 0, 0)
                         content.AutomaticSize = Enum.AutomaticSize.Y
-                        
+
                         local grid = Instance.new("UIGridLayout", content)
-                        grid.CellSize = UDim2.new(0, 200, 0, 100) -- CHANGED: Increased height to 100px to fit Auto Shoot prediction card
-                        grid.CellPadding = UDim2.new(0, 16, 0, 16) -- Adjusting padding
+                        grid.CellSize = UDim2.new(0, 200, 0, 100) 
+                        grid.CellPadding = UDim2.new(0, 16, 0, 16) 
                         grid.SortOrder = Enum.SortOrder.LayoutOrder
                         grid.FillDirection = Enum.FillDirection.Horizontal
                         grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
-                        
+
                         local function resizeRow()
                             row.Size = UDim2.new(1, 0, 0, math.max(50, grid.AbsoluteContentSize.Y + 20))
                         end
                         resizeRow()
                         grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeRow)
-                                                
+
                         for _, scriptData in pairs(remainderScripts) do
                             createScriptButton(content, scriptData.name, scriptData.fn)
                         end
@@ -947,7 +939,7 @@ function mainUI:Create()
                 end
             end
         else
-            -- Non-spec layout (old logic)
+
             local grid = Instance.new("UIGridLayout", scriptsPage)
             grid.CellSize = UDim2.new(0, 200, 0, 50)
             grid.CellPadding = UDim2.new(0, 15, 0, 15)
