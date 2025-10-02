@@ -1,9 +1,6 @@
--- Crimson ESP (CoreGui marker-gated)
-
 local CoreGui = game:GetService("CoreGui")
 local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 
--- fail closed unless the hub’s marker exists
 if not CoreGui:FindFirstChild(MARKER_NAME) then
     return
 end
@@ -251,10 +248,8 @@ Shared.CRIMSON_ESP = {
         disconnectAll()
         removeAllVisuals()
         if not silent then
-            -- optionally notify here
         end
     end
 }
 
--- auto-enable when loaded via hub (marker already exists)
 Shared.CRIMSON_ESP.enable()
