@@ -752,7 +752,7 @@ do
         for _, player in ipairs(players:GetPlayers()) do setupESP(player) end
         table.insert(G.CRIMSON_ESP_DATA.connections, players.PlayerAdded:Connect(setupESP))
     end
-    createScriptButton(universalPage, "RoleESP", toggleESP)
+    createScriptButton(universalPage, "ESP", toggleESP)
 
     localPlayer.CharacterAdded:Connect(function(char)
         local humanoid = char:WaitForChild("Humanoid")
