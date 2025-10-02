@@ -1,3 +1,5 @@
+-- Crimson Hub (with global notifier export)
+
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -161,6 +163,14 @@ local function sendNotification(title, text, duration, notifType)
     hideTween:Play()
     hideTween.Completed:Wait()
     frame:Destroy()
+end
+
+-- EXPORT: global notifier so modules can toast via the hub
+do
+    local Shared = (getgenv and getgenv()) or _G
+    Shared.CRIMSON_NOTIFY = function(title, text, duration, kind)
+        sendNotification(title or "Crimson", text or "", duration or 1, kind or "info")
+    end
 end
 
 local function httpGet(url)
@@ -624,7 +634,7 @@ end
 
 local function createVerificationUI(onSuccess)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 270) 
+    frame.Size = UDim2.new(0, 400, 0, 270)
     frame.Position = UDim2.new(0.5, -200, 0.5, -135)
     frame.BackgroundColor3 = theme.background
     frame.Draggable = true
