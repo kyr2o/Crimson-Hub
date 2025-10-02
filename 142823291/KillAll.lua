@@ -1,15 +1,12 @@
--- Auto-throw Knife (CoreGui marker-gated + typo fix)
-
 local CoreGui = game:GetService("CoreGui")
 local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 
--- require the hub’s verification marker
 if not CoreGui:FindFirstChild(MARKER_NAME) then
     return
 end
 
 local G = (getgenv and getgenv()) or _G
-G.CRIMSON = G.CRIMSON or { ok = false }  -- retained but not relied upon
+G.CRIMSON = G.CRIMSON or { ok = false }
 
 local players = game:GetService("Players")
 local lp = players.LocalPlayer
@@ -58,5 +55,4 @@ local function run()
     end
 end
 
--- run immediately when loaded via hub (marker already present)
 run()
