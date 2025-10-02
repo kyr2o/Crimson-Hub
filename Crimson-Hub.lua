@@ -1,5 +1,3 @@
--- Crimson Hub (with global notifier export)
-
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -19,6 +17,7 @@ local serverUrl = "https://crimson-keys.vercel.app/api/verify"
 local toggleKey = Enum.KeyCode.RightControl
 
 local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
+local MM2_PLACEID = 142823291
 
 local theme = {
     background = Color3.fromRGB(21, 22, 28),
@@ -165,7 +164,6 @@ local function sendNotification(title, text, duration, notifType)
     frame:Destroy()
 end
 
--- EXPORT: global notifier so modules can toast via the hub
 do
     local Shared = (getgenv and getgenv()) or _G
     Shared.CRIMSON_NOTIFY = function(title, text, duration, kind)
@@ -289,6 +287,144 @@ local function tryCopyToClipboard(text, parentForFallback)
 
     task.delay(5, function() if box and box.Parent then box:Destroy() end end)
     return false
+end
+
+local Shared = (getgenv and getgenv()) or _G
+Shared.CRIMSON_UNI = Shared.CRIMSON_UNI or {
+    ws = 16,
+    jp = 50,
+}
+Shared.CRIMSON_UNI_ESP = Shared.CRIMSON_UNI_ESP or {}
+
+local function applyMovement()
+    local char = localPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    hum.WalkSpeed = Shared.CRIMSON_UNI.ws
+    hum.JumpPower = Shared.CRIMSON_UNI.jp
+end
+
+localPlayer.CharacterAdded:Connect(function()
+    task.wait(0.1)
+    applyMovement()
+end)
+
+do
+    local State = {
+        enabled = false,
+        conns = {},
+        perPlayer = {}, 
+    }
+
+    local function destroySafe(x)
+        if x and x.Destroy then pcall(function() x:Destroy() end) end
+    end
+
+    local function addNameTag(character, player)
+        local head = character:FindFirstChild("Head")
+        if not head then return nil end
+        local billboard = Instance.new("BillboardGui")
+        billboard.Size = UDim2.new(0, 120, 0, 30)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = head
+        billboard.StudsOffset = Vector3.new(0, 1.5, 0)
+        billboard.Name = "CrimsonUniName"
+        billboard.Parent = head
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Text = player.DisplayName
+        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textLabel.TextSize = 14
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.Parent = billboard
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(60, 60, 60)
+        stroke.Thickness = 2
+        stroke.Parent = textLabel
+
+        return billboard
+    end
+
+    local function addESP(plr)
+        if plr == localPlayer then return end
+        if State.perPlayer[plr] then return end
+        local char = plr.Character
+        if not char then return end
+        local hl = Instance.new("Highlight")
+        hl.FillColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.35
+        hl.OutlineColor = Color3.fromRGB(60, 60, 60) 
+        hl.OutlineTransparency = 0
+        hl.Parent = char
+        local bb = addNameTag(char, plr)
+        State.perPlayer[plr] = {hl = hl, bb = bb}
+    end
+
+    local function removeESP(plr)
+        local pack = State.perPlayer[plr]
+        if not pack then return end
+        destroySafe(pack.hl)
+        destroySafe(pack.bb)
+        State.perPlayer[plr] = nil
+    end
+
+    local function refreshPlayer(plr)
+        removeESP(plr)
+        addESP(plr)
+    end
+
+    local function enable()
+        if State.enabled then return end
+        State.enabled = true
+        for _, p in ipairs(players:GetPlayers()) do
+            addESP(p)
+            State.perPlayer[p] = State.perPlayer[p]
+            local c1 = p.CharacterAdded:Connect(function()
+                task.wait(0.2)
+                if State.enabled then refreshPlayer(p) end
+            end)
+            local c2 = p.CharacterRemoving:Connect(function()
+                removeESP(p)
+            end)
+            State.conns[#State.conns+1] = c1
+            State.conns[#State.conns+1] = c2
+        end
+        local c3 = players.PlayerAdded:Connect(function(p)
+            if State.enabled then
+                task.wait(0.2)
+                addESP(p)
+                local cA = p.CharacterAdded:Connect(function()
+                    task.wait(0.2)
+                    if State.enabled then refreshPlayer(p) end
+                end)
+                State.conns[#State.conns+1] = cA
+            end
+        end)
+        local c4 = players.PlayerRemoving:Connect(function(p)
+            removeESP(p)
+        end)
+        State.conns[#State.conns+1] = c3
+        State.conns[#State.conns+1] = c4
+    end
+
+    local function disable()
+        if not State.enabled then return end
+        State.enabled = false
+        for _, c in ipairs(State.conns) do
+            pcall(function() c:Disconnect() end)
+        end
+        State.conns = {}
+        for plr, _ in pairs(State.perPlayer) do
+            removeESP(plr)
+        end
+    end
+
+    Shared.CRIMSON_UNI_ESP.enable = enable
+    Shared.CRIMSON_UNI_ESP.disable = disable
 end
 
 local mainUI = {}
@@ -488,11 +624,10 @@ function mainUI:Create()
     end
 
     local scriptsPage = createPage("Scripts")
-    local scriptsLayout = Instance.new("UIGridLayout", scriptsPage)
-    scriptsLayout.CellSize = UDim2.new(0, 200, 0, 50)
-    scriptsLayout.CellPadding = UDim2.new(0, 15, 0, 15)
+    local scriptsLayout = Instance.new("UIListLayout", scriptsPage)
+    scriptsLayout.Padding = UDim.new(0, 10)
     scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    scriptsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    scriptsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
     local settingsPage = createPage("Settings")
     local settingsLayout = Instance.new("UIListLayout", settingsPage)
@@ -515,11 +650,57 @@ function mainUI:Create()
     createTab("Settings")
     createTab("Info")
 
-    local function createScriptButton(name, callback)
+    do
+        local row = Instance.new("Frame", settingsPage)
+        row.Size = UDim2.new(1, -40, 0, 40)
+        row.Position = UDim2.new(0, 20, 0, 20)
+        row.BackgroundColor3 = theme.backgroundSecondary
+        row.BackgroundTransparency = 0.3
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+        local label = Instance.new("TextLabel", row)
+        label.Size = UDim2.new(0.6, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = "Toggle GUI:"
+        label.Font = Enum.Font.Michroma
+        label.TextSize = 14
+        label.TextColor3 = theme.text
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Position = UDim2.new(0, 10, 0, 0)
+        local btn = Instance.new("TextButton", row)
+        btn.Size = UDim2.new(0.35, -10, 0, 28)
+        btn.Position = UDim2.new(0.62, 0, 0.5, -14)
+        btn.BackgroundColor3 = theme.accent
+        btn.Font = Enum.Font.Michroma
+        btn.TextSize = 14
+        btn.TextColor3 = theme.text
+        btn.Text = tostring(toggleKey.Name)
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+        local waiting = false
+        btn.MouseButton1Click:Connect(function()
+            playSound("click")
+            if waiting then return end
+            waiting = true
+            btn.Text = "..."
+            local con
+            con = userInputService.InputBegan:Connect(function(input, gpe)
+                if not waiting then return end
+                if gpe then return end
+                if input.KeyCode ~= Enum.KeyCode.Unknown then
+                    toggleKey = input.KeyCode
+                    btn.Text = tostring(toggleKey.Name)
+                    waiting = false
+                    con:Disconnect()
+                end
+            end)
+        end)
+    end
+
+    local function createScriptButton(parent, name, callback)
         local buttonData = {enabled = false}
 
-        local button = Instance.new("TextButton", scriptsPage)
-        button.Size = UDim2.new(0, 200, 0, 50)
+        local button = Instance.new("TextButton", parent)
+        button.Size = UDim2.new(0, 200, 0, 40)
         button.BackgroundColor3 = theme.accent
         button.Text = ""
         Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
@@ -549,47 +730,254 @@ function mainUI:Create()
         local function updateToggle(manual)
             buttonData.enabled = not buttonData.enabled
             playSound(buttonData.enabled and "toggleOn" or "toggleOff")
-
             local pos = buttonData.enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
             local color = buttonData.enabled and theme.success or theme.primary
-            tweenService:Create(toggleKnob, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = pos, BackgroundColor3 = color}):Play()
+            tweenService:Create(toggleKnob, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = pos, BackgroundColor3 = color}):Play()
             if manual then pcall(callback, buttonData.enabled) end
         end
 
         button.MouseButton1Click:Connect(function() updateToggle(true) end)
-        button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
-        button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+        button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
+        button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.15), {BackgroundColor3 = theme.accent}):Play() end)
+        return button
     end
 
-    local function createScriptActionButton(name, callback)
-        local button = Instance.new("TextButton", scriptsPage)
-        button.Size = UDim2.new(0, 200, 0, 50)
+    local function createActionButton(parent, name, callback)
+        local button = Instance.new("TextButton", parent)
+        button.Size = UDim2.new(0, 200, 0, 40)
         button.BackgroundColor3 = theme.accent
         button.Text = name
         button.Font = Enum.Font.Michroma
         button.TextSize = 14
         button.TextColor3 = theme.text
         Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
-
         button.MouseButton1Click:Connect(function()
             playSound("click")
             pcall(callback)
         end)
-        button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
-        button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+        button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
+        button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.15), {BackgroundColor3 = theme.accent}):Play() end)
+        return button
+    end
+
+    local mm2Container, uniContainer
+    local function buildScriptsContainers()
+        scriptsPage:ClearAllChildren()
+        local headerRow = Instance.new("Frame", scriptsPage)
+        headerRow.Size = UDim2.new(1, -40, 0, 34)
+        headerRow.Position = UDim2.new(0, 20, 0, 10)
+        headerRow.BackgroundTransparency = 1
+
+        local mm2Btn = Instance.new("TextButton", headerRow)
+        mm2Btn.Size = UDim2.new(0, 90, 0, 30)
+        mm2Btn.Position = UDim2.new(0, 0, 0, 0)
+        mm2Btn.BackgroundColor3 = theme.accent
+        mm2Btn.Text = "MM2"
+        mm2Btn.Font = Enum.Font.Michroma
+        mm2Btn.TextSize = 14
+        mm2Btn.TextColor3 = theme.text
+        Instance.new("UICorner", mm2Btn).CornerRadius = UDim.new(0, 6)
+
+        local uniBtn = Instance.new("TextButton", headerRow)
+        uniBtn.Size = UDim2.new(0, 110, 0, 30)
+        uniBtn.Position = UDim2.new(0, 100, 0, 0)
+        uniBtn.BackgroundColor3 = theme.accent
+        uniBtn.Text = "Universal"
+        uniBtn.Font = Enum.Font.Michroma
+        uniBtn.TextSize = 14
+        uniBtn.TextColor3 = theme.text
+        Instance.new("UICorner", uniBtn).CornerRadius = UDim.new(0, 6)
+
+        mm2Container = Instance.new("Frame", scriptsPage)
+        mm2Container.Size = UDim2.new(1, -40, 1, -60)
+        mm2Container.Position = UDim2.new(0, 20, 0, 50)
+        mm2Container.BackgroundTransparency = 1
+
+        uniContainer = Instance.new("Frame", scriptsPage)
+        uniContainer.Size = UDim2.new(1, -40, 1, -60)
+        uniContainer.Position = UDim2.new(0, 20, 0, 50)
+        uniContainer.BackgroundTransparency = 1
+
+        local function show(which)
+            mm2Container.Visible = (which == "mm2")
+            uniContainer.Visible = (which == "uni")
+        end
+        mm2Btn.MouseButton1Click:Connect(function() show("mm2") end)
+        uniBtn.MouseButton1Click:Connect(function() show("uni") end)
+        show("mm2")
+    end
+
+    local function buildUniversalUI()
+        uniContainer:ClearAllChildren()
+        local list = Instance.new("UIListLayout", uniContainer)
+        list.Padding = UDim.new(0, 8)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+
+        local function numberRow(labelText, initial, onCommit)
+            local row = Instance.new("Frame", uniContainer)
+            row.Size = UDim2.new(1, 0, 0, 40)
+            row.BackgroundColor3 = theme.backgroundSecondary
+            Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+            local lab = Instance.new("TextLabel", row)
+            lab.Size = UDim2.new(0.5, -10, 1, 0)
+            lab.Position = UDim2.new(0, 10, 0, 0)
+            lab.BackgroundTransparency = 1
+            lab.Text = labelText
+            lab.Font = Enum.Font.Michroma
+            lab.TextSize = 14
+            lab.TextColor3 = theme.text
+            lab.TextXAlignment = Enum.TextXAlignment.Left
+            local box = Instance.new("TextBox", row)
+            box.Size = UDim2.new(0.5, -20, 0, 28)
+            box.Position = UDim2.new(0.5, 10, 0.5, -14)
+            box.BackgroundColor3 = theme.accent
+            box.Font = Enum.Font.SourceSans
+            box.TextSize = 16
+            box.TextColor3 = theme.text
+            box.Text = tostring(initial)
+            Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+
+            local last = box.Text
+            box:GetPropertyChangedSignal("Text"):Connect(function()
+                if box.Text == "" then last = "" return end
+                if tonumber(box.Text) then
+                    last = box.Text
+                else
+                    box.Text = last
+                end
+            end)
+            box.FocusLost:Connect(function(enter)
+                local n = tonumber(box.Text)
+                if n then onCommit(n) else box.Text = tostring(initial) end
+            end)
+        end
+
+        numberRow("WalkSpeed", Shared.CRIMSON_UNI.ws, function(v)
+            Shared.CRIMSON_UNI.ws = v
+            applyMovement()
+        end)
+        numberRow("JumpPower", Shared.CRIMSON_UNI.jp, function(v)
+            Shared.CRIMSON_UNI.jp = v
+            applyMovement()
+        end)
+
+        local espRow = Instance.new("Frame", uniContainer)
+        espRow.Size = UDim2.new(1, 0, 0, 40)
+        espRow.BackgroundColor3 = theme.backgroundSecondary
+        Instance.new("UICorner", espRow).CornerRadius = UDim.new(0, 6)
+        local lab = Instance.new("TextLabel", espRow)
+        lab.Size = UDim2.new(0.5, -10, 1, 0)
+        lab.Position = UDim2.new(0, 10, 0, 0)
+        lab.BackgroundTransparency = 1
+        lab.Text = "ESP (All players)"
+        lab.Font = Enum.Font.Michroma
+        lab.TextSize = 14
+        lab.TextColor3 = theme.text
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        createScriptButton(espRow, "Enable", function(state)
+            if state then
+                if Shared.CRIMSON_UNI_ESP and Shared.CRIMSON_UNI_ESP.enable then
+                    Shared.CRIMSON_UNI_ESP.enable()
+                end
+            else
+                if Shared.CRIMSON_UNI_ESP and Shared.CRIMSON_UNI_ESP.disable then
+                    Shared.CRIMSON_UNI_ESP.disable()
+                end
+            end
+        end)
+    end
+
+    local function addCategory(parent, titleText)
+        local container = Instance.new("Frame", parent)
+        container.Size = UDim2.new(1, 0, 0, 28)
+        container.BackgroundTransparency = 1
+
+        local title = Instance.new("TextLabel", container)
+        title.Size = UDim2.new(0, 100, 1, 0)
+        title.Text = titleText
+        title.Font = Enum.Font.Michroma
+        title.TextSize = 14
+        title.TextColor3 = theme.text
+        title.BackgroundTransparency = 1
+        title.TextXAlignment = Enum.TextXAlignment.Left
+
+        local line = Instance.new("Frame", container)
+        line.Size = UDim2.new(1, -110, 0, 2)
+        line.Position = UDim2.new(0, 105, 0.5, -1)
+        line.BackgroundColor3 = theme.accent
+        line.BorderSizePixel = 0
+
+        local list = Instance.new("UIListLayout", parent)
+        list.Padding = UDim.new(0, 8)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+        return container
     end
 
     function ui:LoadScripts(scriptLoader)
-        for _, child in ipairs(scriptsPage:GetChildren()) do
-            if not child:IsA("UIGridLayout") then child:Destroy() end
-        end
-        local scripts = scriptLoader()
-        if scripts then
-            for name, executeFunc in pairs(scripts) do
-                if name == "Break Gun" or name == "KillAll" then
-                    createScriptActionButton(name, function() executeFunc(true) end)
-                else
-                    createScriptButton(name, executeFunc)
+        scriptsPage:ClearAllChildren()
+        if game.PlaceId == MM2_PLACEID then
+            buildScriptsContainers()
+            buildUniversalUI()
+
+            local scripts = scriptLoader()
+
+            local content = Instance.new("Frame", mm2Container)
+            content.Size = UDim2.new(1, 0, 1, 0)
+            content.BackgroundTransparency = 1
+            local list = Instance.new("UIListLayout", content)
+            list.Padding = UDim.new(0, 8)
+            list.SortOrder = Enum.SortOrder.LayoutOrder
+
+            addCategory(content, "ESP --------")
+            local espRow = Instance.new("Frame", content)
+            espRow.Size = UDim2.new(1, 0, 0, 48)
+            espRow.BackgroundTransparency = 1
+            local espList = Instance.new("UIListLayout", espRow)
+            espList.FillDirection = Enum.FillDirection.Horizontal
+            espList.Padding = UDim.new(0, 10)
+
+            if scripts["ESP"] then
+                createScriptButton(espRow, "Role ESP", function(state) if state then scripts["ESP"](true) else tryDisableByName("ESP") end end)
+            end
+            if scripts["Trap ESP"] then
+                createScriptButton(espRow, "Trap ESP", function(state) if state then scripts["Trap ESP"](true) else tryDisableByName("Trap ESP") end end)
+            end
+
+            addCategory(content, "Actions ----")
+            local actRow = Instance.new("Frame", content)
+            actRow.Size = UDim2.new(1, 0, 0, 48)
+            actRow.BackgroundTransparency = 1
+            local actList = Instance.new("UIListLayout", actRow)
+            actList.FillDirection = Enum.FillDirection.Horizontal
+            actList.Padding = UDim.new(0, 10)
+
+            if scripts["Break Gun"] then
+                createActionButton(actRow, "Break Gun", function() scripts["Break Gun"](true) end)
+            end
+            if scripts["KillAll"] then
+                createActionButton(actRow, "Kill All", function() scripts["KillAll"](true) end)
+            end
+
+            addCategory(content, "Other ------")
+            for name, fn in pairs(scripts) do
+                if name ~= "ESP" and name ~= "Trap ESP" and name ~= "Break Gun" and name ~= "KillAll" then
+                    createScriptButton(content, name, fn)
+                end
+            end
+        else
+
+            local grid = Instance.new("UIGridLayout", scriptsPage)
+            grid.CellSize = UDim2.new(0, 200, 0, 50)
+            grid.CellPadding = UDim2.new(0, 15, 0, 15)
+            grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            local scripts = scriptLoader()
+            if scripts then
+                for name, executeFunc in pairs(scripts) do
+                    if name == "Break Gun" or name == "KillAll" then
+                        createActionButton(scriptsPage, name, function() executeFunc(true) end)
+                    else
+                        createScriptButton(scriptsPage, name, executeFunc)
+                    end
                 end
             end
         end
@@ -621,7 +1009,8 @@ function mainUI:Create()
     minimizeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
 
     userInputService.InputBegan:Connect(function(input)
-        if input.KeyCode == toggleKey and userInputService:GetFocusedTextBox() == nil then
+        if userInputService:GetFocusedTextBox() ~= nil then return end
+        if input.KeyCode == toggleKey then
             ui:SetVisibility(not ui.Visible)
         end
     end)
