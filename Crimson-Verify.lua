@@ -647,8 +647,9 @@ local function createVerificationUI(onSuccess)
                 -- set shared verification state for modules
                 local now = (tick and tick()) or os.time()
                 GENV.CRIMSON.ok = true
-                GENV.CRIMSON.ts = now
+                GENV.CRIMSON.ts = (tick and tick()) or os.time()
                 GENV.CRIMSON.reason = "verified"
+                GENV.CRIMSON.session = GENV.CRIMSON.session or tostring(math.random()) .. tostring(os.clock())
                 if not GENV.CRIMSON.Event then
                     GENV.CRIMSON.Event = Instance.new("BindableEvent")
                 end
