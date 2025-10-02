@@ -1,9 +1,6 @@
--- Break Gun (runs only if Crimson Hub marker exists)
-
 local CoreGui = game:GetService("CoreGui")
 local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 
--- gate: require the marker to be present
 if not CoreGui:FindFirstChild(MARKER_NAME) then
     return
 end
