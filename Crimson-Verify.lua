@@ -16,7 +16,6 @@ local branchName = "main"
 local serverUrl = "https://crimson-keys.vercel.app/api/verify"
 local toggleKey = Enum.KeyCode.RightControl
 
--- unique local-only marker name
 local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 
 local theme = {
@@ -39,7 +38,6 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.DisplayOrder = 999
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
--- clear any stale marker from previous attaches
 do
     local old = CoreGui:FindFirstChild(MARKER_NAME)
     if old then old:Destroy() end
@@ -55,7 +53,7 @@ end
 
 local sounds = {
     open = "rbxassetid://6366382384",
-    close = "rbxassetid://6366382384", 
+    close = "rbxassetid://6366382384",
     toggleOn = "rbxassetid://6366382384",
     toggleOff = "rbxassetid://6366382384",
     click = "rbxassetid://6366382384",
@@ -214,6 +212,35 @@ local function isPositiveResponse(responseText)
     return false
 end
 
+local function tryDisableByName(scriptName)
+    local Shared = (getgenv and getgenv()) or _G
+    local lowered = string.lower(scriptName or "")
+
+    if Shared.CRIMSON_SCRIPTS and Shared.CRIMSON_SCRIPTS[scriptName] then
+        local rec = Shared.CRIMSON_SCRIPTS[scriptName]
+        if rec and rec.disable then pcall(function() rec.disable(true) end) end
+    end
+
+    if (lowered == "esp" or lowered:find("^esp$")) and Shared.CRIMSON_ESP and Shared.CRIMSON_ESP.disable then
+        pcall(function() Shared.CRIMSON_ESP.disable(true) end)
+    end
+    if (lowered:find("trap")) and Shared.CRIMSON_TRAP and Shared.CRIMSON_TRAP.disable then
+        pcall(function() Shared.CRIMSON_TRAP.disable(true) end)
+    end
+
+    if lowered:find("trap") then
+        for _, inst in ipairs(workspace:GetDescendants()) do
+            if inst:IsA("BillboardGui") and inst.Name == "TrapBillboard" then
+                pcall(function() inst:Destroy() end)
+            end
+            if inst:IsA("Model") and inst.Name == "Trap" then
+                local hl = inst:FindFirstChildOfClass("Highlight")
+                if hl then pcall(function() hl:Destroy() end) end
+            end
+        end
+    end
+end
+
 local mainUI = {}
 
 function mainUI:Create()
@@ -237,7 +264,7 @@ function mainUI:Create()
     mainFrameStroke.Thickness = 2
 
     local bgPattern = Instance.new("ImageLabel", mainFrame)
-    bgPattern.Image = "rbxassetid://2887559971" 
+    bgPattern.Image = "rbxassetid://2887559971"
     bgPattern.ScaleType = Enum.ScaleType.Tile
     bgPattern.TileSize = UDim2.new(0, 50, 0, 50)
     bgPattern.Size = UDim2.new(2, 0, 2, 0)
@@ -278,7 +305,7 @@ function mainUI:Create()
     headerDivider.Parent = headerGradient
 
     local logo = Instance.new("ImageLabel", header)
-    logo.Image = "rbxassetid://3921711226" 
+    logo.Image = "rbxassetid://3921711226"
     logo.Size = UDim2.new(0, 24, 0, 24)
     logo.Position = UDim2.new(0, 10, 0.5, -12)
     logo.ImageColor3 = theme.primary
@@ -317,7 +344,7 @@ function mainUI:Create()
     local minimizeButton = Instance.new("ImageButton", header)
     minimizeButton.Size = UDim2.new(0, 18, 0, 18)
     minimizeButton.Position = UDim2.new(1, -56, 0.5, -9)
-    minimizeButton.Image = "rbxassetid://13516604101" 
+    minimizeButton.Image = "rbxassetid://13516604101"
     minimizeButton.ImageColor3 = theme.textSecondary
     minimizeButton.BackgroundTransparency = 1
     minimizeButton.ZIndex = 3
@@ -607,7 +634,7 @@ local function createVerificationUI(onSuccess)
     Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 6)
 
     local loadingSpinner = Instance.new("ImageLabel", submit)
-    loadingSpinner.Image = "rbxassetid://5107930337" 
+    loadingSpinner.Image = "rbxassetid://5107930337"
     loadingSpinner.Size = UDim2.new(0, 24, 0, 24)
     loadingSpinner.Position = UDim2.new(0.5, -12, 0.5, -12)
     loadingSpinner.BackgroundTransparency = 1
@@ -640,7 +667,7 @@ local function createVerificationUI(onSuccess)
             submit.Text = "SUBMIT"
 
             if ok and isPositiveResponse(respText) then
-                -- Create the hidden marker so modules can detect verification
+
                 local marker = CoreGui:FindFirstChild(MARKER_NAME) or Instance.new("Folder")
                 marker.Name = MARKER_NAME
                 marker:SetAttribute("ver", 1)
@@ -679,29 +706,39 @@ local function loadGameScripts()
     local ok, result = httpGet(apiUrl)
     if not ok then sendNotification("Error", "Failed to contact GitHub.", 4, "error"); return end
     local success, decoded = pcall(function() return httpService:JSONDecode(result) end)
-    if not success or type(decoded) ~= "table" or decoded.message then 
+    if not success or type(decoded) ~= "table" or decoded.message then
         sendNotification("Not Found", "No scripts found for this game.", 4, "warning")
-        return 
+        return
     end
 
     local scriptList = {}
     for _, scriptInfo in ipairs(decoded) do
         if scriptInfo.type == "file" and scriptInfo.download_url then
             local scriptName = (scriptInfo.name or ""):gsub("%.lua$", "")
+            local url = scriptInfo.download_url
+
             scriptList[scriptName] = function(state)
-                if state == false then return end
-                -- Require the marker before running anything
+
+                if state == false then
+                    tryDisableByName(scriptName)
+                    return
+                end
+
                 if not CoreGui:FindFirstChild(MARKER_NAME) then
                     sendNotification("Locked", "Verify to run scripts.", 2, "warning")
                     return
                 end
-                local s, content = httpGet(scriptInfo.download_url)
+
+                local s, content = httpGet(url)
                 if s and content then
                     local f, e = loadstring(content)
-                    if f then 
-                        pcall(f)
-                    else 
-                        sendNotification("Script Error", tostring(e), 5, "error") 
+                    if f then
+                        local okRun, err = pcall(f)
+                        if not okRun and err then
+                            sendNotification("Script Error", tostring(err), 5, "error")
+                        end
+                    else
+                        sendNotification("Script Error", tostring(e), 5, "error")
                     end
                 else
                     sendNotification("Download Failed", "Could not download script.", 3, "error")
