@@ -1,3 +1,5 @@
+-- CRIMSON HUB REVAMPED UI - NO VERIFICATION SHADOW
+
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -19,17 +21,25 @@ local toggleKey = Enum.KeyCode.RightControl
 local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 local MM2_PLACEID = 142823291
 
+-- ENHANCED THEME WITH GRADIENTS AND NEW COLORS
 local theme = {
-    background = Color3.fromRGB(21, 22, 28),
-    backgroundSecondary = Color3.fromRGB(30, 32, 40),
-    accent = Color3.fromRGB(45, 48, 61),
+    background = Color3.fromRGB(15, 16, 22),
+    backgroundSecondary = Color3.fromRGB(22, 24, 32),
+    accent = Color3.fromRGB(38, 42, 55),
+    accentLight = Color3.fromRGB(55, 60, 75),
     primary = Color3.fromRGB(227, 38, 54),
     primaryGlow = Color3.fromRGB(255, 60, 75),
-    text = Color3.fromRGB(240, 240, 240),
-    textSecondary = Color3.fromRGB(150, 150, 150),
+    secondary = Color3.fromRGB(120, 120, 255),
+    text = Color3.fromRGB(245, 245, 245),
+    textSecondary = Color3.fromRGB(160, 160, 160),
     success = Color3.fromRGB(0, 255, 127),
     warning = Color3.fromRGB(255, 165, 0),
-    error = Color3.fromRGB(227, 38, 54)
+    error = Color3.fromRGB(227, 38, 54),
+    shadow = Color3.fromRGB(0, 0, 0),
+    -- New colors for enhanced gradients
+    gradientPrimary = Color3.fromRGB(180, 30, 45),
+    gradientSecondary = Color3.fromRGB(90, 95, 200),
+    gradientAccent = Color3.fromRGB(45, 50, 65)
 }
 
 local CATEGORY_SPEC = {
@@ -58,7 +68,7 @@ blur.Size = 0
 blur.Parent = lighting
 
 local function setBlur(active)
-    tweenService:Create(blur, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = active and 12 or 0 }):Play()
+    tweenService:Create(blur, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = active and 16 or 0 }):Play()
 end
 
 local sounds = {
@@ -86,6 +96,7 @@ local function playSound(soundName)
     end
 end
 
+-- ENHANCED NOTIFICATION SYSTEM WITH MORE GRADIENTS
 local notificationContainer = Instance.new("Frame")
 notificationContainer.Size = UDim2.new(1, 0, 1, 0)
 notificationContainer.BackgroundTransparency = 1
@@ -111,59 +122,88 @@ local function sendNotification(title, text, duration, notifType)
     end
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 70)
-    frame.Position = UDim2.new(1, 10, 1, -80)
+    frame.Size = UDim2.new(0, 320, 0, 80)
+    frame.Position = UDim2.new(1, 10, 1, -90)
     frame.BackgroundColor3 = theme.backgroundSecondary
     frame.BorderSizePixel = 0
     frame.Parent = notificationContainer
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+
+    -- Enhanced stroke
     local stroke = Instance.new("UIStroke", frame)
-    stroke.Color = theme.accent
-    stroke.Thickness = 1.5
+    stroke.Color = color
+    stroke.Thickness = 2
+
+    -- Drop shadow effect
+    local shadow = Instance.new("Frame", frame)
+    shadow.Size = UDim2.new(1, 6, 1, 6)
+    shadow.Position = UDim2.new(0, 3, 0, 3)
+    shadow.BackgroundColor3 = theme.shadow
+    shadow.BackgroundTransparency = 0.8
+    shadow.ZIndex = frame.ZIndex - 1
+    Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 12)
+
+    -- Enhanced gradient background with more colors
+    local gradient = Instance.new("UIGradient", frame)
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.backgroundSecondary),
+        ColorSequenceKeypoint.new(0.5, theme.accent),
+        ColorSequenceKeypoint.new(1, theme.gradientAccent)
+    })
+    gradient.Rotation = 45
 
     local colorBar = Instance.new("Frame", frame)
-    colorBar.Size = UDim2.new(0, 5, 1, 0)
+    colorBar.Size = UDim2.new(0, 6, 1, 0)
     colorBar.BackgroundColor3 = color
     colorBar.BorderSizePixel = 0
-    Instance.new("UICorner", colorBar).CornerRadius = UDim.new(0, 8)
+    Instance.new("UICorner", colorBar).CornerRadius = UDim.new(0, 12)
+
+    -- Add gradient to color bar
+    local colorBarGradient = Instance.new("UIGradient", colorBar)
+    colorBarGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, color),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(math.min(255, color.R * 255 + 30), math.min(255, color.G * 255 + 30), math.min(255, color.B * 255 + 30)))
+    })
+    colorBarGradient.Rotation = 90
 
     local iconLabel = Instance.new("ImageLabel", frame)
-    iconLabel.Size = UDim2.new(0, 24, 0, 24)
-    iconLabel.Position = UDim2.new(0, 15, 0, 15)
+    iconLabel.Size = UDim2.new(0, 28, 0, 28)
+    iconLabel.Position = UDim2.new(0, 18, 0, 18)
     iconLabel.Image = icon
     iconLabel.ImageColor3 = color
     iconLabel.BackgroundTransparency = 1
 
     local titleLabel = Instance.new("TextLabel", frame)
-    titleLabel.Size = UDim2.new(1, -50, 0, 20)
-    titleLabel.Position = UDim2.new(0, 45, 0, 12)
+    titleLabel.Size = UDim2.new(1, -60, 0, 24)
+    titleLabel.Position = UDim2.new(0, 55, 0, 15)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text = title
     titleLabel.Font = Enum.Font.Michroma
     titleLabel.TextColor3 = theme.text
-    titleLabel.TextSize = 16
+    titleLabel.TextSize = 18
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
     local textLabel = Instance.new("TextLabel", frame)
-    textLabel.Size = UDim2.new(1, -50, 0, 20)
-    textLabel.Position = UDim2.new(0, 45, 0, 35)
+    textLabel.Size = UDim2.new(1, -60, 0, 24)
+    textLabel.Position = UDim2.new(0, 55, 0, 42)
     textLabel.BackgroundTransparency = 1
     textLabel.Text = text
     textLabel.Font = Enum.Font.SourceSans
     textLabel.TextColor3 = theme.textSecondary
-    textLabel.TextSize = 14
+    textLabel.TextSize = 15
     textLabel.TextXAlignment = Enum.TextXAlignment.Left
     textLabel.TextWrapped = true
 
     local progressBar = Instance.new("Frame", frame)
-    progressBar.Size = UDim2.new(0, 0, 0, 2)
-    progressBar.Position = UDim2.new(0, 0, 1, -2)
+    progressBar.Size = UDim2.new(0, 0, 0, 3)
+    progressBar.Position = UDim2.new(0, 0, 1, -3)
     progressBar.BackgroundColor3 = color
     progressBar.BorderSizePixel = 0
+    Instance.new("UICorner", progressBar).CornerRadius = UDim.new(0, 12)
 
-    local showTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -310, 1, -80)})
-    local hideTween = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -80)})
-    local progressTween = tweenService:Create(progressBar, TweenInfo.new(duration), {Size = UDim2.new(1, 0, 0, 2)})
+    local showTween = tweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -330, 1, -90)})
+    local hideTween = tweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -90)})
+    local progressTween = tweenService:Create(progressBar, TweenInfo.new(duration), {Size = UDim2.new(1, 0, 0, 3)})
 
     showTween:Play()
     progressTween:Play()
@@ -180,6 +220,7 @@ do
     end
 end
 
+-- HTTP functions remain the same
 local function httpGet(url)
     local success, result = pcall(function() return httpService:GetAsync(url) end)
     if success and result then return true, tostring(result) end
@@ -305,7 +346,7 @@ local function tryCopyToClipboard(text, parentForFallback)
     box.ClearTextOnFocus = false
     box.Text = text
     box.Parent = parentForFallback
-    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 8)
     Instance.new("UIStroke", box).Color = theme.accent
 
     box:CaptureFocus()
@@ -320,19 +361,18 @@ local mainUI = {}
 
 local function addCategoryRow(parent, titleText)
     local container = Instance.new("Frame", parent)
-
-    container.Size = UDim2.new(1, 0, 0, 28) 
+    container.Size = UDim2.new(1, 0, 0, 35) 
     container.BackgroundTransparency = 1
 
     local padding = Instance.new("UIPadding", container)
-    padding.PaddingTop = UDim.new(0, 10)
-    padding.PaddingBottom = UDim.new(0, 5)
+    padding.PaddingTop = UDim.new(0, 12)
+    padding.PaddingBottom = UDim.new(0, 8)
 
     local title = Instance.new("TextLabel", container)
-    title.Size = UDim2.new(0, 120, 1, 0)  
+    title.Size = UDim2.new(0, 140, 1, 0)  
     title.Text = titleText
     title.Font = Enum.Font.Michroma
-    title.TextSize = 14
+    title.TextSize = 16
     title.TextColor3 = theme.text
     title.BackgroundTransparency = 1
     title.TextXAlignment = Enum.TextXAlignment.Left
@@ -340,8 +380,17 @@ local function addCategoryRow(parent, titleText)
     local line = Instance.new("Frame", container)
     line.BorderSizePixel = 0
     line.BackgroundColor3 = theme.accent
-    line.Size = UDim2.new(1, -(120 + 20), 0, 2)  
-    line.Position = UDim2.new(0, 120 + 10, 0.5, -1)
+    line.Size = UDim2.new(1, -(140 + 25), 0, 3)  
+    line.Position = UDim2.new(0, 140 + 15, 0.5, -1)
+    Instance.new("UICorner", line).CornerRadius = UDim.new(0, 2)
+
+    -- Add gradient to category line
+    local lineGradient = Instance.new("UIGradient", line)
+    lineGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.accent),
+        ColorSequenceKeypoint.new(0.5, theme.primary),
+        ColorSequenceKeypoint.new(1, theme.gradientAccent)
+    })
 
     return container
 end
@@ -353,9 +402,10 @@ function mainUI:Create()
     local G = (getgenv and getgenv()) or _G
     G.CRIMSON_SETTINGS = G.CRIMSON_SETTINGS or { WalkSpeed = 16, JumpPower = 50 }
 
+    -- ENHANCED MAIN FRAME WITH BIGGER SIZE AND BETTER STYLING
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 600, 0, 400)
-    mainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
+    mainFrame.Size = UDim2.new(0, 720, 0, 480)
+    mainFrame.Position = UDim2.new(0.5, -360, 0.5, -240)
     mainFrame.BackgroundColor3 = theme.background
     mainFrame.BorderSizePixel = 0
     mainFrame.Visible = false
@@ -363,18 +413,43 @@ function mainUI:Create()
     mainFrame.Active = true
     mainFrame.ClipsDescendants = true
     mainFrame.Parent = screenGui
-    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
-    local mainFrameStroke = Instance.new("UIStroke", mainFrame)
-    mainFrameStroke.Color = theme.accent
-    mainFrameStroke.Thickness = 2
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
 
+    -- Enhanced stroke with gradient effect
+    local mainFrameStroke = Instance.new("UIStroke", mainFrame)
+    mainFrameStroke.Color = theme.primary
+    mainFrameStroke.Thickness = 3
+    mainFrameStroke.Transparency = 0.3
+
+    -- Drop shadow
+    local mainShadow = Instance.new("Frame", screenGui)
+    mainShadow.Size = UDim2.new(0, 720 + 20, 0, 480 + 20)
+    mainShadow.Position = UDim2.new(0.5, -360 - 10, 0.5, -240 - 10)
+    mainShadow.BackgroundColor3 = theme.shadow
+    mainShadow.BackgroundTransparency = 0.7
+    mainShadow.BorderSizePixel = 0
+    mainShadow.Visible = false
+    mainShadow.ZIndex = mainFrame.ZIndex - 1
+    Instance.new("UICorner", mainShadow).CornerRadius = UDim.new(0, 20)
+
+    -- Enhanced background gradient with more colors
+    local bgGradient = Instance.new("UIGradient", mainFrame)
+    bgGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.background),
+        ColorSequenceKeypoint.new(0.3, theme.backgroundSecondary),
+        ColorSequenceKeypoint.new(0.7, theme.gradientAccent),
+        ColorSequenceKeypoint.new(1, theme.background)
+    })
+    bgGradient.Rotation = 135
+
+    -- Enhanced pattern background
     local bgPattern = Instance.new("ImageLabel", mainFrame)
     bgPattern.Image = "rbxassetid://2887559971"
     bgPattern.ScaleType = Enum.ScaleType.Tile
-    bgPattern.TileSize = UDim2.new(0, 50, 0, 50)
-    bgPattern.Size = UDim2.new(2, 0, 2, 0)
-    bgPattern.Position = UDim2.new(-0.5, 0, -0.5, 0)
-    bgPattern.ImageTransparency = 0.95
+    bgPattern.TileSize = UDim2.new(0, 60, 0, 60)
+    bgPattern.Size = UDim2.new(2.5, 0, 2.5, 0)
+    bgPattern.Position = UDim2.new(-0.75, 0, -0.75, 0)
+    bgPattern.ImageTransparency = 0.97
     bgPattern.ImageColor3 = theme.primary
     bgPattern.BackgroundTransparency = 1
     bgPattern.ZIndex = 0
@@ -383,101 +458,141 @@ function mainUI:Create()
         if mainFrame.Visible then
             local center = Vector2.new(mainFrame.AbsolutePosition.X + mainFrame.AbsoluteSize.X / 2, mainFrame.AbsolutePosition.Y + mainFrame.AbsoluteSize.Y / 2)
             local offset = Vector2.new(mouse.X - center.X, mouse.Y - center.Y)
-            bgPattern.Position = UDim2.new(-0.5 - offset.X * 0.0005, 0, -0.5 - offset.Y * 0.0005, 0)
+            bgPattern.Position = UDim2.new(-0.75 - offset.X * 0.0003, 0, -0.75 - offset.Y * 0.0003, 0)
         end
     end)
 
+    -- ENHANCED HEADER WITH MORE GRADIENTS
     local header = Instance.new("Frame")
-    header.Size = UDim2.new(1, 0, 0, 40)
+    header.Size = UDim2.new(1, 0, 0, 50)
     header.BackgroundColor3 = theme.backgroundSecondary
     header.BorderSizePixel = 0
     header.ZIndex = 2
     header.Parent = mainFrame
+    Instance.new("UICorner", header).CornerRadius = UDim.new(0, 16)
 
-    local headerGradient = Instance.new("UIGradient")
+    -- Enhanced header gradient with more color points
+    local headerGradient = Instance.new("UIGradient", header)
     headerGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, theme.primary),
-        ColorSequenceKeypoint.new(1, theme.primaryGlow)
+        ColorSequenceKeypoint.new(0, theme.gradientPrimary),
+        ColorSequenceKeypoint.new(0.25, theme.primary),
+        ColorSequenceKeypoint.new(0.5, theme.primaryGlow),
+        ColorSequenceKeypoint.new(0.75, theme.secondary),
+        ColorSequenceKeypoint.new(1, theme.gradientSecondary)
     })
     headerGradient.Rotation = 90
 
     local headerDivider = Instance.new("Frame", mainFrame)
-    headerDivider.Size = UDim2.new(1, 0, 0, 3)
-    headerDivider.Position = UDim2.new(0, 0, 0, 40)
+    headerDivider.Size = UDim2.new(1, 0, 0, 4)
+    headerDivider.Position = UDim2.new(0, 0, 0, 50)
     headerDivider.BackgroundColor3 = theme.primary
     headerDivider.BorderSizePixel = 0
     headerDivider.ZIndex = 3
-    headerDivider.Parent = headerGradient
+
+    -- Enhanced glowing effect for header divider with more colors
+    local dividerGlow = Instance.new("UIGradient", headerDivider)
+    dividerGlow.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.gradientPrimary),
+        ColorSequenceKeypoint.new(0.2, theme.primary),
+        ColorSequenceKeypoint.new(0.5, theme.primaryGlow),
+        ColorSequenceKeypoint.new(0.8, theme.primary),
+        ColorSequenceKeypoint.new(1, theme.gradientPrimary)
+    })
 
     local logo = Instance.new("ImageLabel", header)
     logo.Image = "rbxassetid://3921711226"
-    logo.Size = UDim2.new(0, 24, 0, 24)
-    logo.Position = UDim2.new(0, 10, 0.5, -12)
-    logo.ImageColor3 = theme.primary
+    logo.Size = UDim2.new(0, 30, 0, 30)
+    logo.Position = UDim2.new(0, 15, 0.5, -15)
+    logo.ImageColor3 = theme.text
     logo.BackgroundTransparency = 1
 
     local title = Instance.new("TextLabel", header)
     title.Text = "Crimson Hub"
     title.Font = Enum.Font.Michroma
-    title.TextSize = 18
+    title.TextSize = 22
     title.TextColor3 = theme.text
-    title.Position = UDim2.new(0, 45, 0, 0)
-    title.Size = UDim2.new(0, 200, 1, 0)
+    title.Position = UDim2.new(0, 55, 0, 0)
+    title.Size = UDim2.new(0, 250, 1, 0)
     title.BackgroundTransparency = 1
     title.TextXAlignment = Enum.TextXAlignment.Left
 
-    local clock = Instance.new("TextLabel", header)
-    clock.Font = Enum.Font.Michroma
-    clock.TextSize = 14
-    clock.TextColor3 = theme.textSecondary
-    clock.Position = UDim2.new(1, -200, 0, 0)
-    clock.Size = UDim2.new(0, 100, 1, 0)
-    clock.BackgroundTransparency = 1
-    clock.TextXAlignment = Enum.TextXAlignment.Right
-    runService.RenderStepped:Connect(function()
-        clock.Text = os.date("%I:%M %p")
+    -- RED CLOSE BUTTON WITH X
+    local closeButton = Instance.new("TextButton", header)
+    closeButton.Size = UDim2.new(0, 28, 0, 28) -- Made slightly bigger
+    closeButton.Position = UDim2.new(1, -38, 0.5, -14)
+    closeButton.Text = "✕" -- X symbol
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 16
+    closeButton.TextColor3 = Color3.new(1, 1, 1) -- White X
+    closeButton.BackgroundColor3 = theme.error -- Red background
+    closeButton.ZIndex = 3
+    Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0, 8)
+
+    -- Add red gradient to close button
+    local closeButtonGradient = Instance.new("UIGradient", closeButton)
+    closeButtonGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.error),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 20, 40)) -- Darker red
+    })
+    closeButtonGradient.Rotation = 45
+
+    -- Add stroke for better definition
+    local closeButtonStroke = Instance.new("UIStroke", closeButton)
+    closeButtonStroke.Color = Color3.fromRGB(200, 30, 50)
+    closeButtonStroke.Thickness = 1
+    closeButtonStroke.Transparency = 0.3
+
+    -- Button hover effects - darker red on hover
+    closeButton.MouseEnter:Connect(function()
+        tweenService:Create(closeButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(180, 20, 40),
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }):Play()
+    end)
+    closeButton.MouseLeave:Connect(function()
+        tweenService:Create(closeButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = theme.error,
+            TextColor3 = Color3.new(1, 1, 1)
+        }):Play()
     end)
 
-    local closeButton = Instance.new("ImageButton", header)
-    closeButton.Size = UDim2.new(0, 18, 0, 18)
-    closeButton.Position = UDim2.new(1, -28, 0.5, -9)
-    closeButton.Image = "rbxassetid://13516603954"
-    closeButton.ImageColor3 = theme.textSecondary
-    closeButton.BackgroundTransparency = 1
-    closeButton.ZIndex = 3
-
-    local minimizeButton = Instance.new("ImageButton", header)
-    minimizeButton.Size = UDim2.new(0, 18, 0, 18)
-    minimizeButton.Position = UDim2.new(1, -56, 0.5, -9)
-    minimizeButton.Image = "rbxassetid://13516604101"
-    minimizeButton.ImageColor3 = theme.textSecondary
-    minimizeButton.BackgroundTransparency = 1
-    minimizeButton.ZIndex = 3
-
+    -- ENHANCED SIDEBAR WITH MORE GRADIENTS
     local sidebar = Instance.new("Frame", mainFrame)
-    sidebar.Size = UDim2.new(0, 150, 1, -40)
-    sidebar.Position = UDim2.new(0, 0, 0, 40)
+    sidebar.Size = UDim2.new(0, 180, 1, -50)
+    sidebar.Position = UDim2.new(0, 0, 0, 50)
     sidebar.BackgroundColor3 = theme.backgroundSecondary
     sidebar.BorderSizePixel = 0
     sidebar.ZIndex = 2
+    Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 12)
+
+    -- Enhanced sidebar gradient with more colors
+    local sidebarGradient = Instance.new("UIGradient", sidebar)
+    sidebarGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.backgroundSecondary),
+        ColorSequenceKeypoint.new(0.3, theme.accent),
+        ColorSequenceKeypoint.new(0.7, theme.gradientAccent),
+        ColorSequenceKeypoint.new(1, theme.backgroundSecondary)
+    })
+    sidebarGradient.Rotation = 180
+
     local sidebarLayout = Instance.new("UIListLayout", sidebar)
-    sidebarLayout.Padding = UDim.new(0, 10)
+    sidebarLayout.Padding = UDim.new(0, 12)
     sidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     sidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
     local welcomeMessage = Instance.new("TextLabel", sidebar)
-    welcomeMessage.Size = UDim2.new(1, -20, 0, 50)
+    welcomeMessage.Size = UDim2.new(1, -20, 0, 60)
     welcomeMessage.Text = "Welcome,\n" .. localPlayer.DisplayName
     welcomeMessage.Font = Enum.Font.Michroma
-    welcomeMessage.TextSize = 14
-    welcomeMessage.TextColor3 = theme.textSecondary
+    welcomeMessage.TextSize = 16
+    welcomeMessage.TextColor3 = theme.text -- Made text white as requested
     welcomeMessage.TextWrapped = true
     welcomeMessage.BackgroundTransparency = 1
     welcomeMessage.LayoutOrder = -1
 
     local contentContainer = Instance.new("Frame", mainFrame)
-    contentContainer.Size = UDim2.new(1, -150, 1, -40)
-    contentContainer.Position = UDim2.new(0, 150, 0, 40)
+    contentContainer.Size = UDim2.new(1, -180, 1, -50)
+    contentContainer.Position = UDim2.new(0, 180, 0, 50)
     contentContainer.BackgroundTransparency = 1
     contentContainer.ZIndex = 1
 
@@ -486,49 +601,76 @@ function mainUI:Create()
         for _, otherTab in pairs(tabs) do
             local ind = otherTab:FindFirstChild("Indicator")
             if ind then
-                tweenService:Create(ind, TweenInfo.new(0.3), { Size = UDim2.new(0, 2, 1, 0), BackgroundTransparency = 1 }):Play()
+                tweenService:Create(ind, TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 1 }):Play()
             end
-            tweenService:Create(otherTab, TweenInfo.new(0.3), { TextColor3 = theme.textSecondary }):Play()
+            tweenService:Create(otherTab, TweenInfo.new(0.3), { TextColor3 = theme.text, BackgroundColor3 = theme.accent }):Play()
         end
         for _, page in pairs(pages) do
             page.Visible = false
         end
         local myInd = tab:FindFirstChild("Indicator")
         if myInd then
-            tweenService:Create(myInd, TweenInfo.new(0.3), { Size = UDim2.new(0, 4, 1, 0), BackgroundTransparency = 0 }):Play()
+            tweenService:Create(myInd, TweenInfo.new(0.3), { Size = UDim2.new(0, 6, 1, 0), BackgroundTransparency = 0 }):Play()
         end
-        tweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text }):Play()
+        tweenService:Create(tab, TweenInfo.new(0.3), { TextColor3 = theme.text, BackgroundColor3 = theme.accentLight }):Play()
         pages[tab.Name].Visible = true
     end
 
+    -- ENHANCED TAB CREATION WITH WHITE TEXT
     local function createTab(name)
         local tab = Instance.new("TextButton", sidebar)
         tab.Name = name
-        tab.Size = UDim2.new(1, -20, 0, 40)
+        tab.Size = UDim2.new(1, -20, 0, 50)
         tab.BackgroundColor3 = theme.accent
         tab.Text = name
         tab.Font = Enum.Font.Michroma
-        tab.TextSize = 15
-        tab.TextColor3 = theme.textSecondary
+        tab.TextSize = 17
+        tab.TextColor3 = theme.text -- Changed to white as requested
         tab.TextXAlignment = Enum.TextXAlignment.Center
-        Instance.new("UICorner", tab).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", tab).CornerRadius = UDim.new(0, 10)
+
+        -- Enhanced tab gradient with more colors
+        local tabGradient = Instance.new("UIGradient", tab)
+        tabGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, theme.accent),
+            ColorSequenceKeypoint.new(0.5, theme.accentLight),
+            ColorSequenceKeypoint.new(1, theme.gradientAccent)
+        })
+        tabGradient.Rotation = 45
 
         local indicator = Instance.new("Frame", tab)
         indicator.Name = "Indicator"
-        indicator.Size = UDim2.new(0, 2, 1, 0)
+        indicator.Size = UDim2.new(0, 4, 1, 0)
         indicator.BackgroundColor3 = theme.primary
         indicator.BorderSizePixel = 0
         indicator.BackgroundTransparency = 1
-        Instance.new("UICorner", indicator).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", indicator).CornerRadius = UDim.new(0, 10)
 
-        tab.MouseEnter:Connect(function() tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
-        tab.MouseLeave:Connect(function() tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+        -- Add gradient to indicator
+        local indicatorGradient = Instance.new("UIGradient", indicator)
+        indicatorGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, theme.primary),
+            ColorSequenceKeypoint.new(1, theme.primaryGlow)
+        })
+        indicatorGradient.Rotation = 90
+
+        tab.MouseEnter:Connect(function() 
+            if pages[name] and not pages[name].Visible then
+                tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accentLight}):Play() 
+            end
+        end)
+        tab.MouseLeave:Connect(function() 
+            if pages[name] and not pages[name].Visible then
+                tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() 
+            end
+        end)
         tab.MouseButton1Click:Connect(function() selectTab(tab) end)
 
         tabs[name] = tab
         return tab
     end
 
+    -- ENHANCED PAGE CREATION
     local function createPage(name)
         local page = Instance.new("ScrollingFrame", contentContainer)
         page.Name = name
@@ -536,7 +678,7 @@ function mainUI:Create()
         page.BackgroundTransparency = 1
         page.BorderSizePixel = 0
         page.ScrollBarImageColor3 = theme.primary
-        page.ScrollBarThickness = 6
+        page.ScrollBarThickness = 8
         page.Visible = false
 
         page.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -546,31 +688,31 @@ function mainUI:Create()
 
     local scriptsPage = createPage("Scripts")
     local scriptsLayout = Instance.new("UIListLayout", scriptsPage)
-    scriptsLayout.Padding = UDim.new(0, 14) 
+    scriptsLayout.Padding = UDim.new(0, 18)
     scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
     scriptsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left 
 
     local universalPage = createPage("Universal")
     local universalLayout = Instance.new("UIListLayout", universalPage)
-    universalLayout.Padding = UDim.new(0, 15)
+    universalLayout.Padding = UDim.new(0, 18)
     universalLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     universalLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
     local settingsPage = createPage("Settings")
     local settingsLayout = Instance.new("UIListLayout", settingsPage)
-    settingsLayout.Padding = UDim.new(0, 10)
+    settingsLayout.Padding = UDim.new(0, 12)
     settingsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
     local infoPage = createPage("Info")
     local infoLabel = Instance.new("TextLabel", infoPage)
-    infoLabel.Size = UDim2.new(1, -40, 0, 0)
+    infoLabel.Size = UDim2.new(1, -50, 0, 0)
     infoLabel.AutomaticSize = Enum.AutomaticSize.Y
-    infoLabel.Position = UDim2.new(0, 20, 0, 20)
+    infoLabel.Position = UDim2.new(0, 25, 0, 25)
     infoLabel.BackgroundTransparency = 1
     infoLabel.Font = Enum.Font.SourceSans
     infoLabel.Text = "Crimson Hub\n\nThe Latest Script Hub Built for Powerful Executors.\nBy Kyr2o !"
     infoLabel.TextColor3 = theme.text
-    infoLabel.TextSize = 16
+    infoLabel.TextSize = 18
     infoLabel.TextXAlignment = Enum.TextXAlignment.Left
     infoLabel.TextWrapped = true
 
@@ -579,82 +721,168 @@ function mainUI:Create()
     createTab("Settings")
     createTab("Info")
 
+    -- ENHANCED SCRIPT BUTTON WITH MORE GRADIENTS
     local function createScriptButton(parent, name, callback)
         local buttonData = {enabled = false}
 
         local button = Instance.new("TextButton", parent)
-        button.Size = UDim2.new(0, 200, 0, 50)
+        button.Size = UDim2.new(0, 220, 0, 60)
         button.BackgroundColor3 = theme.accent
         button.Text = ""
-        Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", button).CornerRadius = UDim.new(0, 12)
+
+        -- Enhanced button gradient with more colors
+        local buttonGradient = Instance.new("UIGradient", button)
+        buttonGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, theme.accent),
+            ColorSequenceKeypoint.new(0.5, theme.accentLight),
+            ColorSequenceKeypoint.new(1, theme.gradientAccent)
+        })
+        buttonGradient.Rotation = 45
+
+        local buttonStroke = Instance.new("UIStroke", button)
+        buttonStroke.Color = theme.accentLight
+        buttonStroke.Thickness = 2
+        buttonStroke.Transparency = 0.5
 
         local label = Instance.new("TextLabel", button)
-        label.Size = UDim2.new(1, -50, 1, 0)
-        label.Position = UDim2.new(0, 15, 0, 0)
+        label.Size = UDim2.new(1, -80, 1, 0)
+        label.Position = UDim2.new(0, 20, 0, 0)
         label.BackgroundTransparency = 1
         label.TextColor3 = theme.text
         label.Text = name
         label.Font = Enum.Font.Michroma
-        label.TextSize = 14
+        label.TextSize = 16
         label.TextXAlignment = Enum.TextXAlignment.Left
 
+        -- ENHANCED TOGGLE WITH MORE GRADIENTS
         local toggle = Instance.new("Frame", button)
-        toggle.Size = UDim2.new(0, 40, 0, 20)
-        toggle.Position = UDim2.new(1, -50, 0.5, -10)
+        toggle.Size = UDim2.new(0, 60, 0, 30)
+        toggle.Position = UDim2.new(1, -75, 0.5, -15)
         toggle.BackgroundColor3 = theme.background
         Instance.new("UICorner", toggle).CornerRadius = UDim.new(1, 0)
 
+        -- Enhanced toggle gradient background
+        local toggleGradient = Instance.new("UIGradient", toggle)
+        toggleGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, theme.background),
+            ColorSequenceKeypoint.new(0.5, theme.backgroundSecondary),
+            ColorSequenceKeypoint.new(1, theme.gradientAccent)
+        })
+
+        -- Toggle border
+        local toggleStroke = Instance.new("UIStroke", toggle)
+        toggleStroke.Color = theme.accent
+        toggleStroke.Thickness = 2
+
+        -- ENHANCED TOGGLE KNOB WITH MORE GRADIENTS (the circle thingy)
         local toggleKnob = Instance.new("Frame", toggle)
-        toggleKnob.Size = UDim2.new(0, 14, 0, 14)
-        toggleKnob.Position = UDim2.new(0, 3, 0.5, -7)
+        toggleKnob.Size = UDim2.new(0, 22, 0, 22) -- Much bigger
+        toggleKnob.Position = UDim2.new(0, 4, 0.5, -11)
         toggleKnob.BackgroundColor3 = theme.primary
         Instance.new("UICorner", toggleKnob).CornerRadius = UDim.new(1, 0)
+
+        -- Enhanced knob gradient with more colors
+        local knobGradient = Instance.new("UIGradient", toggleKnob)
+        knobGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, theme.gradientPrimary),
+            ColorSequenceKeypoint.new(0.5, theme.primary),
+            ColorSequenceKeypoint.new(1, theme.primaryGlow)
+        })
+        knobGradient.Rotation = 45
+
+        -- Knob stroke for better definition
+        local knobStroke = Instance.new("UIStroke", toggleKnob)
+        knobStroke.Color = theme.text
+        knobStroke.Thickness = 1
+        knobStroke.Transparency = 0.8
 
         local function updateToggle(manual)
             buttonData.enabled = not buttonData.enabled
             playSound(buttonData.enabled and "toggleOn" or "toggleOff")
 
-            local pos = buttonData.enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
+            local pos = buttonData.enabled and UDim2.new(1, -26, 0.5, -11) or UDim2.new(0, 4, 0.5, -11)
             local color = buttonData.enabled and theme.success or theme.primary
+            local toggleBgColor = buttonData.enabled and theme.accentLight or theme.background
+
             tweenService:Create(toggleKnob, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = pos, BackgroundColor3 = color}):Play()
+            tweenService:Create(toggle, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {BackgroundColor3 = toggleBgColor}):Play()
+
             if manual then pcall(callback, buttonData.enabled) end
         end
 
         button.MouseButton1Click:Connect(function() updateToggle(true) end)
-        button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
-        button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+        button.MouseEnter:Connect(function() 
+            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accentLight}):Play() 
+            tweenService:Create(buttonStroke, TweenInfo.new(0.2), {Transparency = 0.2}):Play()
+        end)
+        button.MouseLeave:Connect(function() 
+            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() 
+            tweenService:Create(buttonStroke, TweenInfo.new(0.2), {Transparency = 0.5}):Play()
+        end)
         return button
     end
 
+    -- ENHANCED ACTION BUTTON WITH MORE GRADIENTS (Break Gun uses this)
     local function createActionButton(parent, name, callback)
         local button = Instance.new("TextButton", parent)
-        button.Size = UDim2.new(0, 200, 0, 50)
-        button.BackgroundColor3 = theme.accent
+        button.Size = UDim2.new(0, 220, 0, 60)
+        button.BackgroundColor3 = theme.accent -- Normal button color as requested
         button.Text = name
         button.Font = Enum.Font.Michroma
-        button.TextSize = 14
-        button.TextColor3 = theme.text
-        Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+        button.TextSize = 16
+        button.TextColor3 = theme.text -- Normal text color as requested
+        Instance.new("UICorner", button).CornerRadius = UDim.new(0, 12)
+
+        -- Enhanced button gradient with more colors (normal theme as requested)
+        local buttonGradient = Instance.new("UIGradient", button)
+        buttonGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, theme.accent),
+            ColorSequenceKeypoint.new(0.5, theme.accentLight),
+            ColorSequenceKeypoint.new(1, theme.gradientAccent)
+        })
+        buttonGradient.Rotation = 45
+
+        -- Button stroke (normal theme as requested)
+        local buttonStroke = Instance.new("UIStroke", button)
+        buttonStroke.Color = theme.accentLight
+        buttonStroke.Thickness = 2
+        buttonStroke.Transparency = 0.5
 
         button.MouseButton1Click:Connect(function()
             playSound("click")
             pcall(callback)
         end)
-        button.MouseEnter:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 58, 71)}):Play() end)
-        button.MouseLeave:Connect(function() tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() end)
+        button.MouseEnter:Connect(function() 
+            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accentLight}):Play()
+            tweenService:Create(buttonStroke, TweenInfo.new(0.2), {Transparency = 0.2}):Play()
+        end)
+        button.MouseLeave:Connect(function() 
+            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() 
+            tweenService:Create(buttonStroke, TweenInfo.new(0.2), {Transparency = 0.5}):Play()
+        end)
         return button
     end
 
     do
-
+        -- ENHANCED REBIND BUTTON WITH MORE GRADIENTS
         local rebindButton = Instance.new("TextButton", settingsPage)
-        rebindButton.Size = UDim2.new(0, 200, 0, 40)
+        rebindButton.Size = UDim2.new(0, 240, 0, 50)
         rebindButton.BackgroundColor3 = theme.accent
         rebindButton.Text = "Toggle Key: " .. toggleKey.Name
         rebindButton.Font = Enum.Font.Michroma
-        rebindButton.TextSize = 14
+        rebindButton.TextSize = 16
         rebindButton.TextColor3 = theme.text
-        Instance.new("UICorner", rebindButton).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", rebindButton).CornerRadius = UDim.new(0, 10)
+
+        -- Add gradient to rebind button
+        local rebindGradient = Instance.new("UIGradient", rebindButton)
+        rebindGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, theme.accent),
+            ColorSequenceKeypoint.new(0.5, theme.accentLight),
+            ColorSequenceKeypoint.new(1, theme.gradientAccent)
+        })
+        rebindGradient.Rotation = 45
 
         rebindButton.MouseButton1Click:Connect(function()
             rebindButton.Text = "Press a key..."
@@ -669,9 +897,10 @@ function mainUI:Create()
             end)
         end)
 
+        -- ENHANCED SETTING INPUT WITH MORE GRADIENTS
         local function createSettingInput(parent, name, property, defaultValue)
             local container = Instance.new("Frame", parent)
-            container.Size = UDim2.new(0, 300, 0, 40)
+            container.Size = UDim2.new(0, 350, 0, 50)
             container.BackgroundTransparency = 1
 
             local label = Instance.new("TextLabel", container)
@@ -680,19 +909,31 @@ function mainUI:Create()
             label.Font = Enum.Font.Michroma
             label.Text = name
             label.TextColor3 = theme.text
-            label.TextSize = 14
+            label.TextSize = 16
             label.TextXAlignment = Enum.TextXAlignment.Left
 
             local input = Instance.new("TextBox", container)
-            input.Size = UDim2.new(0.4, 0, 1, -10)
+            input.Size = UDim2.new(0.4, 0, 1, -12)
             input.Position = UDim2.new(0.6, 0, 0.5, 0)
             input.AnchorPoint = Vector2.new(0, 0.5)
             input.BackgroundColor3 = theme.backgroundSecondary
             input.TextColor3 = theme.text
             input.Font = Enum.Font.SourceSans
-            input.TextSize = 14
+            input.TextSize = 16
             input.Text = tostring(G.CRIMSON_SETTINGS[property] or defaultValue)
-            Instance.new("UICorner", input).CornerRadius = UDim.new(0, 6)
+            Instance.new("UICorner", input).CornerRadius = UDim.new(0, 8)
+
+            -- Enhanced input stroke and gradient
+            local inputStroke = Instance.new("UIStroke", input)
+            inputStroke.Color = theme.accent
+            inputStroke.Thickness = 2
+
+            local inputGradient = Instance.new("UIGradient", input)
+            inputGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, theme.backgroundSecondary),
+                ColorSequenceKeypoint.new(1, theme.gradientAccent)
+            })
+            inputGradient.Rotation = 45
 
             input.FocusLost:Connect(function(enterPressed)
                 if enterPressed then
@@ -787,7 +1028,7 @@ function mainUI:Create()
             local vertList = scriptsPage:FindFirstChildOfClass("UIListLayout")
             if not vertList then
                 vertList = Instance.new("UIListLayout", scriptsPage)
-                vertList.Padding = UDim.new(0, 14) 
+                vertList.Padding = UDim.new(0, 18) 
                 vertList.SortOrder = Enum.SortOrder.LayoutOrder
                 vertList.HorizontalAlignment = Enum.HorizontalAlignment.Left
             end
@@ -799,27 +1040,26 @@ function mainUI:Create()
                     addCategoryRow(scriptsPage, cat.title)
 
                     local row = Instance.new("Frame", scriptsPage)
-                    row.Size = UDim2.new(1, 0, 0, 50) 
+                    row.Size = UDim2.new(1, 0, 0, 60) 
                     row.BackgroundTransparency = 1
                     row.AutomaticSize = Enum.AutomaticSize.Y
 
                     local content = Instance.new("Frame", row)
                     content.Name = "RowContent"
                     content.BackgroundTransparency = 1
-                    content.Position = UDim2.new(0, 160, 0, 10)  
-                    content.Size = UDim2.new(1, -190, 0, 0)      
+                    content.Position = UDim2.new(0, 180, 0, 12)  
+                    content.Size = UDim2.new(1, -210, 0, 0)      
                     content.AutomaticSize = Enum.AutomaticSize.Y
 
                     local grid = Instance.new("UIGridLayout", content)
-                    grid.CellSize = UDim2.new(0, 200, 0, 100)   
-                    grid.CellPadding = UDim2.new(0, 16, 0, 16)   
+                    grid.CellSize = UDim2.new(0, 220, 0, 120)
+                    grid.CellPadding = UDim2.new(0, 20, 0, 20)
                     grid.SortOrder = Enum.SortOrder.LayoutOrder
                     grid.FillDirection = Enum.FillDirection.Horizontal
                     grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
                     local function resizeRow()
-
-                        row.Size = UDim2.new(1, 0, 0, math.max(50, grid.AbsoluteContentSize.Y + 20))
+                        row.Size = UDim2.new(1, 0, 0, math.max(60, grid.AbsoluteContentSize.Y + 25))
                     end
                     resizeRow()
                     grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeRow)
@@ -829,16 +1069,16 @@ function mainUI:Create()
                         if fn then
                             used[modName] = true
                             if modName == "Break Gun" or modName == "KillAll" then
-
+                                -- Break Gun now uses normal button styling as requested
                                 createActionButton(content, modName, function() fn(true) end)
                             elseif modName == "Auto Shoot" then
 
                                 local parentContainer = row:FindFirstChild("RowContent") or row
                                 local autoContainer = Instance.new("Frame", parentContainer)
-                                autoContainer.Size = UDim2.new(0, 200, 0, 100)
+                                autoContainer.Size = UDim2.new(0, 220, 0, 120)
                                 autoContainer.BackgroundTransparency = 1
                                 local vList = Instance.new("UIListLayout", autoContainer)
-                                vList.Padding = UDim.new(0, 10)
+                                vList.Padding = UDim.new(0, 12)
                                 vList.SortOrder = Enum.SortOrder.LayoutOrder
                                 local autoBtn = createScriptButton(autoContainer, "Auto Shoot", function(state)
                                     local G = (getgenv and getgenv()) or _G
@@ -848,23 +1088,32 @@ function mainUI:Create()
                                 end)
                                 autoBtn.LayoutOrder = 1
                                 local predCard = Instance.new("Frame", autoContainer)
-                                predCard.Size = UDim2.new(1, 0, 0, 40)
+                                predCard.Size = UDim2.new(1, 0, 0, 50)
                                 predCard.BackgroundColor3 = theme.accent
-                                Instance.new("UICorner", predCard).CornerRadius = UDim.new(0, 6)
+                                Instance.new("UICorner", predCard).CornerRadius = UDim.new(0, 8)
                                 predCard.LayoutOrder = 2
+
+                                -- Add gradient to prediction card
+                                local predCardGradient = Instance.new("UIGradient", predCard)
+                                predCardGradient.Color = ColorSequence.new({
+                                    ColorSequenceKeypoint.new(0, theme.accent),
+                                    ColorSequenceKeypoint.new(1, theme.gradientAccent)
+                                })
+                                predCardGradient.Rotation = 45
+
                                 local predLabel = Instance.new("TextLabel", predCard)
                                 predLabel.BackgroundTransparency = 1
                                 predLabel.Text = "Prediction"
                                 predLabel.Font = Enum.Font.Michroma
-                                predLabel.TextSize = 14
+                                predLabel.TextSize = 15
                                 predLabel.TextColor3 = theme.text
                                 predLabel.Size = UDim2.new(1, -90, 1, 0)
                                 predLabel.TextXAlignment = Enum.TextXAlignment.Left
-                                predLabel.Position = UDim2.new(0, 12, 0, 0)
+                                predLabel.Position = UDim2.new(0, 15, 0, 0)
                                 local predBox = Instance.new("TextBox", predCard)
-                                predBox.Size = UDim2.new(0, 70, 0, 28)
+                                predBox.Size = UDim2.new(0, 75, 0, 35)
                                 predBox.AnchorPoint = Vector2.new(1, 0.5)
-                                predBox.Position = UDim2.new(1, -12, 0.5, 0)
+                                predBox.Position = UDim2.new(1, -15, 0.5, 0)
                                 predBox.BackgroundColor3 = theme.background
                                 predBox.Font = Enum.Font.SourceSans
                                 predBox.TextSize = 16
@@ -874,7 +1123,16 @@ function mainUI:Create()
                                     local defaultPred = (G.CRIMSON_AUTO_SHOOT and G.CRIMSON_AUTO_SHOOT.prediction) or 0.15
                                     predBox.Text = tostring(defaultPred)
                                 end
-                                Instance.new("UICorner", predBox).CornerRadius = UDim.new(0, 6)
+                                Instance.new("UICorner", predBox).CornerRadius = UDim.new(0, 8)
+
+                                -- Add gradient to prediction box
+                                local predBoxGradient = Instance.new("UIGradient", predBox)
+                                predBoxGradient.Color = ColorSequence.new({
+                                    ColorSequenceKeypoint.new(0, theme.background),
+                                    ColorSequenceKeypoint.new(1, theme.backgroundSecondary)
+                                })
+                                predBoxGradient.Rotation = 45
+
                                 local last = predBox.Text
                                 predBox:GetPropertyChangedSignal("Text"):Connect(function()
                                     if predBox.Text == "" then last = "" return end
@@ -907,7 +1165,7 @@ function mainUI:Create()
                     if #remainderScripts > 0 then
                         addCategoryRow(scriptsPage, cat.title)
                         local row = Instance.new("Frame", scriptsPage)
-                        row.Size = UDim2.new(1, 0, 0, 50)
+                        row.Size = UDim2.new(1, 0, 0, 60)
                         row.BackgroundTransparency = 1
 
                         row.AutomaticSize = Enum.AutomaticSize.Y 
@@ -915,19 +1173,19 @@ function mainUI:Create()
                         local content = Instance.new("Frame", row)
                         content.Name = "RowContent"
                         content.BackgroundTransparency = 1
-                        content.Position = UDim2.new(0, 160, 0, 10)
-                        content.Size = UDim2.new(1, -190, 0, 0)
+                        content.Position = UDim2.new(0, 180, 0, 12)
+                        content.Size = UDim2.new(1, -210, 0, 0)
                         content.AutomaticSize = Enum.AutomaticSize.Y
 
                         local grid = Instance.new("UIGridLayout", content)
-                        grid.CellSize = UDim2.new(0, 200, 0, 100) 
-                        grid.CellPadding = UDim2.new(0, 16, 0, 16) 
+                        grid.CellSize = UDim2.new(0, 220, 0, 120) 
+                        grid.CellPadding = UDim2.new(0, 20, 0, 20) 
                         grid.SortOrder = Enum.SortOrder.LayoutOrder
                         grid.FillDirection = Enum.FillDirection.Horizontal
                         grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
                         local function resizeRow()
-                            row.Size = UDim2.new(1, 0, 0, math.max(50, grid.AbsoluteContentSize.Y + 20))
+                            row.Size = UDim2.new(1, 0, 0, math.max(60, grid.AbsoluteContentSize.Y + 25))
                         end
                         resizeRow()
                         grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeRow)
@@ -941,8 +1199,8 @@ function mainUI:Create()
         else
 
             local grid = Instance.new("UIGridLayout", scriptsPage)
-            grid.CellSize = UDim2.new(0, 200, 0, 50)
-            grid.CellPadding = UDim2.new(0, 15, 0, 15)
+            grid.CellSize = UDim2.new(0, 220, 0, 60)
+            grid.CellPadding = UDim2.new(0, 18, 0, 18)
             grid.SortOrder = Enum.SortOrder.LayoutOrder
             grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
             for name, executeFunc in pairs(scripts) do
@@ -958,27 +1216,33 @@ function mainUI:Create()
     function ui:SetVisibility(visible)
         if ui.Visible == visible then return end
         ui.Visible = visible
+        mainShadow.Visible = visible
 
         if visible then
             playSound("open")
             setBlur(true)
             mainFrame.Visible = true
-            local introTween = TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-            mainFrame.Size = UDim2.new(0, 600, 0, 20)
-            mainFrame.Position = UDim2.new(0.5, -300, 0.5, -10)
-            tweenService:Create(mainFrame, introTween, {Size = UDim2.new(0, 600, 0, 400), Position = UDim2.new(0.5, -300, 0.5, -200)}):Play()
+            mainShadow.Visible = true
+            local introTween = TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+            mainFrame.Size = UDim2.new(0, 720, 0, 25)
+            mainFrame.Position = UDim2.new(0.5, -360, 0.5, -12)
+            mainShadow.Size = UDim2.new(0, 740, 0, 45)
+            mainShadow.Position = UDim2.new(0.5, -370, 0.5, -22)
+            tweenService:Create(mainFrame, introTween, {Size = UDim2.new(0, 720, 0, 480), Position = UDim2.new(0.5, -360, 0.5, -240)}):Play()
+            tweenService:Create(mainShadow, introTween, {Size = UDim2.new(0, 740, 0, 500), Position = UDim2.new(0.5, -370, 0.5, -250)}):Play()
         else
             playSound("close")
             setBlur(false)
-            local outroTween = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-            tweenService:Create(mainFrame, outroTween, {Size = UDim2.new(0, 600, 0, 0), Position = UDim2.new(0.5, -300, 0.5, 0)}):Play()
-            task.wait(0.4)
+            local outroTween = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            tweenService:Create(mainFrame, outroTween, {Size = UDim2.new(0, 720, 0, 0), Position = UDim2.new(0.5, -360, 0.5, 0)}):Play()
+            tweenService:Create(mainShadow, outroTween, {Size = UDim2.new(0, 740, 0, 20), Position = UDim2.new(0.5, -370, 0.5, -10)}):Play()
+            task.wait(0.5)
             mainFrame.Visible = false
+            mainShadow.Visible = false
         end
     end
 
     closeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
-    minimizeButton.MouseButton1Click:Connect(function() ui:SetVisibility(false) end)
 
     userInputService.InputBegan:Connect(function(input)
         if input.KeyCode == toggleKey and userInputService:GetFocusedTextBox() == nil then
@@ -992,75 +1256,123 @@ function mainUI:Create()
     return ui
 end
 
+-- VERIFICATION UI WITHOUT SHADOW (AS REQUESTED)
 local function createVerificationUI(onSuccess)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 270)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -135)
+    frame.Size = UDim2.new(0, 450, 0, 300)
+    frame.Position = UDim2.new(0.5, -225, 0.5, -150)
     frame.BackgroundColor3 = theme.background
     frame.Draggable = true
     frame.Active = true
     frame.Parent = screenGui
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
-    Instance.new("UIStroke", frame).Color = theme.accent
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 16)
 
+    -- Enhanced stroke
+    local frameStroke = Instance.new("UIStroke", frame)
+    frameStroke.Color = theme.primary
+    frameStroke.Thickness = 3
+
+    -- NO SHADOW AS REQUESTED - REMOVED THE DARK TRANSPARENT BACKGROUND
+
+    -- Enhanced background gradient with more colors
+    local verifyGradient = Instance.new("UIGradient", frame)
+    verifyGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.background),
+        ColorSequenceKeypoint.new(0.5, theme.backgroundSecondary),
+        ColorSequenceKeypoint.new(1, theme.gradientAccent)
+    })
+    verifyGradient.Rotation = 135
+
+    -- TEXT ELEMENTS - NO GRADIENTS AS REQUESTED
     local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, 0, 0, 60)
+    title.Size = UDim2.new(1, 0, 0, 70)
     title.BackgroundTransparency = 1
     title.Text = "VERIFICATION"
     title.Font = Enum.Font.Michroma
-    title.TextColor3 = theme.text
-    title.TextSize = 28
+    title.TextColor3 = theme.text -- SOLID COLOR - NO GRADIENT
+    title.TextSize = 32
 
     local subtitle = Instance.new("TextLabel", frame)
-    subtitle.Size = UDim2.new(1, 0, 0, 20)
-    subtitle.Position = UDim2.new(0, 0, 0, 60)
+    subtitle.Size = UDim2.new(1, 0, 0, 25)
+    subtitle.Position = UDim2.new(0, 0, 0, 70)
     subtitle.BackgroundTransparency = 1
     subtitle.Text = "Please enter your key to continue"
     subtitle.Font = Enum.Font.SourceSans
-    subtitle.TextColor3 = theme.textSecondary
-    subtitle.TextSize = 16
+    subtitle.TextColor3 = theme.textSecondary -- SOLID COLOR - NO GRADIENT
+    subtitle.TextSize = 18
 
     local input = Instance.new("TextBox")
-    input.Size = UDim2.new(1, -40, 0, 45)
-    input.Position = UDim2.new(0, 20, 0, 100)
+    input.Size = UDim2.new(1, -50, 0, 55)
+    input.Position = UDim2.new(0, 25, 0, 115)
     input.BackgroundColor3 = theme.backgroundSecondary
-    input.TextColor3 = theme.text
+    input.TextColor3 = Color3.new(1, 1, 1) -- WHITE TEXT for key input as requested - NO GRADIENT
     input.PlaceholderText = "Your Key"
     input.PlaceholderColor3 = theme.textSecondary
     input.Font = Enum.Font.SourceSans
-    input.TextSize = 16
+    input.TextSize = 18
     input.Parent = frame
-    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 6)
-    Instance.new("UIStroke", input).Color = theme.accent
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 10)
+
+    local inputStroke = Instance.new("UIStroke", input)
+    inputStroke.Color = theme.accent
+    inputStroke.Thickness = 2
+
+    -- Add gradient to input field background (NOT TEXT)
+    local inputGradient = Instance.new("UIGradient", input)
+    inputGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.backgroundSecondary),
+        ColorSequenceKeypoint.new(1, theme.gradientAccent)
+    })
+    inputGradient.Rotation = 45
 
     local submit = Instance.new("TextButton", frame)
-    submit.Size = UDim2.new(1, -40, 0, 40)
-    submit.Position = UDim2.new(0, 20, 0, 160)
+    submit.Size = UDim2.new(1, -50, 0, 50)
+    submit.Position = UDim2.new(0, 25, 0, 185)
     submit.BackgroundColor3 = theme.primary
     submit.Text = "VERIFY"
     submit.Font = Enum.Font.Michroma
-    submit.TextColor3 = Color3.new(1, 1, 1)
-    submit.TextSize = 18
-    Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 6)
+    submit.TextColor3 = Color3.fromRGB(40, 40, 40) -- DARK TEXT - NO GRADIENT AS REQUESTED
+    submit.TextSize = 20
+    Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 10)
+
+    -- Enhanced submit button gradient with more colors
+    local submitGradient = Instance.new("UIGradient", submit)
+    submitGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.gradientPrimary),
+        ColorSequenceKeypoint.new(0.5, theme.primary),
+        ColorSequenceKeypoint.new(1, theme.primaryGlow)
+    })
 
     local loadingSpinner = Instance.new("ImageLabel", submit)
     loadingSpinner.Image = "rbxassetid://5107930337"
-    loadingSpinner.Size = UDim2.new(0, 24, 0, 24)
-    loadingSpinner.Position = UDim2.new(0.5, -12, 0.5, -12)
+    loadingSpinner.Size = UDim2.new(0, 30, 0, 30)
+    loadingSpinner.Position = UDim2.new(0.5, -15, 0.5, -15)
     loadingSpinner.BackgroundTransparency = 1
-    loadingSpinner.ImageColor3 = Color3.new(1, 1, 1)
+    loadingSpinner.ImageColor3 = Color3.fromRGB(40, 40, 40) -- Also made spinner darker for consistency
     loadingSpinner.Visible = false
 
     local getLink = Instance.new("TextButton", frame)
-    getLink.Size = UDim2.new(1, -40, 0, 36)
-    getLink.Position = UDim2.new(0, 20, 0, 208)
+    getLink.Size = UDim2.new(1, -50, 0, 45)
+    getLink.Position = UDim2.new(0, 25, 0, 248)
     getLink.BackgroundColor3 = theme.accent
     getLink.Text = "GET LINK"
     getLink.Font = Enum.Font.Michroma
-    getLink.TextColor3 = theme.text
-    getLink.TextSize = 16
-    Instance.new("UICorner", getLink).CornerRadius = UDim.new(0, 6)
-    Instance.new("UIStroke", getLink).Color = theme.accent
+    getLink.TextColor3 = theme.text -- SOLID COLOR - NO GRADIENT
+    getLink.TextSize = 18
+    Instance.new("UICorner", getLink).CornerRadius = UDim.new(0, 10)
+
+    local getLinkStroke = Instance.new("UIStroke", getLink)
+    getLinkStroke.Color = theme.accentLight
+    getLinkStroke.Thickness = 2
+
+    -- Add gradient to get link button background (NOT TEXT)
+    local getLinkGradient = Instance.new("UIGradient", getLink)
+    getLinkGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.accent),
+        ColorSequenceKeypoint.new(0.5, theme.accentLight),
+        ColorSequenceKeypoint.new(1, theme.gradientAccent)
+    })
+    getLinkGradient.Rotation = 45
 
     local LINK_TO_COPY = "[https://workink.net/25bz/0qrqef0f](https://workink.net/25bz/0qrqef0f)"
 
@@ -1107,21 +1419,23 @@ local function createVerificationUI(onSuccess)
 
                 playSound("success")
                 sendNotification("Success", "Verification successful!", 1, "success")
-                local outro = tweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
+                local outro = tweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
+                -- NO SHADOW ANIMATION - REMOVED
                 outro:Play()
                 outro.Completed:Wait()
                 frame:Destroy()
+                -- NO SHADOW DESTROY - REMOVED
                 onSuccess()
             else
                 playSound("error")
                 sendNotification("Failed", "Invalid key provided.", 1, "error")
                 local originalPos = frame.Position
-                local shakeInfo = TweenInfo.new(0.07)
-                for i = 1, 3 do
-                    tweenService:Create(frame, shakeInfo, {Position = originalPos + UDim2.fromOffset(10, 0)}):Play()
-                    task.wait(0.07)
-                    tweenService:Create(frame, shakeInfo, {Position = originalPos - UDim2.fromOffset(10, 0)}):Play()
-                    task.wait(0.07)
+                local shakeInfo = TweenInfo.new(0.08)
+                for i = 1, 4 do
+                    tweenService:Create(frame, shakeInfo, {Position = originalPos + UDim2.fromOffset(12, 0)}):Play()
+                    task.wait(0.08)
+                    tweenService:Create(frame, shakeInfo, {Position = originalPos - UDim2.fromOffset(12, 0)}):Play()
+                    task.wait(0.08)
                 end
                 tweenService:Create(frame, shakeInfo, {Position = originalPos}):Play()
             end
