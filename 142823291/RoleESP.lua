@@ -197,7 +197,8 @@ local function updatePlayer(player)
         setHighlight(player, character, Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0.7))
         setBillboard(player, character, "Sheriff", Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0))
     else
-        removeVisualsFor(player)
+        setHighlight(player, character, Color3.new(0.7, 1, 0.7), Color3.new(0, 0.7, 0))
+        setBillboard(player, character, "Innocent", Color3.new(0.7, 1, 0.7), Color3.new(0, 0, 0))
     end
 end
 
