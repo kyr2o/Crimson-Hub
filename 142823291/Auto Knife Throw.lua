@@ -40,6 +40,11 @@ local function resolveKnife()
         throwRemote = knife and knife:FindFirstChild("Throw") or nil
     end
 end
+
+local function hasKnife()
+    return (lp.Backpack and lp.Backpack:FindFirstChild("Knife")) or (char and char:FindFirstChild("Knife"))
+end
+
 resolveKnife()
 
 lp.CharacterAdded:Connect(function(c)
@@ -51,12 +56,36 @@ lp.CharacterAdded:Connect(function(c)
     task.defer(resolveKnife)
 end)
 
-if lp:FindFirstChild("Backpack") then
-    lp.Backpack.ChildAdded:Connect(function(it) if it.Name=="Knife" then resolveKnife() end end)
-    lp.Backpack.ChildRemoved:Connect(function(it) if it==knife then resolveKnife() end end)
+local function autoStartLoop()
+    if hasKnife() and G.CRIMSON_AUTO_KNIFE.enabled and not loopConn then
+        bindLoop()
+    end
 end
-char.ChildAdded:Connect(function(it) if it.Name=="Knife" then resolveKnife() end end)
-char.ChildRemoved:Connect(function(it) if it==knife then resolveKnife() end end)
+
+if lp:FindFirstChild("Backpack") then
+    lp.Backpack.ChildAdded:Connect(function(it) 
+        if it.Name=="Knife" then 
+            resolveKnife()
+            autoStartLoop()
+        end 
+    end)
+    lp.Backpack.ChildRemoved:Connect(function(it) 
+        if it==knife then 
+            resolveKnife()
+        end 
+    end)
+end
+char.ChildAdded:Connect(function(it) 
+    if it.Name=="Knife" then 
+        resolveKnife()
+        autoStartLoop()
+    end 
+end)
+char.ChildRemoved:Connect(function(it) 
+    if it==knife then 
+        resolveKnife()
+    end 
+end)
 
 local cam = Workspace.CurrentCamera
 
@@ -96,20 +125,24 @@ end
 
 local function isTargetAnimPlaying()
     if not hum then return false end
-    local currentTime = os.clock()
 
-    for _, track in pairs(hum:GetPlayingAnimationTracks()) do
-        if track.Animation and track.Animation.AnimationId:find("1957618848") then
-            if lastAnimTrack ~= track then
-                animStartTime = currentTime
-                lastAnimTrack = track
+    if hasKnife() then
+
+        for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+            if track.Animation and track.Animation.AnimationId:find("1957618848") then
+                local currentTime = os.clock()
+                if lastAnimTrack ~= track then
+                    animStartTime = currentTime
+                    lastAnimTrack = track
+                end
+                return (currentTime - animStartTime) >= ANIM_DURATION
             end
-            return (currentTime - animStartTime) >= ANIM_DURATION
         end
+
+        animStartTime = 0
+        lastAnimTrack = nil
     end
 
-    animStartTime = 0
-    lastAnimTrack = nil
     return false
 end
 
@@ -275,16 +308,78 @@ local function advancedPath(originPos, targetChar, ignore)
         end
     end
 
+    local headPart = targetChar:FindFirstChild("Head")
+    if headPart then
+        for _, part in ipairs(exposedParts) do
+            if part == headPart then
+
+                local vel = getVel(targetChar)
+                local t = timeToTargetAtDist((headPart.Position - originPos).Magnitude)
+                local horizVel = Vector3.new(vel.X, 0, vel.Z)
+                local horizLead = horizVel * t * LeadBias
+                local yLead = verticalLead(targetChar, t)
+                local headPred = headPart.Position + horizLead + Vector3.new(0, yLead, 0)
+
+                local hit, u, _ = rayTo(originPos, headPred, ignore)
+                if not hit or hit.Instance:IsDescendantOf(targetChar) or isThinOrIgnored(hit) then
+                    return headPred
+                end
+
+                local current = originPos
+                local aim = headPred
+                local steps = 0
+
+                while steps < MaxBounces do
+                    local hit2, u2, _ = rayTo(current, aim, ignore)
+                    if not hit2 or hit2.Instance:IsDescendantOf(targetChar) or isThinOrIgnored(hit2) then
+                        return aim
+                    end
+
+                    local tVel = getVel(targetChar)
+                    local right, up = orthonormal(u2)
+                    local lateralPref = (tVel:Dot(right) >= 0) and right or -right
+
+                    local tried = false
+                    for _, off in ipairs(LateralOffsets) do
+                        for _, vOff in ipairs(VerticalOffsets) do
+                            local side = hit2.Position + lateralPref * off + up * vOff
+                            local peek = side + u2 * CornerPeek
+                            local hit3 = select(1, rayTo(current, peek, ignore))
+                            if not hit3 or hit3.Instance:IsDescendantOf(targetChar) or isThinOrIgnored(hit3) then
+                                current = current + (side - current) * 0.001
+                                aim = peek
+                                tried = true
+                                break
+                            end
+                        end
+                        if tried then break end
+                    end
+
+                    if not tried then
+                        aim = hit2.Position - u2 * 2.25
+                        break
+                    end
+
+                    steps += 1
+                end
+
+                return aim
+            end
+        end
+    end
+
     local mousePos = Vector2.new(mouse.X, mouse.Y)
     local bestPart, bestDist = nil, math.huge
 
     for _, part in ipairs(exposedParts) do
-        local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
-        if onScreen then
-            local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-            if dist < bestDist then
-                bestPart = part
-                bestDist = dist
+        if part ~= headPart then 
+            local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
+            if onScreen then
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                if dist < bestDist then
+                    bestPart = part
+                    bestDist = dist
+                end
             end
         end
     end
@@ -377,10 +472,12 @@ local function stepThrow()
     end
 
     if not G.CRIMSON_AUTO_KNIFE.enabled then return end
+
+    resolveKnife()
     if not knife or not throwRemote then return end
     if not char or not root or not hum or hum.Health<=0 then return end
-    if knife.Parent ~= char then return end
-    if not isTargetAnimPlaying() then return end
+
+    if not hasKnife() or not isTargetAnimPlaying() then return end
 
     local tgt = mouseClosestTarget(char)
     if not tgt then return end
@@ -403,7 +500,7 @@ local function stepThrow()
     throwRemote:FireServer(CFrame.new(finalPos), originPos)
 end
 
-local function bindLoop()
+function bindLoop()
     if loopConn then loopConn:Disconnect(); loopConn=nil end
     loopConn = RunService.Heartbeat:Connect(stepThrow)
 end
@@ -412,19 +509,16 @@ local function unbindLoop()
     if loopConn then loopConn:Disconnect(); loopConn=nil end
 end
 
-local function attachToolSignals(tool)
-    if tool and tool.Name=="Knife" then
-        tool.Equipped:Connect(bindLoop)
-        tool.Unequipped:Connect(unbindLoop)
-    end
+if G.CRIMSON_AUTO_KNIFE.enabled and hasKnife() then
+    bindLoop()
 end
-
-if knife then attachToolSignals(knife) end
-char.ChildAdded:Connect(attachToolSignals)
-if knife and knife.Parent==char then bindLoop() end
 
 G.CRIMSON_AUTO_KNIFE.enable = function()
     G.CRIMSON_AUTO_KNIFE.enabled = true
+
+    if hasKnife() then
+        bindLoop()
+    end
 end
 
 G.CRIMSON_AUTO_KNIFE.disable = function()
