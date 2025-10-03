@@ -16,7 +16,7 @@ local root = char:WaitForChild("HumanoidRootPart")
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_KNIFE = G.CRIMSON_AUTO_KNIFE or { enabled = false }
 
-local LeadBias = 1.50
+local LeadBias = 1.64
 local PredictStrength = 0.00
 local RangeBoost = 0.0016
 local MaxBounces = 3
