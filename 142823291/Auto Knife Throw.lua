@@ -386,4 +386,3 @@ G.CRIMSON_AUTO_KNIFE.disable = function()
     G.CRIMSON_AUTO_KNIFE.enabled = false
     unbindLoop()
 end
-- Auto-activates when a knife is in backpack or equipped and the throw animation has played long enough.
