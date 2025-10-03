@@ -338,7 +338,7 @@ local function tryCopyToClipboard(text, parentForFallback)
     box.Size = UDim2.new(1, -40, 0, 36)
     box.Position = UDim2.new(0, 20, 1, 10)
     box.BackgroundColor3 = theme.backgroundSecondary
-    box.TextColor3 = theme.text
+    box.TextColor3 = Color3.new(1, 1, 1) 
     box.TextEditable = false
     box.ClearTextOnFocus = false
     box.Text = text
@@ -992,7 +992,7 @@ function mainUI:Create()
             input.Position = UDim2.new(0.6, 0, 0.5, 0)
             input.AnchorPoint = Vector2.new(0, 0.5)
             input.BackgroundColor3 = theme.backgroundSecondary
-            input.TextColor3 = theme.text
+            input.TextColor3 = Color3.new(1, 1, 1) 
             input.Font = Enum.Font.SourceSans
             input.TextSize = 16
             input.Text = tostring(G.CRIMSON_SETTINGS[property] or defaultValue)
@@ -1194,7 +1194,7 @@ function mainUI:Create()
                                 predBox.BackgroundColor3 = theme.background
                                 predBox.Font = Enum.Font.SourceSans
                                 predBox.TextSize = 16
-                                predBox.TextColor3 = theme.text
+                                predBox.TextColor3 = Color3.new(1, 1, 1) 
                                 do
                                     local G = (getgenv and getgenv()) or _G
                                     local defaultPred = (G.CRIMSON_AUTO_SHOOT and G.CRIMSON_AUTO_SHOOT.prediction) or 0.15
