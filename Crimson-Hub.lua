@@ -1,5 +1,3 @@
--- CRIMSON HUB - BREAK GUN AUTO TOGGLE VERSION
-
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
@@ -21,7 +19,6 @@ local toggleKey = Enum.KeyCode.RightControl
 local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 local MM2_PLACEID = 142823291
 
--- ENHANCED THEME WITH GRADIENTS AND NEW COLORS
 local theme = {
     background = Color3.fromRGB(15, 16, 22),
     backgroundSecondary = Color3.fromRGB(22, 24, 32),
@@ -36,7 +33,7 @@ local theme = {
     warning = Color3.fromRGB(255, 165, 0),
     error = Color3.fromRGB(227, 38, 54),
     shadow = Color3.fromRGB(0, 0, 0),
-    -- New colors for enhanced gradients
+
     gradientPrimary = Color3.fromRGB(180, 30, 45),
     gradientSecondary = Color3.fromRGB(90, 95, 200),
     gradientAccent = Color3.fromRGB(45, 50, 65)
@@ -96,7 +93,6 @@ local function playSound(soundName)
     end
 end
 
--- ENHANCED NOTIFICATION SYSTEM WITH MORE GRADIENTS
 local notificationContainer = Instance.new("Frame")
 notificationContainer.Size = UDim2.new(1, 0, 1, 0)
 notificationContainer.BackgroundTransparency = 1
@@ -129,12 +125,10 @@ local function sendNotification(title, text, duration, notifType)
     frame.Parent = notificationContainer
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
 
-    -- Enhanced stroke
     local stroke = Instance.new("UIStroke", frame)
     stroke.Color = color
     stroke.Thickness = 2
 
-    -- Drop shadow effect
     local shadow = Instance.new("Frame", frame)
     shadow.Size = UDim2.new(1, 6, 1, 6)
     shadow.Position = UDim2.new(0, 3, 0, 3)
@@ -143,7 +137,6 @@ local function sendNotification(title, text, duration, notifType)
     shadow.ZIndex = frame.ZIndex - 1
     Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 12)
 
-    -- Enhanced gradient background with more colors
     local gradient = Instance.new("UIGradient", frame)
     gradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.backgroundSecondary),
@@ -158,7 +151,6 @@ local function sendNotification(title, text, duration, notifType)
     colorBar.BorderSizePixel = 0
     Instance.new("UICorner", colorBar).CornerRadius = UDim.new(0, 12)
 
-    -- Add gradient to color bar
     local colorBarGradient = Instance.new("UIGradient", colorBar)
     colorBarGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, color),
@@ -220,7 +212,6 @@ do
     end
 end
 
--- HTTP functions remain the same
 local function httpGet(url)
     local success, result = pcall(function() return httpService:GetAsync(url) end)
     if success and result then return true, tostring(result) end
@@ -279,7 +270,6 @@ local function tryDisableByName(scriptName)
         if rec and rec.disable then pcall(function() rec.disable(true) end) end
     end
 
-    -- BREAK GUN DISABLE FUNCTIONALITY
     if (lowered:find("break") and lowered:find("gun")) or lowered == "break gun" then
         if Shared.CRIMSON_BREAK_GUN and Shared.CRIMSON_BREAK_GUN.disable then
             pcall(function() Shared.CRIMSON_BREAK_GUN.disable(true) end)
@@ -391,7 +381,6 @@ local function addCategoryRow(parent, titleText)
     line.Position = UDim2.new(0, 140 + 15, 0.5, -1)
     Instance.new("UICorner", line).CornerRadius = UDim.new(0, 2)
 
-    -- Add gradient to category line
     local lineGradient = Instance.new("UIGradient", line)
     lineGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.accent),
@@ -402,11 +391,9 @@ local function addCategoryRow(parent, titleText)
     return container
 end
 
--- AUTO BREAK GUN FUNCTIONALITY - NEW AUTO TOGGLE VERSION
 local function createAutoBreakGun()
     local Shared = (getgenv and getgenv()) or _G
 
-    -- Initialize Break Gun data
     Shared.CRIMSON_BREAK_GUN = Shared.CRIMSON_BREAK_GUN or {
         enabled = false,
         connection = nil,
@@ -455,7 +442,7 @@ local function createAutoBreakGun()
                 if gun then
                     breakGunLoop(gun)
                 else
-                    -- Wait for sheriff to equip gun if they don't have it
+
                     local equipped = false
                     local timeout = 0
 
@@ -475,14 +462,12 @@ local function createAutoBreakGun()
                 end
             end
 
-            -- Short wait before checking for sheriff again
             if Shared.CRIMSON_BREAK_GUN.enabled then
                 task.wait(0.5)
             end
         end
     end
 
-    -- Main toggle function
     local function toggleAutoBreakGun(state)
         Shared.CRIMSON_BREAK_GUN.enabled = state
 
@@ -494,7 +479,6 @@ local function createAutoBreakGun()
 
             sendNotification("Break Gun", "Auto break gun enabled!", 1, "success")
 
-            -- Start the auto break gun loop in a separate thread
             task.spawn(function()
                 autoBreakGunLoop()
             end)
@@ -506,7 +490,6 @@ local function createAutoBreakGun()
         return state
     end
 
-    -- Disable function for cleanup
     Shared.CRIMSON_BREAK_GUN.disable = function(force)
         Shared.CRIMSON_BREAK_GUN.enabled = false
         Shared.CRIMSON_BREAK_GUN.currentSheriff = nil
@@ -525,7 +508,6 @@ function mainUI:Create()
     local G = (getgenv and getgenv()) or _G
     G.CRIMSON_SETTINGS = G.CRIMSON_SETTINGS or { WalkSpeed = 16, JumpPower = 50 }
 
-    -- ENHANCED MAIN FRAME WITH BIGGER SIZE AND BETTER STYLING
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 720, 0, 480)
     mainFrame.Position = UDim2.new(0.5, -360, 0.5, -240)
@@ -538,13 +520,11 @@ function mainUI:Create()
     mainFrame.Parent = screenGui
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
 
-    -- Enhanced stroke with gradient effect
     local mainFrameStroke = Instance.new("UIStroke", mainFrame)
     mainFrameStroke.Color = theme.primary
     mainFrameStroke.Thickness = 3
     mainFrameStroke.Transparency = 0.3
 
-    -- Drop shadow
     local mainShadow = Instance.new("Frame", screenGui)
     mainShadow.Size = UDim2.new(0, 720 + 20, 0, 480 + 20)
     mainShadow.Position = UDim2.new(0.5, -360 - 10, 0.5, -240 - 10)
@@ -555,7 +535,6 @@ function mainUI:Create()
     mainShadow.ZIndex = mainFrame.ZIndex - 1
     Instance.new("UICorner", mainShadow).CornerRadius = UDim.new(0, 20)
 
-    -- Enhanced background gradient with more colors
     local bgGradient = Instance.new("UIGradient", mainFrame)
     bgGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.background),
@@ -565,7 +544,6 @@ function mainUI:Create()
     })
     bgGradient.Rotation = 135
 
-    -- Enhanced pattern background
     local bgPattern = Instance.new("ImageLabel", mainFrame)
     bgPattern.Image = "rbxassetid://2887559971"
     bgPattern.ScaleType = Enum.ScaleType.Tile
@@ -585,7 +563,6 @@ function mainUI:Create()
         end
     end)
 
-    -- ENHANCED HEADER WITH MORE GRADIENTS
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, 0, 0, 50)
     header.BackgroundColor3 = theme.backgroundSecondary
@@ -594,7 +571,6 @@ function mainUI:Create()
     header.Parent = mainFrame
     Instance.new("UICorner", header).CornerRadius = UDim.new(0, 16)
 
-    -- Enhanced header gradient with more color points
     local headerGradient = Instance.new("UIGradient", header)
     headerGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.gradientPrimary),
@@ -612,7 +588,6 @@ function mainUI:Create()
     headerDivider.BorderSizePixel = 0
     headerDivider.ZIndex = 3
 
-    -- Enhanced glowing effect for header divider with more colors
     local dividerGlow = Instance.new("UIGradient", headerDivider)
     dividerGlow.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.gradientPrimary),
@@ -639,33 +614,29 @@ function mainUI:Create()
     title.BackgroundTransparency = 1
     title.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- RED CLOSE BUTTON WITH X
     local closeButton = Instance.new("TextButton", header)
-    closeButton.Size = UDim2.new(0, 28, 0, 28) -- Made slightly bigger
+    closeButton.Size = UDim2.new(0, 28, 0, 28) 
     closeButton.Position = UDim2.new(1, -38, 0.5, -14)
-    closeButton.Text = "✕" -- X symbol
+    closeButton.Text = "✕" 
     closeButton.Font = Enum.Font.GothamBold
     closeButton.TextSize = 16
-    closeButton.TextColor3 = Color3.new(1, 1, 1) -- White X
-    closeButton.BackgroundColor3 = theme.error -- Red background
+    closeButton.TextColor3 = Color3.new(1, 1, 1) 
+    closeButton.BackgroundColor3 = theme.error 
     closeButton.ZIndex = 3
     Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0, 8)
 
-    -- Add red gradient to close button
     local closeButtonGradient = Instance.new("UIGradient", closeButton)
     closeButtonGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.error),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 20, 40)) -- Darker red
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 20, 40)) 
     })
     closeButtonGradient.Rotation = 45
 
-    -- Add stroke for better definition
     local closeButtonStroke = Instance.new("UIStroke", closeButton)
     closeButtonStroke.Color = Color3.fromRGB(200, 30, 50)
     closeButtonStroke.Thickness = 1
     closeButtonStroke.Transparency = 0.3
 
-    -- Button hover effects - darker red on hover
     closeButton.MouseEnter:Connect(function()
         tweenService:Create(closeButton, TweenInfo.new(0.2), {
             BackgroundColor3 = Color3.fromRGB(180, 20, 40),
@@ -679,7 +650,6 @@ function mainUI:Create()
         }):Play()
     end)
 
-    -- ENHANCED SIDEBAR WITH MORE GRADIENTS
     local sidebar = Instance.new("Frame", mainFrame)
     sidebar.Size = UDim2.new(0, 180, 1, -50)
     sidebar.Position = UDim2.new(0, 0, 0, 50)
@@ -688,7 +658,6 @@ function mainUI:Create()
     sidebar.ZIndex = 2
     Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 12)
 
-    -- Enhanced sidebar gradient with more colors
     local sidebarGradient = Instance.new("UIGradient", sidebar)
     sidebarGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.backgroundSecondary),
@@ -708,7 +677,7 @@ function mainUI:Create()
     welcomeMessage.Text = "Welcome,\n" .. localPlayer.DisplayName
     welcomeMessage.Font = Enum.Font.Michroma
     welcomeMessage.TextSize = 16
-    welcomeMessage.TextColor3 = theme.text -- Made text white as requested
+    welcomeMessage.TextColor3 = theme.text 
     welcomeMessage.TextWrapped = true
     welcomeMessage.BackgroundTransparency = 1
     welcomeMessage.LayoutOrder = -1
@@ -739,7 +708,6 @@ function mainUI:Create()
         pages[tab.Name].Visible = true
     end
 
-    -- ENHANCED TAB CREATION WITH WHITE TEXT
     local function createTab(name)
         local tab = Instance.new("TextButton", sidebar)
         tab.Name = name
@@ -748,11 +716,10 @@ function mainUI:Create()
         tab.Text = name
         tab.Font = Enum.Font.Michroma
         tab.TextSize = 17
-        tab.TextColor3 = theme.text -- Changed to white as requested
+        tab.TextColor3 = theme.text 
         tab.TextXAlignment = Enum.TextXAlignment.Center
         Instance.new("UICorner", tab).CornerRadius = UDim.new(0, 10)
 
-        -- Enhanced tab gradient with more colors
         local tabGradient = Instance.new("UIGradient", tab)
         tabGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, theme.accent),
@@ -769,7 +736,6 @@ function mainUI:Create()
         indicator.BackgroundTransparency = 1
         Instance.new("UICorner", indicator).CornerRadius = UDim.new(0, 10)
 
-        -- Add gradient to indicator
         local indicatorGradient = Instance.new("UIGradient", indicator)
         indicatorGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, theme.primary),
@@ -793,7 +759,6 @@ function mainUI:Create()
         return tab
     end
 
-    -- ENHANCED PAGE CREATION
     local function createPage(name)
         local page = Instance.new("ScrollingFrame", contentContainer)
         page.Name = name
@@ -844,7 +809,6 @@ function mainUI:Create()
     createTab("Settings")
     createTab("Info")
 
-    -- ENHANCED SCRIPT BUTTON WITH MORE GRADIENTS
     local function createScriptButton(parent, name, callback)
         local buttonData = {enabled = false}
 
@@ -854,7 +818,6 @@ function mainUI:Create()
         button.Text = ""
         Instance.new("UICorner", button).CornerRadius = UDim.new(0, 12)
 
-        -- Enhanced button gradient with more colors
         local buttonGradient = Instance.new("UIGradient", button)
         buttonGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, theme.accent),
@@ -878,14 +841,12 @@ function mainUI:Create()
         label.TextSize = 16
         label.TextXAlignment = Enum.TextXAlignment.Left
 
-        -- ENHANCED TOGGLE WITH MORE GRADIENTS
         local toggle = Instance.new("Frame", button)
         toggle.Size = UDim2.new(0, 60, 0, 30)
         toggle.Position = UDim2.new(1, -75, 0.5, -15)
         toggle.BackgroundColor3 = theme.background
         Instance.new("UICorner", toggle).CornerRadius = UDim.new(1, 0)
 
-        -- Enhanced toggle gradient background
         local toggleGradient = Instance.new("UIGradient", toggle)
         toggleGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, theme.background),
@@ -893,19 +854,16 @@ function mainUI:Create()
             ColorSequenceKeypoint.new(1, theme.gradientAccent)
         })
 
-        -- Toggle border
         local toggleStroke = Instance.new("UIStroke", toggle)
         toggleStroke.Color = theme.accent
         toggleStroke.Thickness = 2
 
-        -- ENHANCED TOGGLE KNOB WITH MORE GRADIENTS (the circle thingy)
         local toggleKnob = Instance.new("Frame", toggle)
-        toggleKnob.Size = UDim2.new(0, 22, 0, 22) -- Much bigger
+        toggleKnob.Size = UDim2.new(0, 22, 0, 22) 
         toggleKnob.Position = UDim2.new(0, 4, 0.5, -11)
         toggleKnob.BackgroundColor3 = theme.primary
         Instance.new("UICorner", toggleKnob).CornerRadius = UDim.new(1, 0)
 
-        -- Enhanced knob gradient with more colors
         local knobGradient = Instance.new("UIGradient", toggleKnob)
         knobGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, theme.gradientPrimary),
@@ -914,7 +872,6 @@ function mainUI:Create()
         })
         knobGradient.Rotation = 45
 
-        -- Knob stroke for better definition
         local knobStroke = Instance.new("UIStroke", toggleKnob)
         knobStroke.Color = theme.text
         knobStroke.Thickness = 1
@@ -946,18 +903,16 @@ function mainUI:Create()
         return button
     end
 
-    -- ENHANCED ACTION BUTTON WITH MORE GRADIENTS (for KillAll)
     local function createActionButton(parent, name, callback)
         local button = Instance.new("TextButton", parent)
         button.Size = UDim2.new(0, 220, 0, 60)
-        button.BackgroundColor3 = theme.accent -- Normal button color as requested
+        button.BackgroundColor3 = theme.accent 
         button.Text = name
         button.Font = Enum.Font.Michroma
         button.TextSize = 16
-        button.TextColor3 = theme.text -- Normal text color as requested
+        button.TextColor3 = theme.text 
         Instance.new("UICorner", button).CornerRadius = UDim.new(0, 12)
 
-        -- Enhanced button gradient with more colors (normal theme as requested)
         local buttonGradient = Instance.new("UIGradient", button)
         buttonGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, theme.accent),
@@ -966,7 +921,6 @@ function mainUI:Create()
         })
         buttonGradient.Rotation = 45
 
-        -- Button stroke (normal theme as requested)
         local buttonStroke = Instance.new("UIStroke", button)
         buttonStroke.Color = theme.accentLight
         buttonStroke.Thickness = 2
@@ -988,7 +942,7 @@ function mainUI:Create()
     end
 
     do
-        -- ENHANCED REBIND BUTTON WITH MORE GRADIENTS
+
         local rebindButton = Instance.new("TextButton", settingsPage)
         rebindButton.Size = UDim2.new(0, 240, 0, 50)
         rebindButton.BackgroundColor3 = theme.accent
@@ -998,7 +952,6 @@ function mainUI:Create()
         rebindButton.TextColor3 = theme.text
         Instance.new("UICorner", rebindButton).CornerRadius = UDim.new(0, 10)
 
-        -- Add gradient to rebind button
         local rebindGradient = Instance.new("UIGradient", rebindButton)
         rebindGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, theme.accent),
@@ -1020,7 +973,6 @@ function mainUI:Create()
             end)
         end)
 
-        -- ENHANCED SETTING INPUT WITH MORE GRADIENTS
         local function createSettingInput(parent, name, property, defaultValue)
             local container = Instance.new("Frame", parent)
             container.Size = UDim2.new(0, 350, 0, 50)
@@ -1046,7 +998,6 @@ function mainUI:Create()
             input.Text = tostring(G.CRIMSON_SETTINGS[property] or defaultValue)
             Instance.new("UICorner", input).CornerRadius = UDim.new(0, 8)
 
-            -- Enhanced input stroke and gradient
             local inputStroke = Instance.new("UIStroke", input)
             inputStroke.Color = theme.accent
             inputStroke.Thickness = 2
@@ -1192,11 +1143,11 @@ function mainUI:Create()
                         if fn then
                             used[modName] = true
                             if modName == "Break Gun" then
-                                -- BREAK GUN IS NOW A TOGGLE BUTTON! 
+
                                 local autoBreakGunToggle = createAutoBreakGun()
                                 createScriptButton(content, modName, autoBreakGunToggle)
                             elseif modName == "KillAll" then
-                                -- KillAll remains an action button
+
                                 createActionButton(content, modName, function() fn(true) end)
                             elseif modName == "Auto Shoot" then
 
@@ -1220,7 +1171,6 @@ function mainUI:Create()
                                 Instance.new("UICorner", predCard).CornerRadius = UDim.new(0, 8)
                                 predCard.LayoutOrder = 2
 
-                                -- Add gradient to prediction card
                                 local predCardGradient = Instance.new("UIGradient", predCard)
                                 predCardGradient.Color = ColorSequence.new({
                                     ColorSequenceKeypoint.new(0, theme.accent),
@@ -1252,7 +1202,6 @@ function mainUI:Create()
                                 end
                                 Instance.new("UICorner", predBox).CornerRadius = UDim.new(0, 8)
 
-                                -- Add gradient to prediction box
                                 local predBoxGradient = Instance.new("UIGradient", predBox)
                                 predBoxGradient.Color = ColorSequence.new({
                                     ColorSequenceKeypoint.new(0, theme.background),
@@ -1272,7 +1221,7 @@ function mainUI:Create()
                                     G.CRIMSON_AUTO_SHOOT.prediction = v
                                 end)
                             else
-                                -- All other modules remain toggle buttons
+
                                 createScriptButton(content, modName, fn)
                             end
                         end
@@ -1319,7 +1268,7 @@ function mainUI:Create()
 
                         for _, scriptData in pairs(remainderScripts) do
                             if scriptData.name == "Break Gun" then
-                                -- BREAK GUN IS NOW A TOGGLE BUTTON in remainder too!
+
                                 local autoBreakGunToggle = createAutoBreakGun()
                                 createScriptButton(content, scriptData.name, autoBreakGunToggle)
                             else
@@ -1330,7 +1279,7 @@ function mainUI:Create()
                 end
             end
         else
-            -- Non-MM2 games
+
             local grid = Instance.new("UIGridLayout", scriptsPage)
             grid.CellSize = UDim2.new(0, 220, 0, 60)
             grid.CellPadding = UDim2.new(0, 18, 0, 18)
@@ -1338,7 +1287,7 @@ function mainUI:Create()
             grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
             for name, executeFunc in pairs(scripts) do
                 if name == "Break Gun" then
-                    -- BREAK GUN IS NOW A TOGGLE BUTTON for all games!
+
                     local autoBreakGunToggle = createAutoBreakGun()
                     createScriptButton(scriptsPage, name, autoBreakGunToggle)
                 elseif name == "KillAll" then
@@ -1393,7 +1342,6 @@ function mainUI:Create()
     return ui
 end
 
--- VERIFICATION UI WITHOUT SHADOW (AS REQUESTED)
 local function createVerificationUI(onSuccess)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 450, 0, 300)
@@ -1404,14 +1352,10 @@ local function createVerificationUI(onSuccess)
     frame.Parent = screenGui
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 16)
 
-    -- Enhanced stroke
     local frameStroke = Instance.new("UIStroke", frame)
     frameStroke.Color = theme.primary
     frameStroke.Thickness = 3
 
-    -- NO SHADOW AS REQUESTED - REMOVED THE DARK TRANSPARENT BACKGROUND
-
-    -- Enhanced background gradient with more colors
     local verifyGradient = Instance.new("UIGradient", frame)
     verifyGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.background),
@@ -1420,13 +1364,12 @@ local function createVerificationUI(onSuccess)
     })
     verifyGradient.Rotation = 135
 
-    -- TEXT ELEMENTS - NO GRADIENTS AS REQUESTED
     local title = Instance.new("TextLabel", frame)
     title.Size = UDim2.new(1, 0, 0, 70)
     title.BackgroundTransparency = 1
     title.Text = "VERIFICATION"
     title.Font = Enum.Font.Michroma
-    title.TextColor3 = theme.text -- SOLID COLOR - NO GRADIENT
+    title.TextColor3 = theme.text 
     title.TextSize = 32
 
     local subtitle = Instance.new("TextLabel", frame)
@@ -1435,14 +1378,14 @@ local function createVerificationUI(onSuccess)
     subtitle.BackgroundTransparency = 1
     subtitle.Text = "Please enter your key to continue"
     subtitle.Font = Enum.Font.SourceSans
-    subtitle.TextColor3 = theme.textSecondary -- SOLID COLOR - NO GRADIENT
+    subtitle.TextColor3 = theme.textSecondary 
     subtitle.TextSize = 18
 
     local input = Instance.new("TextBox")
     input.Size = UDim2.new(1, -50, 0, 55)
     input.Position = UDim2.new(0, 25, 0, 115)
     input.BackgroundColor3 = theme.backgroundSecondary
-    input.TextColor3 = Color3.new(1, 1, 1) -- WHITE TEXT for key input as requested - NO GRADIENT
+    input.TextColor3 = Color3.new(1, 1, 1) 
     input.PlaceholderText = "Your Key"
     input.PlaceholderColor3 = theme.textSecondary
     input.Font = Enum.Font.SourceSans
@@ -1454,7 +1397,6 @@ local function createVerificationUI(onSuccess)
     inputStroke.Color = theme.accent
     inputStroke.Thickness = 2
 
-    -- Add gradient to input field background (NOT TEXT)
     local inputGradient = Instance.new("UIGradient", input)
     inputGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.backgroundSecondary),
@@ -1468,11 +1410,10 @@ local function createVerificationUI(onSuccess)
     submit.BackgroundColor3 = theme.primary
     submit.Text = "VERIFY"
     submit.Font = Enum.Font.Michroma
-    submit.TextColor3 = Color3.fromRGB(40, 40, 40) -- DARK TEXT - NO GRADIENT AS REQUESTED
+    submit.TextColor3 = Color3.fromRGB(40, 40, 40) 
     submit.TextSize = 20
     Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 10)
 
-    -- Enhanced submit button gradient with more colors
     local submitGradient = Instance.new("UIGradient", submit)
     submitGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.gradientPrimary),
@@ -1485,7 +1426,7 @@ local function createVerificationUI(onSuccess)
     loadingSpinner.Size = UDim2.new(0, 30, 0, 30)
     loadingSpinner.Position = UDim2.new(0.5, -15, 0.5, -15)
     loadingSpinner.BackgroundTransparency = 1
-    loadingSpinner.ImageColor3 = Color3.fromRGB(40, 40, 40) -- Also made spinner darker for consistency
+    loadingSpinner.ImageColor3 = Color3.fromRGB(40, 40, 40) 
     loadingSpinner.Visible = false
 
     local getLink = Instance.new("TextButton", frame)
@@ -1494,7 +1435,7 @@ local function createVerificationUI(onSuccess)
     getLink.BackgroundColor3 = theme.accent
     getLink.Text = "GET LINK"
     getLink.Font = Enum.Font.Michroma
-    getLink.TextColor3 = theme.text -- SOLID COLOR - NO GRADIENT
+    getLink.TextColor3 = theme.text 
     getLink.TextSize = 18
     Instance.new("UICorner", getLink).CornerRadius = UDim.new(0, 10)
 
@@ -1502,7 +1443,6 @@ local function createVerificationUI(onSuccess)
     getLinkStroke.Color = theme.accentLight
     getLinkStroke.Thickness = 2
 
-    -- Add gradient to get link button background (NOT TEXT)
     local getLinkGradient = Instance.new("UIGradient", getLink)
     getLinkGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.accent),
@@ -1557,11 +1497,11 @@ local function createVerificationUI(onSuccess)
                 playSound("success")
                 sendNotification("Success", "Verification successful!", 1, "success")
                 local outro = tweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0)})
-                -- NO SHADOW ANIMATION - REMOVED
+
                 outro:Play()
                 outro.Completed:Wait()
                 frame:Destroy()
-                -- NO SHADOW DESTROY - REMOVED
+
                 onSuccess()
             else
                 playSound("error")
