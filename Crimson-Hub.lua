@@ -41,10 +41,10 @@ local theme = {
 
 local CATEGORY_SPEC = {
     [MM2_PLACEID] = {
-        { title = "ESP",      modules = { "RoleESP", "Trap ESP" } },
-        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun" } },
+        { title = "ESP",     modules = { "RoleESP", "Trap ESP" } },
+        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw" } },
         { title = "Farming", modules = { "Coin Farm" } },
-        { title = "Other",    modules = "REMAINDER" },
+        { title = "Other",   modules = "REMAINDER" },
     },
 }
 
@@ -1143,86 +1143,39 @@ function mainUI:Create()
                         if fn then
                             used[modName] = true
                             if modName == "Break Gun" then
-
                                 local autoBreakGunToggle = createAutoBreakGun()
                                 createScriptButton(content, modName, autoBreakGunToggle)
                             elseif modName == "KillAll" then
-
                                 createActionButton(content, modName, function() fn(true) end)
                             elseif modName == "Auto Shoot" then
-
-                                local parentContainer = row:FindFirstChild("RowContent") or row
-                                local autoContainer = Instance.new("Frame", parentContainer)
-                                autoContainer.Size = UDim2.new(0, 220, 0, 120)
-                                autoContainer.BackgroundTransparency = 1
-                                local vList = Instance.new("UIListLayout", autoContainer)
-                                vList.Padding = UDim.new(0, 12)
-                                vList.SortOrder = Enum.SortOrder.LayoutOrder
-                                local autoBtn = createScriptButton(autoContainer, "Auto Shoot", function(state)
+                                local autoShootToggle = createAutoShoot()
+                                createScriptButton(content, modName, autoShootToggle)
+                            elseif modName == "Auto Knife Throw" then
+                                -- Auto Knife Throw toggle with Crimson Hub integration
+                                createScriptButton(content, modName, function(state)
                                     local G = (getgenv and getgenv()) or _G
-                                    G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
-                                    G.CRIMSON_AUTO_SHOOT.enabled = state
-                                    if state then fn(true) end 
-                                end)
-                                autoBtn.LayoutOrder = 1
-                                local predCard = Instance.new("Frame", autoContainer)
-                                predCard.Size = UDim2.new(1, 0, 0, 50)
-                                predCard.BackgroundColor3 = theme.accent
-                                Instance.new("UICorner", predCard).CornerRadius = UDim.new(0, 8)
-                                predCard.LayoutOrder = 2
-
-                                local predCardGradient = Instance.new("UIGradient", predCard)
-                                predCardGradient.Color = ColorSequence.new({
-                                    ColorSequenceKeypoint.new(0, theme.accent),
-                                    ColorSequenceKeypoint.new(1, theme.gradientAccent)
-                                })
-                                predCardGradient.Rotation = 45
-
-                                local predLabel = Instance.new("TextLabel", predCard)
-                                predLabel.BackgroundTransparency = 1
-                                predLabel.Text = "Prediction"
-                                predLabel.Font = Enum.Font.Michroma
-                                predLabel.TextSize = 15
-                                predLabel.TextColor3 = theme.text
-                                predLabel.Size = UDim2.new(1, -90, 1, 0)
-                                predLabel.TextXAlignment = Enum.TextXAlignment.Left
-                                predLabel.Position = UDim2.new(0, 15, 0, 0)
-                                local predBox = Instance.new("TextBox", predCard)
-                                predBox.Size = UDim2.new(0, 75, 0, 35)
-                                predBox.AnchorPoint = Vector2.new(1, 0.5)
-                                predBox.Position = UDim2.new(1, -15, 0.5, 0)
-                                predBox.BackgroundColor3 = theme.background
-                                predBox.Font = Enum.Font.SourceSans
-                                predBox.TextSize = 16
-                                predBox.TextColor3 = Color3.new(1, 1, 1) 
-                                do
-                                    local G = (getgenv and getgenv()) or _G
-                                    local defaultPred = (G.CRIMSON_AUTO_SHOOT and G.CRIMSON_AUTO_SHOOT.prediction) or 0.15
-                                    predBox.Text = tostring(defaultPred)
-                                end
-                                Instance.new("UICorner", predBox).CornerRadius = UDim.new(0, 8)
-
-                                local predBoxGradient = Instance.new("UIGradient", predBox)
-                                predBoxGradient.Color = ColorSequence.new({
-                                    ColorSequenceKeypoint.new(0, theme.background),
-                                    ColorSequenceKeypoint.new(1, theme.backgroundSecondary)
-                                })
-                                predBoxGradient.Rotation = 45
-
-                                local last = predBox.Text
-                                predBox:GetPropertyChangedSignal("Text"):Connect(function()
-                                    if predBox.Text == "" then last = "" return end
-                                    if tonumber(predBox.Text) then last = predBox.Text else predBox.Text = last end
-                                end)
-                                predBox.FocusLost:Connect(function()
-                                    local v = tonumber(predBox.Text) or 0
-                                    local G = (getgenv and getgenv()) or _G
-                                    G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.15 }
-                                    G.CRIMSON_AUTO_SHOOT.prediction = v
+                                    G.CRIMSON_AUTO_KNIFE = G.CRIMSON_AUTO_KNIFE or { enabled = false }
+                                    
+                                    if state then
+                                        G.CRIMSON_AUTO_KNIFE.enabled = true
+                                        if G.CRIMSON_AUTO_KNIFE.enable then
+                                            G.CRIMSON_AUTO_KNIFE.enable()
+                                        end
+                                    else
+                                        G.CRIMSON_AUTO_KNIFE.enabled = false
+                                        if G.CRIMSON_AUTO_KNIFE.disable then
+                                            G.CRIMSON_AUTO_KNIFE.disable()
+                                        end
+                                    end
+                                    
+                                    if state then
+                                        fn(true) -- Execute the Auto Knife Throw script
+                                    end
                                 end)
                             else
-
-                                createScriptButton(content, modName, fn)
+                                createScriptButton(content, modName, function(state)
+                                    if state then fn(true) end
+                                end)
                             end
                         end
                     end
@@ -1476,7 +1429,7 @@ local function createVerificationUI(onSuccess)
         local rotationTween = tweenService:Create(loadingSpinner, TweenInfo.new(1, Enum.EasingStyle.Linear), { Rotation = 360 })
         local conn
         conn = rotationTween.Completed:Connect(function()
-              if loadingSpinner.Visible then rotationTween:Play() end
+            if loadingSpinner.Visible then rotationTween:Play() end
         end)
         rotationTween:Play()
 
