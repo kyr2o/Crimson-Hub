@@ -11,17 +11,11 @@ local function findMurderer()
     for _, player in ipairs(players:GetPlayers()) do
         if player ~= localPlayer and player.Character then
             local bp = player:FindFirstChild("Backpack")
-            if bp then
-                for _, tool in ipairs(bp:GetChildren()) do
-                    if tool:IsA("Tool") and tool.Name ~= "Gun" then
-                        return player
-                    end
-                end
+            if bp and bp:FindFirstChild("Knife") then
+                return player
             end
-            for _, tool in ipairs(player.Character:GetChildren()) do
-                if tool:IsA("Tool") and tool.Name ~= "Gun" then
-                    return player
-                end
+            if player.Character:FindFirstChild("Knife") then
+                return player
             end
         end
     end
