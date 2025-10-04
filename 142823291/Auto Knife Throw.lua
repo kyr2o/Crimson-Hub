@@ -17,17 +17,20 @@ local AllowedAnimIds = {
 }
 local AnimGateSeconds = 0.25
 
-local leadAmount = 1.64          
-local rangeGainPerStud = 0.0025          
-local maxWallSteps = 4                   
-local sideProbe = {3.0, 6.0, 9.0}        
-local heightProbe = {2.0, -2.0}          
-local peekForward = 6.0                  
+local leadAmount = 1.50
+local rangeGainPerStud = 0.0025
+local maxWallSteps = 4
+local sideProbe = {3.0, 6.0, 9.0}
+local heightProbe = {2.0, -2.0}
+local peekForward = 6.0
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
-local groundProbeRadius = 2.5            
-local maxGroundSnap = 24                 
-local sameGroundTolerance = 1.75         
+local groundProbeRadius = 2.5
+local maxGroundSnap = 24
+local sameGroundTolerance = 1.75
+
+local groundedMemorySec = 0.35       
+local groundedTorsoYOffset = 1.0     
 
 local myChar = me.Character or me.CharacterAdded:Wait()
 local myHum = myChar:WaitForChild("Humanoid")
@@ -36,6 +39,10 @@ local myKnife, knifeRemote
 local loopConn
 
 local trackStart = setmetatable({}, { __mode = "k" })
+
+local lastGroundY = {}          
+local lastGroundedTorso = {}    
+local lastGroundedTime = {}     
 
 local function unit(v)
     local m = v.Magnitude
@@ -78,15 +85,12 @@ local function throwIsAllowedNow()
     if not myHum then return false end
     local now = os.clock()
     local ok = false
-
-    for _, track in ipairs(myHum:GetPlayingAnimationTracks()) do
-        local animId = track.Animation and track.Animation.AnimationId or ""
+    for _, tr in ipairs(myHum:GetPlayingAnimationTracks()) do
+        local id = tr.Animation and tr.Animation.AnimationId or ""
         for _, allow in ipairs(AllowedAnimIds) do
-            if animId:find(allow, 1, true) then
-                if not trackStart[track] then trackStart[track] = now end
-                if (now - trackStart[track]) >= AnimGateSeconds then
-                    ok = true
-                end
+            if id:find(allow, 1, true) then
+                if not trackStart[tr] then trackStart[tr] = now end
+                if (now - trackStart[tr]) >= AnimGateSeconds then ok = true end
             end
         end
     end
@@ -99,7 +103,7 @@ local function throwIsAllowedNow()
 end
 
 local function aimPart(char)
-    return char and (char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("HumanoidRootPart"))
+    return char and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
 end
 local function worldVel(char)
     local p = aimPart(char)
@@ -117,12 +121,12 @@ local function chooseTarget()
             local a = c and aimPart(c)
             if h and h.Health > 0 and a then
                 local v, on = camera:WorldToViewportPoint(a.Position)
-                local dWorld = (a.Position - myRoot.Position).Magnitude
+                local dw = (a.Position - myRoot.Position).Magnitude
                 if on then
-                    local dMouse = (Vector2.new(v.X, v.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                    table.insert(front, { player = pl, m = dMouse, d = dWorld })
+                    local dm = (Vector2.new(v.X, v.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
+                    table.insert(front, { player = pl, m = dm, d = dw })
                 else
-                    table.insert(rest, { player = pl, d = dWorld })
+                    table.insert(rest, { player = pl, d = dw })
                 end
             end
         end
@@ -165,24 +169,35 @@ local function rayTowards(origin, target, ignore)
     return hit, u, mag
 end
 
-local lastGroundY = {} 
+local function rememberGroundedTorso(targetChar, sameGround, groundPos)
+    local hum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+    local torso = targetChar and targetChar:FindFirstChild("UpperTorso")
+    if not hum or not torso then return end
+    local id = targetChar:GetDebugId()
+    if sameGround and groundPos then
+        local p = torso.Position
+        lastGroundedTorso[id] = Vector3.new(p.X, groundPos.Y + groundedTorsoYOffset, p.Z)
+        lastGroundedTime[id]  = os.clock()
+    end
+end
+
 local function groundGhost(targetChar, ignore)
     local a = aimPart(targetChar); if not a then return nil, false end
     local from = a.Position + Vector3.new(0, 2.0, 0)
-
     local hit = rayTo(from, Vector3.new(0, -1, 0), maxGroundSnap, ignore)
     local groundPos = hit and hit.Position or nil
 
     if not groundPos then
         local vel = worldVel(targetChar)
-        local forward = Vector3.new(vel.X, 0, vel.Z).Unit
-        local right = forward.Magnitude > 0 and forward:Cross(Vector3.new(0,1,0)).Unit or Vector3.new(1,0,0)
+        local f = Vector3.new(vel.X, 0, vel.Z)
+        f = (f.Magnitude > 0) and f.Unit or Vector3.new(0,0,1)
+        local r = f:Cross(Vector3.new(0,1,0)).Unit
         local samples = {
             Vector3.new(0,0,0),
-            right * groundProbeRadius,
-            -right * groundProbeRadius,
-            forward * groundProbeRadius,
-            -forward * groundProbeRadius,
+            r * groundProbeRadius,
+            -r * groundProbeRadius,
+            f * groundProbeRadius,
+            -f * groundProbeRadius,
         }
         for _,off in ipairs(samples) do
             local h2 = rayTo(from + off, Vector3.new(0,-1,0), maxGroundSnap, ignore)
@@ -199,7 +214,6 @@ local function groundGhost(targetChar, ignore)
         end
         lastGroundY[id] = groundPos.Y
     end
-
     return groundPos, same
 end
 
@@ -214,44 +228,44 @@ local function timeTo(dist)
     return dist / s
 end
 
+local function hasNormalJumpPower(hum)
+    local jp = hum and hum.JumpPower or 50
+    return jp >= 40 and jp <= 75
+end
+
 local function verticalOffset(targetChar, t, focusPart, sameGround, groundPos)
-    local h = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
-    if not h or not focusPart then return 0 end
+    local hum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+    if not hum or not focusPart then return 0 end
 
     local vy = worldVel(targetChar).Y
+    local extraVy = 0
     local hrp = targetChar:FindFirstChild("HumanoidRootPart")
-    local bodyVy = 0
     if hrp then
         for _,o in ipairs(hrp:GetChildren()) do
-            if o:IsA("BodyVelocity") then bodyVy += o.Velocity.Y end
+            if o:IsA("BodyVelocity") then extraVy += o.Velocity.Y end
         end
     end
 
-    local jp = h.JumpPower or 50
-    local ws = h.WalkSpeed or 16
-    local jpIsNormal = (jp >= 40 and jp <= 75) 
+    local normalJP = hasNormalJumpPower(hum)
+    local state = hum:GetState()
+    local id = targetChar:GetDebugId()
+    local now = os.clock()
+    local recentlyGrounded = lastGroundedTime[id] and (now - lastGroundedTime[id] <= groundedMemorySec)
 
-    if sameGround and jpIsNormal then
+    if normalJP and (state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall) and recentlyGrounded and (not sameGround) then
         return clamp(vy * t * 0.12, -3, 3)
     end
 
-    local blended = vy + bodyVy * 0.35
+    local blended = vy + extraVy * 0.35
     local y = blended * t * 0.38 - 0.5 * Workspace.Gravity * (t*t) * 0.35
+    if normalJP then y = clamp(y, -28, 36) else y = clamp(y, -22, 28) end
 
-    if jpIsNormal then
-        y = clamp(y, -28, 36)
-    else
-
-        y = clamp(y, -22, 28)
-    end
-
-    local st = h:GetState()
-    if st == Enum.HumanoidStateType.Freefall then
+    if state == Enum.HumanoidStateType.Freefall then
         y = y - 0.08 * Workspace.Gravity * (t*t)
-    elseif st == Enum.HumanoidStateType.Jumping and jpIsNormal then
+    elseif state == Enum.HumanoidStateType.Jumping and normalJP then
         y = y * 0.75
     end
-    if ws < 8 then y = y * 0.7 end
+    if (hum.WalkSpeed or 16) < 8 then y = y * 0.7 end
 
     return y
 end
@@ -260,10 +274,25 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
     local p = focusPart or aimPart(targetChar)
     if not p then return nil end
 
-    local basePos = p.Position
-    if groundPos then
+    local hum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+    local id = targetChar:GetDebugId()
+    local basePos
 
-        basePos = Vector3.new(basePos.X, groundPos.Y + (p.Name == "Head" and 1.5 or 1.0), basePos.Z)
+    local now = os.clock()
+    local useTorsoStick = false
+    if hum and hasNormalJumpPower(hum) and lastGroundedTorso[id] and lastGroundedTime[id] and (now - lastGroundedTime[id] <= groundedMemorySec) then
+        local state = hum:GetState()
+        if (state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall) and (not sameGround) then
+            basePos = lastGroundedTorso[id]
+            useTorsoStick = true
+        end
+    end
+
+    if not basePos then
+        basePos = p.Position
+        if groundPos then
+            basePos = Vector3.new(basePos.X, groundPos.Y + (p.Name == "Head" and 1.5 or 1.0), basePos.Z)
+        end
     end
 
     local dist = (basePos - origin).Magnitude
@@ -278,7 +307,13 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
     local leadScale = distScale * speedScale
 
     local leadVec = horiz * t * leadAmount * leadScale
-    local y = verticalOffset(targetChar, t, p, sameGround, groundPos)
+    local y = 0
+    if not useTorsoStick then
+        y = verticalOffset(targetChar, t, p, sameGround, groundPos)
+    else
+
+        y = clamp(worldVel(targetChar).Y * t * 0.12, -3, 3)
+    end
 
     local pred = basePos + leadVec + Vector3.new(0, y, 0)
     return finite3(pred) and pred or basePos
@@ -306,7 +341,7 @@ local function advancedPath(origin, targetChar, ignoreList, sameGround, groundPo
             local v = worldVel(targetChar)
             local right,_ = axes(u)
             local lateral = (v:Dot(right) >= 0) and right or -right
-            for _,off in ipairs({2.5,5.0,7.5}) do
+            for _,off in ipairs({2.5, 5.0, 7.5}) do
                 local side = hit.Position + lateral * off
                 local slide = side + (headPred - hit.Position) * 0.8
                 local h2 = select(1, rayTowards(origin, slide, ignoreList))
@@ -328,7 +363,7 @@ local function advancedPath(origin, targetChar, ignoreList, sameGround, groundPo
             local v = worldVel(targetChar)
             local right,_ = axes(u)
             local lateral = (v:Dot(right) >= 0) and right or -right
-            for _,off in ipairs({3.0,6.0}) do
+            for _,off in ipairs({3.0, 6.0}) do
                 local side = hit.Position + lateral * off
                 local slide = side + (bodyPred - hit.Position) * 0.6
                 local h2 = select(1, rayTowards(origin, slide, ignoreList))
@@ -346,18 +381,15 @@ local function clampToFloor(aim, targetAnchor, ignore)
     local dir = (aim - targetAnchor.Position)
     local u,mag = unit(dir)
     if mag < 1 then return aim end
-    local has, floorY = false, nil
-    do
-        local ahead = targetAnchor.Position + u * 11
-        local p = RaycastParams.new()
-        p.FilterType = Enum.RaycastFilterType.Exclude
-        p.FilterDescendantsInstances = ignore
-        local hit = Workspace:Raycast(ahead + Vector3.new(0,3,0), Vector3.new(0,-50,0), p)
-        has = hit ~= nil
-        floorY = hit and hit.Position or nil
+    local ahead = targetAnchor.Position + u * 11
+    local p = RaycastParams.new()
+    p.FilterType = Enum.RaycastFilterType.Exclude
+    p.FilterDescendantsInstances = ignore
+    local hit = Workspace:Raycast(ahead + Vector3.new(0,3,0), Vector3.new(0,-50,0), p)
+    if hit then return aim end
+    if hit and hit.Position then
+        return Vector3.new(aim.X, hit.Position.Y + 0.75, aim.Z)
     end
-    if has then return aim end
-    if floorY then return Vector3.new(aim.X, floorY.Y + 0.75, aim.Z) end
     return aim
 end
 
@@ -388,12 +420,11 @@ local function step()
     findKnife()
     if not myKnife or not knifeRemote then return end
     if not myChar or not myRoot or not myHum or myHum.Health <= 0 then return end
-
     if not throwIsAllowedNow() then return end
 
-    local tgtPlr = chooseTarget()
-    if not tgtPlr then return end
-    local tc = tgtPlr.Character
+    local targetPlr = chooseTarget()
+    if not targetPlr then return end
+    local tc = targetPlr.Character
     local th = tc and tc:FindFirstChildOfClass("Humanoid")
     local tAnchor = tc and aimPart(tc)
     if not th or th.Health <= 0 or not tAnchor then return end
@@ -404,10 +435,10 @@ local function step()
     local ignore = { myChar }
 
     local groundPos, sameGround = groundGhost(tc, ignore)
+    rememberGroundedTorso(tc, sameGround, groundPos)
 
     local aimPos = advancedPath(origin, tc, ignore, sameGround, groundPos)
     if not aimPos or not finite3(aimPos) then return end
-
     aimPos = clampToFloor(aimPos, tAnchor, ignore)
     if not finite3(aimPos) then return end
 
@@ -417,5 +448,5 @@ end
 if loopConn then loopConn:Disconnect() end
 loopConn = RunService.Heartbeat:Connect(step)
 
-Env.CRIMSON_AUTO_KNIFE.enable = function() Env.CRIMSON_AUTO_KNIFE.enabled = true end
+Env.CRIMSON_AUTO_KNIFE.enable  = function() Env.CRIMSON_AUTO_KNIFE.enabled = true  end
 Env.CRIMSON_AUTO_KNIFE.disable = function() Env.CRIMSON_AUTO_KNIFE.enabled = false end
