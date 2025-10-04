@@ -6,7 +6,7 @@ local Workspace = game:GetService("Workspace")
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
-G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT = G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT or 100.0
+G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT = G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT or 750.0
 
 local function __mm2_pred_from_ping(ms)
     if not ms or ms ~= ms then return 0.14 end
