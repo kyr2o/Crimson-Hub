@@ -1,3 +1,5 @@
+-- Crimson Auto-Shoot: air-aware fall lead + landing-XZ floor sampling + midair clamp (no UI)
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -6,14 +8,15 @@ local Workspace = game:GetService("Workspace")
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or {
     enabled = false,
-    prediction = 0.14,        
-    FALL_LEAD_MULT = 1.0,     
-    MIN_ABOVE_FLOOR = 1.6,    
-    FLOOR_RAY_RANGE = 160,    
-    FLOOR_RAY_RADIUS = 2.5,   
-    MID_AIR_FRACTION = 0.35,  
+    prediction = 0.14,        -- base horizontal lead
+    FALL_LEAD_MULT = 1.0,     -- user knob: scales forward lead while falling (1.0 = default)
+    MIN_ABOVE_FLOOR = 1.6,    -- minimum aim height above detected floor
+    FLOOR_RAY_RANGE = 160,    -- depth of downward rays
+    FLOOR_RAY_RADIUS = 2.5,   -- radius for floor sampling bundle
+    MID_AIR_FRACTION = 0.35,  -- fraction of remaining fall height to keep above floor when clamping
 }
 
+-- Ping -> prediction (tuned table)
 local function __mm2_pred_from_ping(ms)
     if not ms or ms ~= ms then return 0.14 end
     if ms <= 40  then return 0.11 end
@@ -41,10 +44,13 @@ G.CRIMSON_AUTO_SHOOT.calibrate = function()
     G.CRIMSON_AUTO_SHOOT.prediction = pred
     return ms, pred
 end
+G.CalibrateAutoShoot = G.CRIMSON_AUTO_SHOOT.calibrate
+G.CRIMSON_CalibrateShoot = G.CRIMSON_AUTO_SHOOT.calibrate
 
 local LocalPlayer = Players.LocalPlayer
 local shootConnection
 
+-- Ray helpers
 local function raycastDown(origin, dist, ignoreList)
     local p = RaycastParams.new()
     p.FilterType = Enum.RaycastFilterType.Exclude
@@ -52,6 +58,7 @@ local function raycastDown(origin, dist, ignoreList)
     return Workspace:Raycast(origin, Vector3.new(0, -dist, 0), p)
 end
 
+-- 9-ray robust median floor sampler around a target XZ point
 local function sampleFloorMedianXZ(centerXZ, maxDist, radius, ignoreList)
     local cx, cz = centerXZ.X, centerXZ.Z
     local offsets = {
@@ -95,14 +102,16 @@ local function disconnectShoot()
     if shootConnection then shootConnection:Disconnect(); shootConnection=nil end
 end
 
+-- Slightly overestimate latency so ballistic Y isn't under-led
 local function networkTimeBudget()
     local ms = __mm2_ping_ms() or 140
     local oneWay = (ms/1000) * 0.5
     local frameCushion = 1/90
-    local extra = 0.006 
+    local extra = 0.006
     return math.clamp(oneWay + frameCushion + extra, 0.035, 0.40)
 end
 
+-- Air-smart landing prediction: reduced air lead + pre-landing ease-out + landing-XZ floor clamp
 local function predictAimLanding(rootPos, vel, hum, basePred, ignore)
     local gravity = Workspace.Gravity or 196.2
     local state = hum and hum:GetState() or Enum.HumanoidStateType.Running
@@ -112,51 +121,76 @@ local function predictAimLanding(rootPos, vel, hum, basePred, ignore)
 
     local t_net = networkTimeBudget()
 
+    -- Air-aware horizontal component
+    local airHoriz = Vector3.new(vel.X, 0, vel.Z)
+    local airSpeed = airHoriz.Magnitude
+    local airDragScale = 1.0
+    if falling then
+        -- Reduce horizontal influence as |vy| increases (simulates reduced air control)
+        airDragScale = math.clamp(0.9 - (math.abs(vy) * 0.012), 0.35, 0.9)
+        -- Cap air horizontal to avoid giant overlead
+        local maxAir = 28
+        if airSpeed > maxAir then
+            airHoriz = airHoriz.Unit * maxAir
+            airSpeed = maxAir
+        end
+    end
+
+    -- Preliminary lead for probing landing plane
+    local prelimLead = (airHoriz * (basePred * airDragScale))
+    local landingXZ = Vector3.new(rootPos.X + prelimLead.X, rootPos.Y, rootPos.Z + prelimLead.Z)
+
+    -- Robust floor at projected XZ
+    local floorY = sampleFloorMedianXZ(landingXZ, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RANGE, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RADIUS, ignore)
+    local distToFloor = floorY and (rootPos.Y - floorY) or nil
+
+    -- Ease horizontal lead to zero if landing within latency window
+    local ease = 1.0
+    if falling and distToFloor then
+        local a = -0.5*gravity; local b = vy; local c = distToFloor
+        local disc = b*b - 4*a*c
+        if disc and disc >= 0 then
+            local tHit = (-b + math.sqrt(disc)) / (2*a)
+            if tHit and tHit > 0 then
+                if tHit <= t_net then
+                    ease = math.clamp(tHit / t_net, 0.0, 1.0)
+                end
+            end
+        end
+    end
+
+    -- Final forward scale
+    local userMult = math.max(0.2, tonumber(G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT) or 1.0)
     local fScale = 1.0
     if falling then
-
-        local prelimHoriz = vel * (basePred)
-        local landingXZ = Vector3.new(rootPos.X + prelimHoriz.X, rootPos.Y, rootPos.Z + prelimHoriz.Z)
-
-        local floorY = sampleFloorMedianXZ(landingXZ, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RANGE, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RADIUS, ignore)
-        local distToFloor = floorY and (rootPos.Y - floorY) or 8
-        local distScale = math.clamp(distToFloor/8, 0.85, 3.2)
-        local speedScale = math.clamp(math.abs(vy)/30, 0.0, 1.8)
-        local pingBoost = math.clamp(basePred*2.2, 0.10, 0.38)
-        local userMult = math.max(0.2, tonumber(G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT) or 1.0)
-
-        fScale = (1.0 + pingBoost + 0.52*distScale + 0.45*speedScale) * userMult
-        fScale = math.clamp(fScale, 1.2, 4.5)
+        local distScale = distToFloor and math.clamp(distToFloor/8, 0.85, 3.0) or 1.2
+        local speedScale = math.clamp(math.abs(vy)/30, 0.0, 1.6)
+        local pingBoost = math.clamp(basePred*1.8, 0.08, 0.30)
+        fScale = (1.0 + pingBoost + 0.45*distScale + 0.4*speedScale)
+        fScale = fScale * airDragScale * (0.35 + 0.65*ease) * userMult
+        fScale = math.clamp(fScale, 0.9, 3.2)
     end
 
-    local horizLead = vel * (basePred * fScale)
+    local horizLead = (airHoriz * (basePred * fScale))
 
+    -- Vertical ballistic over latency
     local ballY = vy * t_net - 0.5 * gravity * (t_net * t_net)
-    if jumping and ballY < 0 then
-        ballY = ballY * 0.4
-    end
+    if jumping and ballY < 0 then ballY = ballY * 0.4 end
 
+    -- Floor at final landing XZ after eased lead
     local landingXZ2 = Vector3.new(rootPos.X + horizLead.X, rootPos.Y, rootPos.Z + horizLead.Z)
     local floorY2 = sampleFloorMedianXZ(landingXZ2, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RANGE, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RADIUS, ignore)
 
     local predictedY = rootPos.Y + ballY
-
     if floorY2 then
         local minAbove = tonumber(G.CRIMSON_AUTO_SHOOT.MIN_ABOVE_FLOOR) or 1.6
-
         if falling then
-
             local remain = math.max((rootPos.Y - floorY2), 0)
             local frac = math.clamp(tonumber(G.CRIMSON_AUTO_SHOOT.MID_AIR_FRACTION) or 0.35, 0.15, 0.6)
             local midairY = floorY2 + minAbove + remain * frac
-            if predictedY < midairY then
-                predictedY = midairY
-            end
+            if predictedY < midairY then predictedY = midairY end
         else
-
-            if predictedY < (floorY2 + minAbove) then
-                predictedY = floorY2 + minAbove
-            end
+            if predictedY < (floorY2 + minAbove) then predictedY = floorY2 + minAbove end
         end
     end
 
@@ -190,7 +224,6 @@ local function onCharacter(character)
             local vel = root.Velocity
 
             local ignore = {character, LocalPlayer.Character, tChar}
-
             local aimPos = predictAimLanding(root.Position, vel, hum, basePred, ignore)
 
             rf:InvokeServer(1, aimPos, "AH2")
