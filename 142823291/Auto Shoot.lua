@@ -1,41 +1,47 @@
+-- Auto Shoot Script (Logic and Hub Hooks)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Stats = game:GetService("Stats")
-local LocalPlayer = Players.LocalPlayer
 
+-- Register calibrators early and on both globals the hub may check
+local Stats = game:GetService("Stats")
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
-do
-    local function predictionFromPing(ms)
-        if not ms or ms ~= ms then return 0.14 end
-        if ms <= 40  then return 0.06 end
-        if ms <= 60  then return 0.08 end
-        if ms <= 80  then return 0.10 end
-        if ms <= 100 then return 0.12 end
-        if ms <= 120 then return 0.135 end
-        if ms <= 150 then return 0.15 end
-        if ms <= 180 then return 0.17 end
-        if ms <= 220 then return 0.19 end
-        return 0.21
-    end
-
-    local function getPingMs()
-        local net = Stats and Stats.Network
-        local item = net and net.ServerStatsItem and net.ServerStatsItem["Data Ping"]
-        local v = item and item:GetValue()
-        if v and v < 1 then return math.floor(v * 1000 + 0.5) end
-        return math.floor((v or 0) + 0.5)
-    end
-
-    G.CRIMSON_AUTO_SHOOT.calibrate = function()
-        local ms = getPingMs()
-        local pred = predictionFromPing(ms)
-        G.CRIMSON_AUTO_SHOOT.prediction = pred
-        return ms, pred
-    end
+local function __mm2_pred_from_ping(ms)
+    if not ms or ms ~= ms then return 0.14 end
+    if ms <= 40  then return 0.06 end
+    if ms <= 60  then return 0.08 end
+    if ms <= 80  then return 0.10 end
+    if ms <= 100 then return 0.12 end
+    if ms <= 120 then return 0.135 end
+    if ms <= 150 then return 0.15 end
+    if ms <= 180 then return 0.17 end
+    if ms <= 220 then return 0.19 end
+    return 0.21
 end
 
+local function __mm2_ping_ms()
+    local net = Stats and Stats.Network
+    local item = net and net.ServerStatsItem and net.ServerStatsItem["Data Ping"]
+    local v = item and item:GetValue()
+    if v and v < 1 then return math.floor(v*1000 + 0.5) end
+    return math.floor((v or 0) + 0.5)
+end
+
+-- Primary API the hub should call
+G.CRIMSON_AUTO_SHOOT.calibrate = function()
+    local ms = __mm2_ping_ms()
+    local pred = __mm2_pred_from_ping(ms)
+    G.CRIMSON_AUTO_SHOOT.prediction = pred
+    return ms, pred
+end
+
+-- Alias some common names hubs use
+G.CalibrateAutoShoot = G.CRIMSON_AUTO_SHOOT.calibrate
+G.CRIMSON_CalibrateShoot = G.CRIMSON_AUTO_SHOOT.calibrate
+
+-- Auto Shoot Core Logic
+local LocalPlayer = Players.LocalPlayer
 local shootConnection
 
 local function findMurderer()
@@ -75,10 +81,10 @@ local function onCharacter(character)
         shootConnection = RunService.Heartbeat:Connect(function()
             if not G.CRIMSON_AUTO_SHOOT.enabled then return end
             if not character:FindFirstChild("Gun") then return end
-
+            
             local murderer = findMurderer()
             local root = murderer and murderer.Character and murderer.Character:FindFirstChild("UpperTorso")
-
+            
             if root then
                 local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0
                 local aimPos = root.Position + (root.Velocity * pred)
