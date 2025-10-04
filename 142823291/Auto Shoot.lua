@@ -9,7 +9,9 @@ G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or {
     prediction = 0.14,        
     FALL_LEAD_MULT = 1.0,     
     MIN_ABOVE_FLOOR = 1.6,    
-    FLOOR_RAY_RANGE = 140,    
+    FLOOR_RAY_RANGE = 160,    
+    FLOOR_RAY_RADIUS = 2.5,   
+    MID_AIR_FRACTION = 0.35,  
 }
 
 local function __mm2_pred_from_ping(ms)
@@ -50,18 +52,19 @@ local function raycastDown(origin, dist, ignoreList)
     return Workspace:Raycast(origin, Vector3.new(0, -dist, 0), p)
 end
 
-local function sampleFloorPlane(centerPos, radius, maxDist, ignoreList)
-
+local function sampleFloorMedianXZ(centerXZ, maxDist, radius, ignoreList)
+    local cx, cz = centerXZ.X, centerXZ.Z
     local offsets = {
         Vector3.new(0,0,0),
-        Vector3.new(radius,0,0),
-        Vector3.new(-radius,0,0),
-        Vector3.new(0,0,radius),
-        Vector3.new(0,0,-radius),
+        Vector3.new(radius,0,0), Vector3.new(-radius,0,0),
+        Vector3.new(0,0,radius), Vector3.new(0,0,-radius),
+        Vector3.new(radius,0,radius), Vector3.new(-radius,0,radius),
+        Vector3.new(radius,0,-radius), Vector3.new(-radius,0,-radius),
     }
     local ys = {}
     for _, off in ipairs(offsets) do
-        local hit = raycastDown(centerPos + off + Vector3.new(0, 1.5, 0), maxDist, ignoreList)
+        local start = Vector3.new(cx + off.X, centerXZ.Y + 2.0, cz + off.Z)
+        local hit = raycastDown(start, maxDist, ignoreList)
         if hit then table.insert(ys, hit.Position.Y) end
     end
     if #ys == 0 then return nil end
@@ -93,14 +96,14 @@ local function disconnectShoot()
 end
 
 local function networkTimeBudget()
-    local ms = __mm2_ping_ms()
-
-    local t = (ms and ms/1000 or 0.14) * 0.5 + (1/120)
-
-    return math.clamp(t, 0.03, 0.35)
+    local ms = __mm2_ping_ms() or 140
+    local oneWay = (ms/1000) * 0.5
+    local frameCushion = 1/90
+    local extra = 0.006 
+    return math.clamp(oneWay + frameCushion + extra, 0.035, 0.40)
 end
 
-local function predictAim(rootPos, vel, hum, basePred, ignore)
+local function predictAimLanding(rootPos, vel, hum, basePred, ignore)
     local gravity = Workspace.Gravity or 196.2
     local state = hum and hum:GetState() or Enum.HumanoidStateType.Running
     local vy = vel.Y
@@ -112,12 +115,16 @@ local function predictAim(rootPos, vel, hum, basePred, ignore)
     local fScale = 1.0
     if falling then
 
-        local floorY = sampleFloorPlane(rootPos, 1.75, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RANGE, ignore)
+        local prelimHoriz = vel * (basePred)
+        local landingXZ = Vector3.new(rootPos.X + prelimHoriz.X, rootPos.Y, rootPos.Z + prelimHoriz.Z)
+
+        local floorY = sampleFloorMedianXZ(landingXZ, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RANGE, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RADIUS, ignore)
         local distToFloor = floorY and (rootPos.Y - floorY) or 8
-        local distScale = math.clamp(distToFloor/8, 0.8, 3.2)
-        local speedScale = math.clamp(math.abs(vy)/35, 0.0, 1.8)
+        local distScale = math.clamp(distToFloor/8, 0.85, 3.2)
+        local speedScale = math.clamp(math.abs(vy)/30, 0.0, 1.8)
         local pingBoost = math.clamp(basePred*2.2, 0.10, 0.38)
         local userMult = math.max(0.2, tonumber(G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT) or 1.0)
+
         fScale = (1.0 + pingBoost + 0.52*distScale + 0.45*speedScale) * userMult
         fScale = math.clamp(fScale, 1.2, 4.5)
     end
@@ -125,24 +132,35 @@ local function predictAim(rootPos, vel, hum, basePred, ignore)
     local horizLead = vel * (basePred * fScale)
 
     local ballY = vy * t_net - 0.5 * gravity * (t_net * t_net)
-
     if jumping and ballY < 0 then
-
         ballY = ballY * 0.4
     end
 
-    local floorY = sampleFloorPlane(rootPos + Vector3.new(horizLead.X, 0, horizLead.Z), 2.25, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RANGE, ignore)
-    local minAbove = tonumber(G.CRIMSON_AUTO_SHOOT.MIN_ABOVE_FLOOR) or 1.6
+    local landingXZ2 = Vector3.new(rootPos.X + horizLead.X, rootPos.Y, rootPos.Z + horizLead.Z)
+    local floorY2 = sampleFloorMedianXZ(landingXZ2, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RANGE, G.CRIMSON_AUTO_SHOOT.FLOOR_RAY_RADIUS, ignore)
+
     local predictedY = rootPos.Y + ballY
 
-    if floorY then
+    if floorY2 then
+        local minAbove = tonumber(G.CRIMSON_AUTO_SHOOT.MIN_ABOVE_FLOOR) or 1.6
 
-        if predictedY < (floorY + minAbove) then
-            predictedY = floorY + minAbove
+        if falling then
+
+            local remain = math.max((rootPos.Y - floorY2), 0)
+            local frac = math.clamp(tonumber(G.CRIMSON_AUTO_SHOOT.MID_AIR_FRACTION) or 0.35, 0.15, 0.6)
+            local midairY = floorY2 + minAbove + remain * frac
+            if predictedY < midairY then
+                predictedY = midairY
+            end
+        else
+
+            if predictedY < (floorY2 + minAbove) then
+                predictedY = floorY2 + minAbove
+            end
         end
     end
 
-    return rootPos + horizLead + Vector3.new(0, predictedY - rootPos.Y, 0)
+    return Vector3.new(rootPos.X + horizLead.X, predictedY, rootPos.Z + horizLead.Z)
 end
 
 local function onCharacter(character)
@@ -164,19 +182,16 @@ local function onCharacter(character)
             if not G.CRIMSON_AUTO_SHOOT.enabled then return end
             if not character:FindFirstChild("Gun") then return end
 
-            local murderer = findMurderer()
-            local tChar = murderer and murderer.Character
-            if not tChar then return end
+            local murderer = findMurderer(); if not murderer then return end
+            local tChar = murderer.Character; if not tChar then return end
 
-            local hum = tChar:FindFirstChildOfClass("Humanoid")
-            local root = tChar:FindFirstChild("HumanoidRootPart") or tChar:FindFirstChild("UpperTorso")
-            if not hum or not root then return end
-
+            local hum, root = humanoidAndRoot(tChar); if not hum or not root then return end
             local basePred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
             local vel = root.Velocity
+
             local ignore = {character, LocalPlayer.Character, tChar}
 
-            local aimPos = predictAim(root.Position, vel, hum, basePred, ignore)
+            local aimPos = predictAimLanding(root.Position, vel, hum, basePred, ignore)
 
             rf:InvokeServer(1, aimPos, "AH2")
         end)
