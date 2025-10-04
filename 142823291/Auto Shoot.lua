@@ -1,47 +1,46 @@
-local players = game:GetService("Players")
-local runService = game:GetService("RunService")
-local stats = game:GetService("Stats")
-local localPlayer = players.LocalPlayer
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+local LocalPlayer = Players.LocalPlayer
 
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
+do
+    local function predictionFromPing(ms)
+        if not ms or ms ~= ms then return 0.14 end
+        if ms <= 40  then return 0.06 end
+        if ms <= 60  then return 0.08 end
+        if ms <= 80  then return 0.10 end
+        if ms <= 100 then return 0.12 end
+        if ms <= 120 then return 0.135 end
+        if ms <= 150 then return 0.15 end
+        if ms <= 180 then return 0.17 end
+        if ms <= 220 then return 0.19 end
+        return 0.21
+    end
+
+    local function getPingMs()
+        local net = Stats and Stats.Network
+        local item = net and net.ServerStatsItem and net.ServerStatsItem["Data Ping"]
+        local v = item and item:GetValue()
+        if v and v < 1 then return math.floor(v*1000 + 0.5) end
+        return math.floor((v or 0) + 0.5)
+    end
+
+    G.CRIMSON_AUTO_SHOOT.calibrate = function()
+        local ms = getPingMs()
+        local pred = predictionFromPing(ms)
+        G.CRIMSON_AUTO_SHOOT.prediction = pred
+        return ms, pred
+    end
+end
+
 local shootConnection
 
-local function predictionFromPing(ms)
-    if not ms or ms ~= ms then return 0.14 end
-    if ms <= 40  then return 0.06 end
-    if ms <= 60  then return 0.08 end
-    if ms <= 80  then return 0.10 end
-    if ms <= 100 then return 0.12 end
-    if ms <= 120 then return 0.135 end
-    if ms <= 150 then return 0.15 end     
-    if ms <= 180 then return 0.17 end
-    if ms <= 220 then return 0.19 end
-    return 0.21
-end
-
-local function getPingMs()
-    local net = stats and stats.Network
-    local incoming = net and net.ServerStatsItem and net.ServerStatsItem["Data Ping"]
-    local avg = incoming and incoming:GetValue()
-
-    if avg and avg < 1 then
-        return math.floor((avg or 0) * 1000 + 0.5)
-    end
-    return math.floor((avg or 0) + 0.5)
-end
-
-G.CRIMSON_AUTO_SHOOT.calibrate = function()
-    local ms = getPingMs()
-    local pred = predictionFromPing(ms)
-    G.CRIMSON_AUTO_SHOOT.prediction = pred
-    return ms, pred
-end
-
 local function findMurderer()
-    for _, player in ipairs(players:GetPlayers()) do
-        if player ~= localPlayer and player.Character then
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
             local bp = player:FindFirstChild("Backpack")
             if bp and bp:FindFirstChild("Knife") then
                 return player
@@ -64,18 +63,20 @@ end
 local function onCharacter(character)
     disconnectShoot()
 
-    local backpack = localPlayer:WaitForChild("Backpack", 5)
+    local backpack = LocalPlayer:WaitForChild("Backpack", 5)
     if not backpack then return end
 
     local function tryBindGun()
         local gun = character:FindFirstChild("Gun") or backpack:FindFirstChild("Gun")
         if not gun then return end
 
-        local rf = gun:FindFirstChild("KnifeLocal") and gun.KnifeLocal:FindFirstChild("CreateBeam") and gun.KnifeLocal.CreateBeam:FindFirstChild("RemoteFunction")
+        local rf = gun:FindFirstChild("KnifeLocal")
+            and gun.KnifeLocal:FindFirstChild("CreateBeam")
+            and gun.KnifeLocal.CreateBeam:FindFirstChild("RemoteFunction")
         if not rf then return end
 
         if shootConnection then shootConnection:Disconnect() end
-        shootConnection = runService.Heartbeat:Connect(function()
+        shootConnection = RunService.Heartbeat:Connect(function()
             if not G.CRIMSON_AUTO_SHOOT.enabled then return end
             if not character:FindFirstChild("Gun") then return end
             local murderer = findMurderer()
@@ -102,10 +103,8 @@ local function onCharacter(character)
     tryBindGun()
 end
 
-if localPlayer.Character then
-    onCharacter(localPlayer.Character)
-end
-localPlayer.CharacterAdded:Connect(onCharacter)
+if LocalPlayer.Character then onCharacter(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(onCharacter)
 
 G.CRIMSON_AUTO_SHOOT.enable = function()
     G.CRIMSON_AUTO_SHOOT.enabled = true
@@ -113,4 +112,28 @@ end
 G.CRIMSON_AUTO_SHOOT.disable = function()
     G.CRIMSON_AUTO_SHOOT.enabled = false
     disconnectShoot()
+end
+
+G.CRIMSON_HUB = G.CRIMSON_HUB or {}
+G.CRIMSON_HUB.AddAutoCalibrateButton = function(parent, createButton)
+
+    if typeof(createButton) ~= "function" then return end
+    local btn = createButton(parent, "Auto-Calibrate")
+    local function onClick()
+        if G and G.CRIMSON_AUTO_SHOOT and G.CRIMSON_AUTO_SHOOT.calibrate then
+            local ms, pred = G.CRIMSON_AUTO_SHOOT.calibrate()
+
+            if btn and btn.SetText then
+                btn:SetText(string.format("Ping %dms → %.3f", ms or 0, pred or 0))
+                task.delay(1.25, function() pcall(function() btn:SetText("Auto-Calibrate") end) end)
+            end
+        end
+    end
+
+    if btn and btn.MouseButton1Click then
+        btn.MouseButton1Click:Connect(onClick)
+    elseif btn and btn.Activated then
+        btn.Activated:Connect(onClick)
+    end
+    return btn, onClick
 end
