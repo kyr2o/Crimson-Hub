@@ -1,7 +1,8 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-
 local Stats = game:GetService("Stats")
+local Workspace = game:GetService("Workspace")
+
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
@@ -32,19 +33,35 @@ G.CRIMSON_AUTO_SHOOT.calibrate = function()
     G.CRIMSON_AUTO_SHOOT.prediction = pred
     return ms, pred
 end
-
 G.CalibrateAutoShoot = G.CRIMSON_AUTO_SHOOT.calibrate
 G.CRIMSON_CalibrateShoot = G.CRIMSON_AUTO_SHOOT.calibrate
 
 local LocalPlayer = Players.LocalPlayer
 local shootConnection
 
+local function raycastDown(fromPos, maxDist, ignoreList)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = ignoreList
+    return Workspace:Raycast(fromPos, Vector3.new(0, -maxDist, 0), params)
+end
+
+local function humanoidAndRoot(char)
+    if not char then return nil,nil end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso")
+    return hum, root
+end
+
 local function findMurderer()
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local bp = player:FindFirstChild("Backpack")
-            if (bp and bp:FindFirstChild("Knife")) or player.Character:FindFirstChild("Knife") then
-                return player
+        if player ~= LocalPlayer then
+            local c = player.Character
+            if c then
+                local bp = player:FindFirstChild("Backpack")
+                if (bp and bp:FindFirstChild("Knife")) or c:FindFirstChild("Knife") then
+                    return player
+                end
             end
         end
     end
@@ -56,6 +73,74 @@ local function disconnectShoot()
         shootConnection:Disconnect()
         shootConnection = nil
     end
+end
+
+local function verticalNudgeForFall(originPos, rootPos, vel, hum, ignore)
+    if not hum then return Vector3.new() end
+
+    local gravity = Workspace.Gravity or 196.2
+    local jp = hum.JumpPower or 50
+    local state = hum:GetState()
+    local vy = vel.Y
+
+    local falling = (state == Enum.HumanoidStateType.Freefall) or (vy < -1.0)
+    local jumping = (state == Enum.HumanoidStateType.Jumping)
+    if not (falling or jumping) then
+        return Vector3.new() 
+    end
+
+    local downHit = raycastDown(rootPos + Vector3.new(0, 1.5, 0), 64, ignore)
+    if not downHit then
+
+        local airTilt = math.clamp(-vy * 0.02, -3, 3)
+        return Vector3.new(0, airTilt, 0)
+    end
+
+    local floorY = downHit.Position.Y
+    local distToFloor = rootPos.Y - floorY 
+
+    local tToFloor
+    do
+        local a = 0.5*gravity
+        local b = -vy
+        local c = -distToFloor
+        local disc = b*b - 4*a*c
+        if disc >= 0 then
+            local sqrtD = math.sqrt(disc)
+            local t1 = (b + sqrtD)/(2*a)
+            local t2 = (b - sqrtD)/(2*a)
+            local t = math.max(t1, t2)
+            if t and t==t and t>0 and t<2.0 then
+                tToFloor = t
+            end
+        end
+    end
+
+    local nudgeY = 0
+
+    if falling and tToFloor then
+
+        local closeFactor = math.clamp(1.0 / math.max(distToFloor, 0.5), 0.05, 2.0)
+        nudgeY = math.clamp(6.0 * closeFactor, 0.5, 5.0)
+
+        if vy < -20 then
+            nudgeY = nudgeY * 0.7
+        end
+    elseif jumping then
+
+        local jpScale = math.clamp(jp/50, 0.6, 1.4)
+        nudgeY = math.clamp(vy * 0.05 * jpScale, 0, 3.0)
+    else
+
+        nudgeY = math.clamp(vy * 0.03, -2, 2)
+    end
+
+    local minAboveFloor = 1.2
+    if (rootPos.Y + nudgeY) < (floorY + minAboveFloor) then
+        nudgeY = (floorY + minAboveFloor) - rootPos.Y
+    end
+
+    return Vector3.new(0, nudgeY, 0)
 end
 
 local function onCharacter(character)
@@ -78,13 +163,20 @@ local function onCharacter(character)
             if not character:FindFirstChild("Gun") then return end
 
             local murderer = findMurderer()
-            local root = murderer and murderer.Character and murderer.Character:FindFirstChild("UpperTorso")
+            local rootPlayer = murderer and murderer.Character
+            if not rootPlayer then return end
 
-            if root then
-                local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0
-                local aimPos = root.Position + (root.Velocity * pred)
-                rf:InvokeServer(1, aimPos, "AH2")
-            end
+            local hum, root = humanoidAndRoot(rootPlayer)
+            if not hum or not root then return end
+
+            local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0
+            local baseAim = root.Position + (root.Velocity * pred)
+
+            local ignore = {character, LocalPlayer.Character}
+            local nudge = verticalNudgeForFall(myRootPos or baseAim, root.Position, root.Velocity, hum, ignore)
+            local aimPos = baseAim + nudge
+
+            rf:InvokeServer(1, aimPos, "AH2")
         end)
     end
 
@@ -104,7 +196,6 @@ LocalPlayer.CharacterAdded:Connect(onCharacter)
 G.CRIMSON_AUTO_SHOOT.enable = function()
     G.CRIMSON_AUTO_SHOOT.enabled = true
 end
-
 G.CRIMSON_AUTO_SHOOT.disable = function()
     G.CRIMSON_AUTO_SHOOT.enabled = false
     disconnectShoot()
