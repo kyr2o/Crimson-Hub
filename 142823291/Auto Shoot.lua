@@ -47,7 +47,7 @@ local function onCharacter(character)
             if not G.CRIMSON_AUTO_SHOOT.enabled then return end
             if not character:FindFirstChild("Gun") then return end
             local murderer = findMurderer()
-            local root = murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart")
+            local root = murderer and murderer.Character and murderer.Character:FindFirstChild("UpperTorso")
             if root then
                 local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0
                 local aimPos = root.Position + (root.Velocity * pred)
