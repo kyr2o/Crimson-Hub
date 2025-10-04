@@ -18,7 +18,7 @@ local AllowedAnimIds = {
 }
 local AnimGateSeconds = 0.25
 
-local leadAmount = 1.50
+local leadAmount = 1.64
 local rangeGainPerStud = 0.0025
 local maxWallSteps = 4
 local sideProbe = {3.0, 6.0, 9.0}
