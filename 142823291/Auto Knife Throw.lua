@@ -14,18 +14,20 @@ Env.CRIMSON_AUTO_KNIFE = Env.CRIMSON_AUTO_KNIFE or { enabled = true }
 
 local AllowedAnimIds = {
     "rbxassetid://1957618848", 
-
 }
 local AnimGateSeconds = 0.25
 
-local leadAmount = 1.50
-local rangeGainPerStud = 0.0025
-local maxWallSteps = 4
-local sideProbe = {3.0, 6.0, 9.0}
-local heightProbe = {2.0, -2.0}
-local peekForward = 6.0
+local leadAmount = 1.50                  
+local rangeGainPerStud = 0.0025          
+local maxWallSteps = 4                   
+local sideProbe = {3.0, 6.0, 9.0}        
+local heightProbe = {2.0, -2.0}          
+local peekForward = 6.0                  
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
+local groundProbeRadius = 2.5            
+local maxGroundSnap = 24                 
+local sameGroundTolerance = 1.75         
 
 local myChar = me.Character or me.CharacterAdded:Wait()
 local myHum = myChar:WaitForChild("Humanoid")
@@ -88,7 +90,6 @@ local function throwIsAllowedNow()
             end
         end
     end
-
     for tr in pairs(trackStart) do
         if typeof(tr) ~= "Instance" or not tr.IsPlaying then
             trackStart[tr] = nil
@@ -119,112 +120,26 @@ local function chooseTarget()
                 local dWorld = (a.Position - myRoot.Position).Magnitude
                 if on then
                     local dMouse = (Vector2.new(v.X, v.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                    table.insert(front, { player = pl, mouseDist = dMouse, worldDist = dWorld })
+                    table.insert(front, { player = pl, m = dMouse, d = dWorld })
                 else
-                    table.insert(rest, { player = pl, worldDist = dWorld })
+                    table.insert(rest, { player = pl, d = dWorld })
                 end
             end
         end
     end
 
     table.sort(front, function(a,b)
-        if math.abs(a.mouseDist - b.mouseDist) < 12 then
-            return a.worldDist < b.worldDist
+        if math.abs(a.m - b.m) < 12 then
+            return a.d < b.d
         end
-        return a.mouseDist < b.mouseDist
+        return a.m < b.m
     end)
     if #front > 0 then return front[1].player end
 
-    table.sort(rest, function(a,b) return a.worldDist < b.worldDist end)
+    table.sort(rest, function(a,b) return a.d < b.d end)
     if #rest > 0 then return rest[1].player end
 
     return nil
-end
-
-local function groundAhead(pos, dirUnit, len, ignore)
-    local ahead = pos + dirUnit * len
-    local p = RaycastParams.new()
-    p.FilterType = Enum.RaycastFilterType.Exclude
-    p.FilterDescendantsInstances = ignore
-    local hit = Workspace:Raycast(ahead + Vector3.new(0,3,0), Vector3.new(0,-50,0), p)
-    return hit ~= nil, hit and hit.Position or nil
-end
-
-local baseKnifeSpeed = 205
-local function knifeSpeedAt(dist)
-    local gain = 1 + math.clamp(dist * 0.0035, 0, 1.5)
-    return baseKnifeSpeed * gain
-end
-local function timeTo(dist)
-    local s = knifeSpeedAt(dist)
-    if s <= 0 or dist ~= dist then return 0 end
-    return dist / s
-end
-
-local function verticalOffset(targetChar, t, focusPart)
-    local h = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
-    if not h or not focusPart then return 0 end
-
-    local vy = worldVel(targetChar).Y
-    local extraVy = 0
-    local hrp = targetChar:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        for _,o in ipairs(hrp:GetChildren()) do
-            if o:IsA("BodyVelocity") then extraVy += o.Velocity.Y end
-        end
-    end
-
-    if math.abs(vy) < 3 then
-        return clamp(vy * t * 0.2, -5, 5)
-    end
-
-    local jp = h.JumpPower or 50
-    local ws = h.WalkSpeed or 16
-    local blended = vy + extraVy * 0.4
-    local capped = clamp(jp * 0.6, 0, 40)
-    local y = blended * t * 0.4 - 0.5 * Workspace.Gravity * (t*t) * 0.4
-    y = clamp(y, -30, capped)
-
-    local st = h:GetState()
-    if st == Enum.HumanoidStateType.Freefall then
-        y = y - 0.1 * Workspace.Gravity * (t*t)
-    elseif st == Enum.HumanoidStateType.Jumping then
-        y = y * 0.8
-    end
-    if ws < 8 then y = y * 0.7 end
-    return y
-end
-
-local function predictPoint(origin, targetChar, focusPart)
-    local p = focusPart or aimPart(targetChar)
-    if not p then return nil end
-    local to = p.Position
-    local dist = (to - origin).Magnitude
-    local t = timeTo(dist); if t == 0 then return to end
-
-    local vel = worldVel(targetChar)
-    local horiz = Vector3.new(vel.X, 0, vel.Z)
-    local speed = horiz.Magnitude
-
-    local distScale = 1 + math.clamp(dist * rangeGainPerStud, 0, 2.0)
-    local speedScale = 1 + math.clamp(speed * 0.05, 0, 0.5)
-    local leadScale = distScale * speedScale
-
-    local leadVec = horiz * t * leadAmount * leadScale
-    local y = verticalOffset(targetChar, t, p)
-
-    local pred = to + leadVec + Vector3.new(0, y, 0)
-    return finite3(pred) and pred or to
-end
-
-local function axes(v)
-    local u,_ = unit(v)
-    if u.Magnitude == 0 then return Vector3.new(1,0,0), Vector3.new(0,1,0) end
-    local up = Vector3.new(0,1,0)
-    if math.abs(u:Dot(up)) > 0.95 then up = Vector3.new(1,0,0) end
-    local right = (u:Cross(up)).Unit
-    local newUp = (right:Cross(u)).Unit
-    return right, newUp
 end
 
 local function ignoreHit(hit)
@@ -238,56 +153,163 @@ local function ignoreHit(hit)
     end
     return false
 end
-
-local function raycastTo(origin, target, ignore)
+local function rayTo(origin, dir, length, ignore)
     local p = RaycastParams.new()
     p.FilterType = Enum.RaycastFilterType.Exclude
     p.FilterDescendantsInstances = ignore
+    return Workspace:Raycast(origin, dir * length, p)
+end
+local function rayTowards(origin, target, ignore)
     local u, mag = unit(target - origin)
-    local hit = Workspace:Raycast(origin, u * clamp(mag, 0, 12288), p)
+    local hit = rayTo(origin, u, clamp(mag, 0, 12288), ignore)
     return hit, u, mag
 end
 
-local function exposedPartsFromCamera(char, ignore)
-    local list = {}
-    local eye = camera.CFrame.Position
-    local parts = {"Head","UpperTorso","LowerTorso","HumanoidRootPart","Left Arm","Right Arm","Left Leg","Right Leg"}
-    for _,name in ipairs(parts) do
-        local part = char:FindFirstChild(name)
-        if part and part:IsA("BasePart") then
-            local p = RaycastParams.new()
-            p.FilterType = Enum.RaycastFilterType.Exclude
-            p.FilterDescendantsInstances = ignore
-            local u,mag = unit(part.Position - eye)
-            local hit = Workspace:Raycast(eye, u * clamp(mag,0,12288), p)
-            if not hit or hit.Instance:IsDescendantOf(char) then
-                table.insert(list, part)
-            end
+local lastGroundY = {} 
+local function groundGhost(targetChar, ignore)
+    local a = aimPart(targetChar); if not a then return nil, false end
+    local from = a.Position + Vector3.new(0, 2.0, 0)
+
+    local hit = rayTo(from, Vector3.new(0, -1, 0), maxGroundSnap, ignore)
+    local groundPos = hit and hit.Position or nil
+
+    if not groundPos then
+        local vel = worldVel(targetChar)
+        local forward = Vector3.new(vel.X, 0, vel.Z).Unit
+        local right = forward.Magnitude > 0 and forward:Cross(Vector3.new(0,1,0)).Unit or Vector3.new(1,0,0)
+        local samples = {
+            Vector3.new(0,0,0),
+            right * groundProbeRadius,
+            -right * groundProbeRadius,
+            forward * groundProbeRadius,
+            -forward * groundProbeRadius,
+        }
+        for _,off in ipairs(samples) do
+            local h2 = rayTo(from + off, Vector3.new(0,-1,0), maxGroundSnap, ignore)
+            if h2 then groundPos = h2.Position break end
         end
     end
-    return list
+
+    local id = targetChar:GetDebugId()
+    local same = false
+    if groundPos then
+        local lastY = lastGroundY[id]
+        if lastY then
+            same = math.abs(groundPos.Y - lastY) <= sameGroundTolerance
+        end
+        lastGroundY[id] = groundPos.Y
+    end
+
+    return groundPos, same
 end
 
-local function solvePath(origin, targetChar, ignoreList)
-    local visible = exposedPartsFromCamera(targetChar, ignoreList)
+local baseKnifeSpeed = 205
+local function knifeSpeedAt(dist)
+    local gain = 1 + math.clamp(dist * 0.0035, 0, 1.5)
+    return baseKnifeSpeed * gain
+end
+local function timeTo(dist)
+    local s = knifeSpeedAt(dist)
+    if s <= 0 or dist ~= dist then return 0 end
+    return dist / s
+end
 
+local function verticalOffset(targetChar, t, focusPart, sameGround, groundPos)
+    local h = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+    if not h or not focusPart then return 0 end
+
+    local vy = worldVel(targetChar).Y
+    local hrp = targetChar:FindFirstChild("HumanoidRootPart")
+    local bodyVy = 0
+    if hrp then
+        for _,o in ipairs(hrp:GetChildren()) do
+            if o:IsA("BodyVelocity") then bodyVy += o.Velocity.Y end
+        end
+    end
+
+    local jp = h.JumpPower or 50
+    local ws = h.WalkSpeed or 16
+    local jpIsNormal = (jp >= 40 and jp <= 75) 
+
+    if sameGround and jpIsNormal then
+        return clamp(vy * t * 0.12, -3, 3)
+    end
+
+    local blended = vy + bodyVy * 0.35
+    local y = blended * t * 0.38 - 0.5 * Workspace.Gravity * (t*t) * 0.35
+
+    if jpIsNormal then
+        y = clamp(y, -28, 36)
+    else
+
+        y = clamp(y, -22, 28)
+    end
+
+    local st = h:GetState()
+    if st == Enum.HumanoidStateType.Freefall then
+        y = y - 0.08 * Workspace.Gravity * (t*t)
+    elseif st == Enum.HumanoidStateType.Jumping and jpIsNormal then
+        y = y * 0.75
+    end
+    if ws < 8 then y = y * 0.7 end
+
+    return y
+end
+
+local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos)
+    local p = focusPart or aimPart(targetChar)
+    if not p then return nil end
+
+    local basePos = p.Position
+    if groundPos then
+
+        basePos = Vector3.new(basePos.X, groundPos.Y + (p.Name == "Head" and 1.5 or 1.0), basePos.Z)
+    end
+
+    local dist = (basePos - origin).Magnitude
+    local t = timeTo(dist); if t == 0 then return basePos end
+
+    local vel = worldVel(targetChar)
+    local horiz = Vector3.new(vel.X, 0, vel.Z)
+    local speed = horiz.Magnitude
+
+    local distScale = 1 + math.clamp(dist * rangeGainPerStud, 0, 2.0)
+    local speedScale = 1 + math.clamp(speed * 0.05, 0, 0.5)
+    local leadScale = distScale * speedScale
+
+    local leadVec = horiz * t * leadAmount * leadScale
+    local y = verticalOffset(targetChar, t, p, sameGround, groundPos)
+
+    local pred = basePos + leadVec + Vector3.new(0, y, 0)
+    return finite3(pred) and pred or basePos
+end
+
+local function axes(v)
+    local u,_ = unit(v)
+    if u.Magnitude == 0 then return Vector3.new(1,0,0), Vector3.new(0,1,0) end
+    local up = Vector3.new(0,1,0)
+    if math.abs(u:Dot(up)) > 0.95 then up = Vector3.new(1,0,0) end
+    local right = (u:Cross(up)).Unit
+    local newUp = (right:Cross(u)).Unit
+    return right, newUp
+end
+
+local function advancedPath(origin, targetChar, ignoreList, sameGround, groundPos)
     local head = targetChar:FindFirstChild("Head")
-
     if head then
-        local headPred = predictPoint(origin, targetChar, head)
+        local headPred = predictPoint(origin, targetChar, head, sameGround, groundPos)
         if headPred then
-            local hit, u = raycastTo(origin, headPred, ignoreList)
+            local hit, u = rayTowards(origin, headPred, ignoreList)
             if not hit or hit.Instance:IsDescendantOf(targetChar) or ignoreHit(hit) then
                 return headPred
             end
-
             local v = worldVel(targetChar)
             local right,_ = axes(u)
             local lateral = (v:Dot(right) >= 0) and right or -right
-            for _,off in ipairs({2.5, 5.0, 7.5}) do
+            for _,off in ipairs({2.5,5.0,7.5}) do
                 local side = hit.Position + lateral * off
                 local slide = side + (headPred - hit.Position) * 0.8
-                local h2 = select(1, raycastTo(origin, slide, ignoreList))
+                local h2 = select(1, rayTowards(origin, slide, ignoreList))
                 if not h2 or h2.Instance:IsDescendantOf(targetChar) or ignoreHit(h2) then
                     return slide
                 end
@@ -297,46 +319,19 @@ local function solvePath(origin, targetChar, ignoreList)
 
     local a = aimPart(targetChar)
     if a then
-        local bodyPred = predictPoint(origin, targetChar, a)
+        local bodyPred = predictPoint(origin, targetChar, a, sameGround, groundPos)
         if bodyPred then
-            local hit, u = raycastTo(origin, bodyPred, ignoreList)
+            local hit, u = rayTowards(origin, bodyPred, ignoreList)
             if not hit or hit.Instance:IsDescendantOf(targetChar) or ignoreHit(hit) then
                 return bodyPred
             end
             local v = worldVel(targetChar)
             local right,_ = axes(u)
             local lateral = (v:Dot(right) >= 0) and right or -right
-            for _,off in ipairs({3.0, 6.0}) do
+            for _,off in ipairs({3.0,6.0}) do
                 local side = hit.Position + lateral * off
                 local slide = side + (bodyPred - hit.Position) * 0.6
-                local h2 = select(1, raycastTo(origin, slide, ignoreList))
-                if not h2 or h2.Instance:IsDescendantOf(targetChar) or ignoreHit(h2) then
-                    return slide
-                end
-            end
-        end
-    end
-
-    if #visible > 0 then
-        local best, bestScore = nil, math.huge
-        for _,part in ipairs(visible) do
-            local v,on = camera:WorldToViewportPoint(part.Position)
-            local d = on and (Vector2.new(v.X,v.Y) - Vector2.new(camera.ViewportSize.X*0.5, camera.ViewportSize.Y*0.5)).Magnitude or 9999
-            if d < bestScore then best, bestScore = part, d end
-        end
-        if best then
-            local pred = predictPoint(origin, targetChar, best)
-            if pred then
-                local hit,u = raycastTo(origin, pred, ignoreList)
-                if not hit or hit.Instance:IsDescendantOf(targetChar) or ignoreHit(hit) then
-                    return pred
-                end
-                local v = worldVel(targetChar)
-                local right,_ = axes(u)
-                local lateral = (v:Dot(right) >= 0) and right or -right
-                local side = hit.Position + lateral * 4.0
-                local slide = side + (pred - hit.Position) * 0.5
-                local h2 = select(1, raycastTo(origin, slide, ignoreList))
+                local h2 = select(1, rayTowards(origin, slide, ignoreList))
                 if not h2 or h2.Instance:IsDescendantOf(targetChar) or ignoreHit(h2) then
                     return slide
                 end
@@ -351,9 +346,18 @@ local function clampToFloor(aim, targetAnchor, ignore)
     local dir = (aim - targetAnchor.Position)
     local u,mag = unit(dir)
     if mag < 1 then return aim end
-    local has, floorY = groundAhead(targetAnchor.Position, u, 11, ignore)
+    local has, floorY = false, nil
+    do
+        local ahead = targetAnchor.Position + u * 11
+        local p = RaycastParams.new()
+        p.FilterType = Enum.RaycastFilterType.Exclude
+        p.FilterDescendantsInstances = ignore
+        local hit = Workspace:Raycast(ahead + Vector3.new(0,3,0), Vector3.new(0,-50,0), p)
+        has = hit ~= nil
+        floorY = hit and hit.Position or nil
+    end
     if has then return aim end
-    if floorY then return Vector3.new(aim.X, floorY + 0.75, aim.Z) end
+    if floorY then return Vector3.new(aim.X, floorY.Y + 0.75, aim.Z) end
     return aim
 end
 
@@ -376,7 +380,7 @@ end
 
 local function step()
     if not CoreGui:FindFirstChild(SECURITY_MARKER) then
-        if loopConn then loopConn:Disconnect(); loopConn = nil end
+        if loopConn then loopConn:Disconnect(); loopConn=nil end
         return
     end
     if not Env.CRIMSON_AUTO_KNIFE.enabled then return end
@@ -387,9 +391,9 @@ local function step()
 
     if not throwIsAllowedNow() then return end
 
-    local target = chooseTarget()
-    if not target then return end
-    local tc = target.Character
+    local tgtPlr = chooseTarget()
+    if not tgtPlr then return end
+    local tc = tgtPlr.Character
     local th = tc and tc:FindFirstChildOfClass("Humanoid")
     local tAnchor = tc and aimPart(tc)
     if not th or th.Health <= 0 or not tAnchor then return end
@@ -399,7 +403,9 @@ local function step()
     local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local ignore = { myChar }
 
-    local aimPos = solvePath(origin, tc, ignore)
+    local groundPos, sameGround = groundGhost(tc, ignore)
+
+    local aimPos = advancedPath(origin, tc, ignore, sameGround, groundPos)
     if not aimPos or not finite3(aimPos) then return end
 
     aimPos = clampToFloor(aimPos, tAnchor, ignore)
