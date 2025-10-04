@@ -15,7 +15,7 @@ Env.CRIMSON_AUTO_KNIFE = Env.CRIMSON_AUTO_KNIFE or { enabled = true }
 local AllowedAnimIds = {
     "rbxassetid://1957618848",
 }
-local AnimGateSeconds = 0.7
+local AnimGateSeconds = 0.25
 
 local leadAmount = 1.50
 local rangeGainPerStud = 0.0025
@@ -29,10 +29,8 @@ local sameGroundTolerance = 1.75
 local groundedMemorySec = 0.35
 local groundedTorsoYOffset = 1.0
 
-local maxSideStep = 4.0        
-local maxVerticalStep = 3.0    
-local cornerPeekDist = 2.5     
-local maxTotalDetour = 8.0     
+local maxHorizontalSlide = 2.5    
+local maxSlideAttempts = 3        
 
 local exposureCheckRadius = 0.8
 local minExposureRatio = 0.4
@@ -271,79 +269,42 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
     return finite3(pred) and pred or basePos
 end
 
-local function constrainedPath(origin, targetPos, targetChar, ignore)
+local function directAim(origin, targetPos, targetChar, ignore)
 
-    local hit, dirToTarget = rayTowards(origin, targetPos, ignore)
+    local hit = rayTowards(origin, targetPos, ignore)
     if not hit or ignoreHit(hit) then
         return targetPos  
     end
 
-    local hitPos = hit.Position
     local toTarget = unit(targetPos - origin)
     local right = toTarget:Cross(Vector3.new(0,1,0)).Unit
 
     local slideDir = right
     if targetChar then
         local vel = worldVel(targetChar)
-        local velHorizontal = Vector3.new(vel.X, 0, vel.Z)
-        if velHorizontal.Magnitude > 1 then
-            slideDir = (velHorizontal:Dot(right) >= 0) and right or -right
+        local velHoriz = Vector3.new(vel.X, 0, vel.Z)
+        if velHoriz.Magnitude > 0.5 then
+            slideDir = (velHoriz:Dot(right) >= 0) and right or -right
         end
     end
 
-    local bestPath = nil
-    local bestScore = math.huge
+    for _, offset in ipairs({1.5, 2.5}) do
+        for _, dir in ipairs({slideDir, -slideDir}) do
+            local slidePos = hit.Position + dir * offset
 
-    for _, offset in ipairs({2.0, 3.5}) do  
-        for _, direction in ipairs({slideDir, -slideDir}) do
-            local sideStep = hitPos + direction * offset
+            slidePos = Vector3.new(slidePos.X, targetPos.Y, slidePos.Z)
 
-            local distanceFromPath = (sideStep - (origin + toTarget * (sideStep - origin):Dot(toTarget))).Magnitude
-            if distanceFromPath > maxSideStep then continue end
+            local slideHit = rayTowards(origin, slidePos, ignore)
+            if slideHit and not ignoreHit(slideHit) then continue end
 
-            local reachHit = rayTowards(origin, sideStep, ignore)
-            if reachHit and not ignoreHit(reachHit) then continue end
-
-            local seeHit = rayTowards(sideStep, targetPos, ignore)
-            if seeHit and not ignoreHit(seeHit) then
-
-                local peek = sideStep + toTarget * cornerPeekDist
-                seeHit = rayTowards(sideStep, peek, ignore)
-                if seeHit and not ignoreHit(seeHit) then continue end
-                sideStep = peek
-            end
-
-            local detourDistance = (sideStep - origin).Magnitude + (targetPos - sideStep).Magnitude
-            local directDistance = (targetPos - origin).Magnitude
-            local score = detourDistance - directDistance
-
-            if score < bestScore and score < maxTotalDetour then
-                bestPath = sideStep
-                bestScore = score
+            local finalHit = rayTowards(slidePos, targetPos, ignore)
+            if not finalHit or ignoreHit(finalHit) then
+                return slidePos
             end
         end
     end
 
-    if not bestPath then
-        for _, yOffset in ipairs({maxVerticalStep, -maxVerticalStep}) do
-            local vertStep = hitPos + Vector3.new(0, yOffset, 0) + slideDir * 2.0
-
-            local reachHit = rayTowards(origin, vertStep, ignore)
-            if not reachHit or ignoreHit(reachHit) then
-                local seeHit = rayTowards(vertStep, targetPos, ignore)
-                if not seeHit or ignoreHit(seeHit) then
-                    local detourDist = (vertStep - origin).Magnitude + (targetPos - vertStep).Magnitude
-                    local directDist = (targetPos - origin).Magnitude
-                    if (detourDist - directDist) < maxTotalDetour then
-                        bestPath = vertStep
-                        break
-                    end
-                end
-            end
-        end
-    end
-
-    return bestPath or (hitPos - dirToTarget * 1.0)
+    return hit.Position - toTarget * 0.5
 end
 
 local function clampToFloor(aim, targetAnchor, ignore)
@@ -384,7 +345,7 @@ local function step()
     local limbPred = predictPoint(origin, tc, targetLimb, sameGround, gpos)
     if not limbPred then return end
 
-    local aimPos = constrainedPath(origin, limbPred, tc, ignore)
+    local aimPos = directAim(origin, limbPred, tc, ignore)
     if not aimPos or not finite3(aimPos) then return end
     aimPos = clampToFloor(aimPos, anchor, ignore)
     if not finite3(aimPos) then return end
