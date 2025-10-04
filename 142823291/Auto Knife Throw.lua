@@ -1,4 +1,4 @@
--- Crimson Hub Auto-Knife: exposed-limb targeting (feet-first), gap windowing, jump-aware, always-on (marker + anim gated)
+-- Crimson Hub Auto-Knife: FIXED exposed-limb detection + comprehensive body part scanning
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -14,7 +14,7 @@ local camera = Workspace.CurrentCamera
 local Env = (getgenv and getgenv()) or _G
 Env.CRIMSON_AUTO_KNIFE = Env.CRIMSON_AUTO_KNIFE or { enabled = true }
 
--- Throw is allowed only while one of these animations is playing long enough
+-- Animation gate
 local AllowedAnimIds = {
     "rbxassetid://1957618848",
 }
@@ -43,6 +43,10 @@ local windowSearchAngles = {-45,-30,-15,0,15,30,45}
 local cornerPeekDist = 5.5
 local maxDetourDistance = 16.0
 
+-- Exposed limb detection settings
+local exposureCheckRadius = 0.8  -- Check multiple points around each part
+local minExposureRatio = 0.4     -- At least 40% of check points must be clear
+
 -- State
 local myChar = me.Character or me.CharacterAdded:Wait()
 local myHum = myChar:WaitForChild("Humanoid")
@@ -50,7 +54,7 @@ local myRoot = myChar:WaitForChild("HumanoidRootPart")
 local myKnife, knifeRemote
 local loopConn
 
--- Animation tracking (weak table)
+-- Animation tracking
 local trackStart = setmetatable({}, { __mode = "k" })
 -- Ground memory per target
 local lastGroundY = {}
@@ -63,7 +67,7 @@ local function clamp(v,a,b) if b<a then a,b=b,a end if v~=v then return a end re
 local function finite3(v) return v and v.X==v.X and v.Y==v.Y and v.Z==v.Z end
 local function rotateY(v,deg) local r=math.rad(deg) local c,s=math.cos(r),math.sin(r) return Vector3.new(v.X*c - v.Z*s, v.Y, v.X*s + v.Z*c) end
 
--- Knife
+-- Knife management
 local function resolveKnife()
     local k = (me.Backpack and me.Backpack:FindFirstChild("Knife")) or (myChar and myChar:FindFirstChild("Knife"))
     if k ~= myKnife then
@@ -72,6 +76,7 @@ local function resolveKnife()
     end
 end
 resolveKnife()
+
 me.CharacterAdded:Connect(function(c)
     myChar=c; myHum=c:WaitForChild("Humanoid"); myRoot=c:WaitForChild("HumanoidRootPart")
     trackStart=setmetatable({}, {__mode="k"}); task.defer(resolveKnife)
@@ -83,7 +88,7 @@ end
 myChar.ChildAdded:Connect(function(it) if it.Name=="Knife" then resolveKnife() end end)
 myChar.ChildRemoved:Connect(function(it) if it==myKnife then resolveKnife() end end)
 
--- Anim allowlist gate
+-- Animation gate
 local function throwIsAllowedNow()
     if not myHum then return false end
     local now=os.clock(); local ok=false
@@ -100,7 +105,7 @@ local function throwIsAllowedNow()
     return ok
 end
 
--- Char helpers
+-- Character helpers
 local function aimPart(char)
     return char and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head"))
 end
@@ -108,7 +113,7 @@ local function worldVel(char)
     local p=aimPart(char); return p and p.AssemblyLinearVelocity or Vector3.zero
 end
 
--- Ray helpers
+-- Enhanced ray helpers
 local function ignoreHit(hit)
     local inst=hit.Instance
     if inst and inst:IsA("BasePart") then
@@ -117,42 +122,111 @@ local function ignoreHit(hit)
         if s.X<ignoreMinThickness or s.Y<ignoreMinThickness or s.Z<ignoreMinThickness then return true end
         local mat=inst.Material
         if mat==Enum.Material.Glass or mat==Enum.Material.ForceField then return true end
-        if s.X<0.8 and s.Y<0.8 and s.Z<0.8 then return true end
+        -- Don't ignore tiny objects that might actually block shots
+        -- if s.X<0.8 and s.Y<0.8 and s.Z<0.8 then return true end
     end
     return false
 end
+
 local function raycastVec(origin, dir, len, ignore)
     local p=RaycastParams.new(); p.FilterType=Enum.RaycastFilterType.Exclude; p.FilterDescendantsInstances=ignore
     return Workspace:Raycast(origin, dir*len, p)
 end
+
 local function rayTowards(origin, target, ignore)
     local u,mag=unit(target-origin); local hit=raycastVec(origin,u,clamp(mag,0,12288),ignore); return hit,u,mag
 end
 
--- Exposed limb scan from origin (knife), not camera; feet-first priority
+-- COMPREHENSIVE exposed limb detection with multi-point checking
 local LimbPriority = {
-    "LeftFoot","RightFoot","LeftLowerLeg","RightLowerLeg","LeftLeg","RightLeg",
-    "LeftHand","RightHand","LeftLowerArm","RightLowerArm","LeftArm","RightArm",
-    "Head","UpperTorso","HumanoidRootPart"
+    -- Feet first (highest priority for partially hidden targets)
+    "LeftFoot","RightFoot",
+    -- Lower legs
+    "LeftLowerLeg","RightLowerLeg",
+    -- Full legs
+    "LeftLeg","RightLeg",
+    -- Hands
+    "LeftHand","RightHand",
+    -- Lower arms
+    "LeftLowerArm","RightLowerArm",
+    -- Full arms  
+    "LeftArm","RightArm",
+    -- Head (good target but lower priority than limbs for partial exposure)
+    "Head",
+    -- Torso parts (lowest priority, usually blocked when limbs are exposed)
+    "UpperTorso","LowerTorso","HumanoidRootPart"
 }
-local function getExposedLimbs(char, origin, ignore)
-    local exposed = {}
-    for _,name in ipairs(LimbPriority) do
-        local part = char:FindFirstChild(name)
-        if part and part:IsA("BasePart") then
-            local hit = rayTowards(origin, part.Position, ignore)
-            if not hit or hit.Instance:IsDescendantOf(char) or ignoreHit(hit) then
-                table.insert(exposed, part)
-            end
+
+-- Check if a body part is truly exposed by testing multiple points around it
+local function isPartExposed(part, origin, ignore)
+    if not part or not part:IsA("BasePart") then return false end
+    
+    local center = part.Position
+    local size = part.Size
+    local checkPoints = {
+        center, -- Center point
+        center + Vector3.new(size.X*0.3, 0, 0),           -- Right
+        center + Vector3.new(-size.X*0.3, 0, 0),          -- Left  
+        center + Vector3.new(0, size.Y*0.3, 0),           -- Top
+        center + Vector3.new(0, -size.Y*0.3, 0),          -- Bottom
+        center + Vector3.new(0, 0, size.Z*0.3),           -- Front
+        center + Vector3.new(0, 0, -size.Z*0.3),          -- Back
+    }
+    
+    -- For limbs, add more edge points
+    if part.Name:find("Foot") or part.Name:find("Hand") or part.Name:find("Leg") or part.Name:find("Arm") then
+        table.insert(checkPoints, center + Vector3.new(size.X*0.4, size.Y*0.4, 0))
+        table.insert(checkPoints, center + Vector3.new(-size.X*0.4, size.Y*0.4, 0))
+        table.insert(checkPoints, center + Vector3.new(size.X*0.4, -size.Y*0.4, 0))
+        table.insert(checkPoints, center + Vector3.new(-size.X*0.4, -size.Y*0.4, 0))
+    end
+    
+    local clearCount = 0
+    local totalPoints = #checkPoints
+    
+    for _, point in ipairs(checkPoints) do
+        local hit = rayTowards(origin, point, ignore)
+        if not hit then
+            clearCount = clearCount + 1
+        elseif hit.Instance:IsDescendantOf(part.Parent) then
+            -- Hit the target character itself, counts as clear
+            clearCount = clearCount + 1
+        elseif ignoreHit(hit) then
+            -- Hit something we ignore (glass, thin parts, etc.)
+            clearCount = clearCount + 1
         end
     end
+    
+    -- Part is considered exposed if enough check points are clear
+    local exposureRatio = clearCount / totalPoints
+    return exposureRatio >= minExposureRatio
+end
+
+-- Get all truly exposed limbs with comprehensive checking
+local function getExposedLimbs(char, origin, ignore)
+    local exposed = {}
+    if not char then return exposed end
+    
+    -- Add the character itself to ignore list to avoid self-blocking
+    local fullIgnore = {table.unpack(ignore)}
+    table.insert(fullIgnore, char)
+    
+    for _,name in ipairs(LimbPriority) do
+        local part = char:FindFirstChild(name)
+        if part and isPartExposed(part, origin, fullIgnore) then
+            table.insert(exposed, part)
+        end
+    end
+    
     return exposed
 end
 
--- Pick best exposed limb per player; cursor-first if on-screen; else nearest by world distance
+-- Pick the best exposed limb, preferring those near cursor if on-screen
 local function pickExposedTarget(origin)
     local mouse = me:GetMouse()
-    local bestPlr, bestPart, bestScore = nil, nil, math.huge
+    local candidates = {}
+    
+    -- Collect all exposed limbs from all players
     for _,pl in ipairs(Players:GetPlayers()) do
         if pl ~= me then
             local c=pl.Character; local h=c and c:FindFirstChildOfClass("Humanoid")
@@ -160,23 +234,52 @@ local function pickExposedTarget(origin)
                 local ignore={myChar}
                 local parts = getExposedLimbs(c, origin, ignore)
                 for _,part in ipairs(parts) do
-                    local v,on = camera:WorldToViewportPoint(part.Position)
-                    local screenScore = on and (Vector2.new(v.X,v.Y)-Vector2.new(mouse.X,mouse.Y)).Magnitude or 9999
-                    local worldScore = (part.Position - origin).Magnitude * 0.25
-                    local limbBias = 0
-                    if part.Name:find("Foot") or part.Name:find("LowerLeg") or part.Name:find("Leg") then limbBias = -40 end
-                    if part.Name:find("Hand") or part.Name:find("LowerArm") or part.Name:find("Arm") then limbBias = limbBias - 10 end
-                    if part.Name=="Head" then limbBias = limbBias + 5 end
-                    local score = screenScore + worldScore + limbBias
-                    if score < bestScore then bestPlr, bestPart, bestScore = pl, part, score end
+                    table.insert(candidates, {player=pl, part=part})
                 end
             end
         end
     end
-    return bestPlr, bestPart
+    
+    if #candidates == 0 then return nil, nil end
+    
+    -- Score each candidate
+    local best = nil
+    local bestScore = math.huge
+    
+    for _, candidate in ipairs(candidates) do
+        local part = candidate.part
+        local v, on = camera:WorldToViewportPoint(part.Position)
+        
+        -- Screen distance (prioritize near cursor if on-screen)
+        local screenScore = on and (Vector2.new(v.X,v.Y)-Vector2.new(mouse.X,mouse.Y)).Magnitude or 9999
+        
+        -- World distance  
+        local worldScore = (part.Position - origin).Magnitude * 0.1
+        
+        -- Limb priority bias (feet > legs > arms > head > torso)
+        local limbBias = 0
+        if part.Name:find("Foot") then limbBias = -100
+        elseif part.Name:find("LowerLeg") then limbBias = -80
+        elseif part.Name:find("Leg") then limbBias = -60
+        elseif part.Name:find("Hand") then limbBias = -40
+        elseif part.Name:find("LowerArm") then limbBias = -30
+        elseif part.Name:find("Arm") then limbBias = -20
+        elseif part.Name=="Head" then limbBias = -10
+        else limbBias = 10 end
+        
+        -- Combine scores (lower is better)
+        local totalScore = screenScore + worldScore + limbBias
+        
+        if totalScore < bestScore then
+            best = candidate
+            bestScore = totalScore
+        end
+    end
+    
+    return best and best.player or nil, best and best.part or nil
 end
 
--- Ground ghost + last grounded torso
+-- Ground ghost tracking (unchanged)
 local function rememberGroundedTorso(targetChar, sameGround, groundPos)
     local hum=targetChar and targetChar:FindFirstChildOfClass("Humanoid")
     local torso=targetChar and targetChar:FindFirstChild("UpperTorso")
@@ -188,6 +291,7 @@ local function rememberGroundedTorso(targetChar, sameGround, groundPos)
         lastGroundedTime[id]=os.clock()
     end
 end
+
 local function groundGhost(targetChar, ignore)
     local a=aimPart(targetChar); if not a then return nil,false end
     local from=a.Position + Vector3.new(0,2,0)
@@ -212,31 +316,26 @@ local function groundGhost(targetChar, ignore)
     return gpos, same
 end
 
--- Travel model
+-- Travel and prediction (unchanged from previous version)
 local baseKnifeSpeed=205
-local function knifeSpeedAt(dist) return 1 + math.clamp(dist*0.0035,0,1.5) end
-local function timeTo(dist) local s=baseKnifeSpeed*knifeSpeedAt(dist) if s<=0 or dist~=dist then return 0 end return dist/s end
+local function knifeSpeedAt(dist) return baseKnifeSpeed * (1 + math.clamp(dist*0.0035,0,1.5)) end
+local function timeTo(dist) local s=knifeSpeedAt(dist) if s<=0 or dist~=dist then return 0 end return dist/s end
 local function hasNormalJP(h) local jp=h and h.JumpPower or 50 return jp>=40 and jp<=75 end
 
 local function verticalOffset(targetChar, t, focusPart, sameGround, groundPos)
     local hum=targetChar and targetChar:FindFirstChildOfClass("Humanoid")
     if not hum or not focusPart then return 0 end
-    local vy=worldVel(targetChar).Y
-    local extra=0
+    local vy=worldVel(targetChar).Y; local extra=0
     local hrp=targetChar:FindFirstChild("HumanoidRootPart")
     if hrp then for _,o in ipairs(hrp:GetChildren()) do if o:IsA("BodyVelocity") then extra+=o.Velocity.Y end end end
-    local normal=hasNormalJP(hum)
-    local st=hum:GetState()
-    local id=targetChar:GetDebugId()
-    local now=os.clock()
-    local recent=lastGroundedTime[id] and (now-lastGroundedTime[id]<=groundedMemorySec)
+    local normal=hasNormalJP(hum); local st=hum:GetState(); local id=targetChar:GetDebugId()
+    local now=os.clock(); local recent=lastGroundedTime[id] and (now-lastGroundedTime[id]<=groundedMemorySec)
 
     if normal and (st==Enum.HumanoidStateType.Jumping or st==Enum.HumanoidStateType.Freefall) and recent and (not sameGround) then
         return clamp(vy * t * 0.12, -3, 3)
     end
 
-    local blended=vy + extra*0.35
-    local y = blended * t * 0.38 - 0.5 * Workspace.Gravity * (t*t) * 0.35
+    local blended=vy + extra*0.35; local y = blended * t * 0.38 - 0.5 * Workspace.Gravity * (t*t) * 0.35
     y = normal and clamp(y,-28,36) or clamp(y,-22,28)
     if st==Enum.HumanoidStateType.Freefall then y = y - 0.08 * Workspace.Gravity * (t*t)
     elseif st==Enum.HumanoidStateType.Jumping and normal then y = y * 0.75 end
@@ -246,10 +345,8 @@ end
 
 local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos)
     local p=focusPart or aimPart(targetChar); if not p then return nil end
-    local hum=targetChar:FindFirstChildOfClass("Humanoid")
-    local id=targetChar:GetDebugId()
-    local now=os.clock()
-    local useStick=false
+    local hum=targetChar:FindFirstChildOfClass("Humanoid"); local id=targetChar:GetDebugId()
+    local now=os.clock(); local useStick=false
     if hum and hasNormalJP(hum) and lastGroundedTorso[id] and lastGroundedTime[id] and (now-lastGroundedTime[id]<=groundedMemorySec) then
         local st=hum:GetState()
         if (st==Enum.HumanoidStateType.Jumping or st==Enum.HumanoidStateType.Freefall) and (not sameGround) then
@@ -257,73 +354,49 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
         end
     end
 
-    local basePos
-    if useStick then
-        basePos = lastGroundedTorso[id]
-    else
-        basePos = p.Position
-        if groundPos then
-            basePos = Vector3.new(basePos.X, groundPos.Y + (p.Name=="Head" and 1.5 or 0.9), basePos.Z)
-        end
+    local basePos = useStick and lastGroundedTorso[id] or p.Position
+    if not useStick and groundPos then
+        basePos = Vector3.new(basePos.X, groundPos.Y + (p.Name=="Head" and 1.5 or 0.9), basePos.Z)
     end
 
-    local dist=(basePos - origin).Magnitude
-    local t=timeTo(dist); if t==0 then return basePos end
-
-    local vel=worldVel(targetChar)
-    local horiz=Vector3.new(vel.X,0,vel.Z)
-    local speed=horiz.Magnitude
-
+    local dist=(basePos - origin).Magnitude; local t=timeTo(dist); if t==0 then return basePos end
+    local vel=worldVel(targetChar); local horiz=Vector3.new(vel.X,0,vel.Z); local speed=horiz.Magnitude
     local distScale = 1 + math.clamp(dist*rangeGainPerStud, 0, 2.0)
-    local speedScale = 1 + math.clamp(speed*0.05, 0, 0.5)
-    local leadScale = distScale * speedScale
-
+    local speedScale = 1 + math.clamp(speed*0.05, 0, 0.5); local leadScale = distScale * speedScale
     local leadVec = horiz * t * leadAmount * leadScale
     local y = useStick and clamp(vel.Y * t * 0.12, -3, 3) or verticalOffset(targetChar, t, p, sameGround, groundPos)
-
     local pred = basePos + leadVec + Vector3.new(0,y,0)
     return finite3(pred) and pred or basePos
 end
 
--- Gap/window helpers
+-- Gap/window helpers (unchanged)
 local function hasVerticalClearance(pos, ignore)
     local up = raycastVec(pos, Vector3.new(0,1,0), verticalClearance, ignore)
     local down = raycastVec(pos, Vector3.new(0,-1,0), verticalClearance, ignore)
     return not up and not down
 end
+
 local function findGapInDirection(from, toTarget, ignore)
-    local dir = unit(toTarget - from)
-    local best, bestScore = nil, math.huge
+    local dir = unit(toTarget - from); local best, bestScore = nil, math.huge
     for _,ang in ipairs(windowSearchAngles) do
-        local probeDir = rotateY(dir, ang)
-        local probePos = from + probeDir * gapProbeRadius
+        local probeDir = rotateY(dir, ang); local probePos = from + probeDir * gapProbeRadius
         local hit = rayTowards(from, probePos, ignore)
-        if not hit then
-            if hasVerticalClearance(probePos, ignore) then
-                local score = math.abs(ang) + (probePos - toTarget).Magnitude * 0.1
-                if score < bestScore then best, bestScore = probePos, score end
-            end
+        if not hit and hasVerticalClearance(probePos, ignore) then
+            local score = math.abs(ang) + (probePos - toTarget).Magnitude * 0.1
+            if score < bestScore then best, bestScore = probePos, score end
         end
     end
     return best
 end
 
 local function advancedPath(origin, targetPos, targetChar, ignore)
-    local waypoints = {origin}
-    local current = origin
-    local detour = 0
-
+    local waypoints, current, detour = {origin}, origin, 0
     for _=1,maxPathSteps do
-        local toT = targetPos - current
-        local dist = toT.Magnitude
+        local toT = targetPos - current; local dist = toT.Magnitude
         if dist < 2.0 then table.insert(waypoints, targetPos) break end
-
         local hit,u = rayTowards(current, targetPos, ignore)
-        if not hit or ignoreHit(hit) then
-            table.insert(waypoints, targetPos); break
-        end
+        if not hit or ignoreHit(hit) then table.insert(waypoints, targetPos); break end
 
-        -- Try gaps first
         local gap = findGapInDirection(current, targetPos, ignore)
         if gap then
             local gdist=(gap-current).Magnitude
@@ -332,9 +405,7 @@ local function advancedPath(origin, targetPos, targetChar, ignore)
             end
         end
 
-        -- Slide along wall toward target lateral motion if known
-        local right = u:Cross(Vector3.new(0,1,0)).Unit
-        local slideDir = right
+        local right = u:Cross(Vector3.new(0,1,0)).Unit; local slideDir = right
         if targetChar then
             local vel=worldVel(targetChar)
             slideDir = (Vector3.new(vel.X,0,vel.Z):Dot(right) >= 0) and right or -right
@@ -342,10 +413,8 @@ local function advancedPath(origin, targetPos, targetChar, ignore)
 
         local found=false
         for _,off in ipairs({3.0,6.0,9.0,12.0}) do
-            local side = hit.Position + slideDir*off
-            local peek = side + u * cornerPeekDist
-            local h1 = rayTowards(current, side, ignore)
-            local h2 = rayTowards(side, peek, ignore)
+            local side = hit.Position + slideDir*off; local peek = side + u * cornerPeekDist
+            local h1 = rayTowards(current, side, ignore); local h2 = rayTowards(side, peek, ignore)
             if (not h1 or ignoreHit(h1)) and (not h2 or ignoreHit(h2)) and hasVerticalClearance(side, ignore) then
                 local sdist=(side-current).Magnitude
                 if detour+sdist <= maxDetourDistance then
@@ -353,37 +422,25 @@ local function advancedPath(origin, targetPos, targetChar, ignore)
                 end
             end
         end
-        if not found then
-            -- small nudge and stop
-            table.insert(waypoints, hit.Position - u*1.0)
-            break
-        end
+        if not found then table.insert(waypoints, hit.Position - u*1.0); break end
     end
-
     return waypoints[#waypoints]
 end
 
 local function clampToFloor(aim, targetAnchor, ignore)
-    local dir = (aim - targetAnchor.Position)
-    local u,mag = unit(dir)
-    if mag < 1 then return aim end
+    local dir = (aim - targetAnchor.Position); local u,mag = unit(dir); if mag < 1 then return aim end
     local ahead = targetAnchor.Position + u*11
     local p=RaycastParams.new(); p.FilterType=Enum.RaycastFilterType.Exclude; p.FilterDescendantsInstances=ignore
     local hit = Workspace:Raycast(ahead + Vector3.new(0,3,0), Vector3.new(0,-50,0), p)
-    if hit then return aim end
-    if hit and hit.Position then return Vector3.new(aim.X, hit.Position.Y + 0.75, aim.Z) end
-    return aim
+    return hit and Vector3.new(aim.X, hit.Position.Y + 0.75, aim.Z) or aim
 end
 
--- Rate limit
-local lastThrow, gapSec = 0, 0.25
-local tokens, maxTokens, refill = 4,4,1.5
-local lastRefill=os.clock()
+-- Rate limiting
+local lastThrow, gapSec = 0, 0.25; local tokens, maxTokens, refill = 4,4,1.5; local lastRefill=os.clock()
 local function readyToThrow()
     local now=os.clock(); local dt=now-lastRefill
     if dt>0 then tokens=math.min(maxTokens, tokens + dt*refill); lastRefill=now end
-    if (now-lastThrow)<gapSec then return false end
-    if tokens<1 then return false end
+    if (now-lastThrow)<gapSec or tokens<1 then return false end
     tokens=tokens-1; lastThrow=now; return true
 end
 
@@ -399,24 +456,19 @@ local function step()
     local targetPlr, targetLimb = pickExposedTarget(origin)
     if not targetPlr or not targetLimb then return end
 
-    local tc = targetPlr.Character
-    local th = tc and tc:FindFirstChildOfClass("Humanoid")
+    local tc = targetPlr.Character; local th = tc and tc:FindFirstChildOfClass("Humanoid")
     local anchor = tc and aimPart(tc)
     if not th or th.Health<=0 or not anchor then return end
     if not readyToThrow() then return end
 
-    local ignore={myChar}
-    local gpos, sameGround = groundGhost(tc, ignore)
+    local ignore={myChar}; local gpos, sameGround = groundGhost(tc, ignore)
     rememberGroundedTorso(tc, sameGround, gpos)
 
-    -- Predict to the chosen exposed limb
     local limbPred = predictPoint(origin, tc, targetLimb, sameGround, gpos)
     if not limbPred then return end
 
-    -- Advanced pathing to the predicted limb position
     local aimPos = advancedPath(origin, limbPred, tc, ignore)
     if not aimPos or not finite3(aimPos) then return end
-
     aimPos = clampToFloor(aimPos, anchor, ignore)
     if not finite3(aimPos) then return end
 
