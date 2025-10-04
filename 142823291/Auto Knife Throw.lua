@@ -17,7 +17,7 @@ local AllowedAnimIds = {
 }
 local AnimGateSeconds = 0.75
 
-local leadAmount = 2.15
+local leadAmount = 2.4
 local rangeGainPerStud = 0.0025
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
