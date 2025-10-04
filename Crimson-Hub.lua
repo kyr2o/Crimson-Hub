@@ -41,10 +41,10 @@ local theme = {
 
 local CATEGORY_SPEC = {
     [MM2_PLACEID] = {
-        { title = "ESP",     modules = { "RoleESP", "Trap ESP" } },
+        { title = "ESP", modules = { "RoleESP", "Trap ESP" } },
         { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw" } },
         { title = "Farming", modules = { "Coin Farm" } },
-        { title = "Other",   modules = "REMAINDER" },
+        { title = "Other", modules = "REMAINDER" },
     },
 }
 
@@ -1122,7 +1122,7 @@ function mainUI:Create()
                     content.Name = "RowContent"
                     content.BackgroundTransparency = 1
                     content.Position = UDim2.new(0, 180, 0, 12)  
-                    content.Size = UDim2.new(1, -210, 0, 0)      
+                    content.Size = UDim2.new(1, -210, 0, 0)    
                     content.AutomaticSize = Enum.AutomaticSize.Y
 
                     local grid = Instance.new("UIGridLayout", content)
@@ -1148,12 +1148,14 @@ function mainUI:Create()
                             elseif modName == "KillAll" then
                                 createActionButton(content, modName, function() fn(true) end)
                             elseif modName == "Auto Shoot" then
+                                grid.CellSize = UDim2.new(0, 220, 0, 170)
                                 local parentContainer = row:FindFirstChild("RowContent") or row
                                 local autoContainer = Instance.new("Frame", parentContainer)
-                                autoContainer.Size = UDim2.new(0, 220, 0, 120)
+                                autoContainer.Size = UDim2.new(0, 220, 0, 0)
+                                autoContainer.AutomaticSize = Enum.AutomaticSize.Y
                                 autoContainer.BackgroundTransparency = 1
                                 local vList = Instance.new("UIListLayout", autoContainer)
-                                vList.Padding = UDim.new(0, 12)
+                                vList.Padding = UDim.new(0, 8)
                                 vList.SortOrder = Enum.SortOrder.LayoutOrder
                                 local autoBtn = createScriptButton(autoContainer, "Auto Shoot", function(state)
                                     local G = (getgenv and getgenv()) or _G
@@ -1162,6 +1164,7 @@ function mainUI:Create()
                                     if state then fn(true) end 
                                 end)
                                 autoBtn.LayoutOrder = 1
+                                autoBtn.Size = UDim2.new(1, 0, 0, 60)
                                 local predCard = Instance.new("Frame", autoContainer)
                                 predCard.Size = UDim2.new(1, 0, 0, 50)
                                 predCard.BackgroundColor3 = theme.accent
@@ -1217,8 +1220,26 @@ function mainUI:Create()
                                     G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.15 }
                                     G.CRIMSON_AUTO_SHOOT.prediction = v
                                 end)
+
+                                local calibrateBtn = createActionButton(autoContainer, "Auto-Calibrate", function()
+                                    local G = (getgenv and getgenv()) or _G
+                                    if G.CRIMSON_AUTO_SHOOT and G.CRIMSON_AUTO_SHOOT.calibrate then
+                                        local ms, pred = G.CRIMSON_AUTO_SHOOT.calibrate()
+                                        if pred then
+                                            predBox.Text = string.format("%.3f", pred)
+                                            G.CRIMSON_AUTO_SHOOT.prediction = pred
+                                            sendNotification("Calibrated", string.format("Ping: %dms → Pred: %.3f", ms or 0, pred), 3, "success")
+                                        else
+                                            sendNotification("Error", "Calibration failed.", 2, "error")
+                                        end
+                                    else
+                                        sendNotification("Error", "Calibration function not found.", 3, "error")
+                                    end
+                                end)
+                                calibrateBtn.Size = UDim2.new(1, 0, 0, 40)
+                                calibrateBtn.TextSize = 14
+                                calibrateBtn.LayoutOrder = 3
                             elseif modName == "Auto Knife Throw" then
-                                -- Auto Knife Throw toggle with Crimson Hub integration
                                 createScriptButton(content, modName, function(state)
                                     local G = (getgenv and getgenv()) or _G
                                     G.CRIMSON_AUTO_KNIFE = G.CRIMSON_AUTO_KNIFE or { enabled = false }
@@ -1236,7 +1257,7 @@ function mainUI:Create()
                                     end
                                     
                                     if state then
-                                        fn(true) -- Execute the Auto Knife Throw script
+                                        fn(true)
                                     end
                                 end)
                             else
