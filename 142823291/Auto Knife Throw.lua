@@ -1,5 +1,3 @@
--- Crimson Hub Auto-Knife: FIXED pathfinding - no random openings, direct routes to exposed limbs only
-
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -14,57 +12,47 @@ local camera = Workspace.CurrentCamera
 local Env = (getgenv and getgenv()) or _G
 Env.CRIMSON_AUTO_KNIFE = Env.CRIMSON_AUTO_KNIFE or { enabled = true }
 
--- Animation gate
 local AllowedAnimIds = {
     "rbxassetid://1957618848",
 }
 local AnimGateSeconds = 0.7
 
--- Tuning
 local leadAmount = 1.50
 local rangeGainPerStud = 0.0025
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
 
--- Ground/ledge logic
 local groundProbeRadius = 2.5
 local maxGroundSnap = 24
 local sameGroundTolerance = 1.75
 
--- Jump memory
 local groundedMemorySec = 0.35
 local groundedTorsoYOffset = 1.0
 
--- CONSTRAINED pathfinding - only small adjustments toward target
-local maxSideStep = 4.0        -- max distance to step sideways around obstacles
-local maxVerticalStep = 3.0    -- max distance to step up/down around obstacles  
-local cornerPeekDist = 2.5     -- small peek distance past corners
-local maxTotalDetour = 8.0     -- total detour distance allowed
+local maxSideStep = 4.0        
+local maxVerticalStep = 3.0    
+local cornerPeekDist = 2.5     
+local maxTotalDetour = 8.0     
 
--- Exposed limb detection
 local exposureCheckRadius = 0.8
 local minExposureRatio = 0.4
 
--- State
 local myChar = me.Character or me.CharacterAdded:Wait()
 local myHum = myChar:WaitForChild("Humanoid")
 local myRoot = myChar:WaitForChild("HumanoidRootPart")
 local myKnife, knifeRemote
 local loopConn
 
--- Animation tracking
 local trackStart = setmetatable({}, { __mode = "k" })
--- Ground memory per target
+
 local lastGroundY = {}
 local lastGroundedTorso = {}
 local lastGroundedTime = {}
 
--- Math helpers
 local function unit(v) local m=v.Magnitude if m==0 or m~=m then return Vector3.zero,0 end return v/m,m end
 local function clamp(v,a,b) if b<a then a,b=b,a end if v~=v then return a end return math.clamp(v,a,b) end
 local function finite3(v) return v and v.X==v.X and v.Y==v.Y and v.Z==v.Z end
 
--- Knife management  
 local function resolveKnife()
     local k = (me.Backpack and me.Backpack:FindFirstChild("Knife")) or (myChar and myChar:FindFirstChild("Knife"))
     if k ~= myKnife then
@@ -85,7 +73,6 @@ end
 myChar.ChildAdded:Connect(function(it) if it.Name=="Knife" then resolveKnife() end end)
 myChar.ChildRemoved:Connect(function(it) if it==myKnife then resolveKnife() end end)
 
--- Animation gate
 local function throwIsAllowedNow()
     if not myHum then return false end
     local now=os.clock(); local ok=false
@@ -102,7 +89,6 @@ local function throwIsAllowedNow()
     return ok
 end
 
--- Character helpers
 local function aimPart(char)
     return char and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head"))
 end
@@ -110,7 +96,6 @@ local function worldVel(char)
     local p=aimPart(char); return p and p.AssemblyLinearVelocity or Vector3.zero
 end
 
--- Ray helpers
 local function ignoreHit(hit)
     local inst=hit.Instance
     if inst and inst:IsA("BasePart") then
@@ -132,7 +117,6 @@ local function rayTowards(origin, target, ignore)
     local u,mag=unit(target-origin); local hit=raycastVec(origin,u,clamp(mag,0,12288),ignore); return hit,u,mag
 end
 
--- Exposed limb detection (unchanged - this part works correctly)
 local LimbPriority = {
     "LeftFoot","RightFoot","LeftLowerLeg","RightLowerLeg","LeftLeg","RightLeg",
     "LeftHand","RightHand","LeftLowerArm","RightLowerArm","LeftArm","RightArm",
@@ -153,7 +137,7 @@ local function isPartExposed(part, origin, ignore)
         table.insert(checkPoints, center + Vector3.new(size.X*0.4, -size.Y*0.4, 0))
         table.insert(checkPoints, center + Vector3.new(-size.X*0.4, -size.Y*0.4, 0))
     end
-    
+
     local clearCount = 0
     for _, point in ipairs(checkPoints) do
         local hit = rayTowards(origin, point, ignore)
@@ -211,7 +195,6 @@ local function pickExposedTarget(origin)
     return best and best.player or nil, best and best.part or nil
 end
 
--- Ground ghost tracking (unchanged)
 local function rememberGroundedTorso(targetChar, sameGround, groundPos)
     local hum=targetChar and targetChar:FindFirstChildOfClass("Humanoid")
     local torso=targetChar and targetChar:FindFirstChild("UpperTorso")
@@ -241,7 +224,6 @@ local function groundGhost(targetChar, ignore)
     return gpos, same
 end
 
--- Travel and prediction (unchanged)
 local baseKnifeSpeed=205
 local function knifeSpeedAt(dist) return baseKnifeSpeed * (1 + math.clamp(dist*0.0035,0,1.5)) end
 local function timeTo(dist) local s=knifeSpeedAt(dist) if s<=0 or dist~=dist then return 0 end return dist/s end
@@ -289,20 +271,17 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
     return finite3(pred) and pred or basePos
 end
 
--- FIXED: Constrained pathfinding that only makes small adjustments toward the target
 local function constrainedPath(origin, targetPos, targetChar, ignore)
-    -- First check direct path
+
     local hit, dirToTarget = rayTowards(origin, targetPos, ignore)
     if not hit or ignoreHit(hit) then
-        return targetPos  -- Direct path is clear
+        return targetPos  
     end
 
-    -- Path is blocked, try SMALL adjustments only
     local hitPos = hit.Position
     local toTarget = unit(targetPos - origin)
     local right = toTarget:Cross(Vector3.new(0,1,0)).Unit
-    
-    -- Prefer sliding toward target's movement if known
+
     local slideDir = right
     if targetChar then
         local vel = worldVel(targetChar)
@@ -312,37 +291,32 @@ local function constrainedPath(origin, targetPos, targetChar, ignore)
         end
     end
 
-    -- Try small side steps around the obstacle
     local bestPath = nil
     local bestScore = math.huge
-    
-    for _, offset in ipairs({2.0, 3.5}) do  -- Only small offsets
+
+    for _, offset in ipairs({2.0, 3.5}) do  
         for _, direction in ipairs({slideDir, -slideDir}) do
             local sideStep = hitPos + direction * offset
-            
-            -- Make sure side step doesn't go too far from original path
+
             local distanceFromPath = (sideStep - (origin + toTarget * (sideStep - origin):Dot(toTarget))).Magnitude
             if distanceFromPath > maxSideStep then continue end
-            
-            -- Check if we can reach the side step
+
             local reachHit = rayTowards(origin, sideStep, ignore)
             if reachHit and not ignoreHit(reachHit) then continue end
-            
-            -- Check if we can see target from side step  
+
             local seeHit = rayTowards(sideStep, targetPos, ignore)
             if seeHit and not ignoreHit(seeHit) then
-                -- Try small peek past the side step
+
                 local peek = sideStep + toTarget * cornerPeekDist
                 seeHit = rayTowards(sideStep, peek, ignore)
                 if seeHit and not ignoreHit(seeHit) then continue end
                 sideStep = peek
             end
-            
-            -- Score this path (prefer shorter detours)
+
             local detourDistance = (sideStep - origin).Magnitude + (targetPos - sideStep).Magnitude
             local directDistance = (targetPos - origin).Magnitude
             local score = detourDistance - directDistance
-            
+
             if score < bestScore and score < maxTotalDetour then
                 bestPath = sideStep
                 bestScore = score
@@ -350,11 +324,10 @@ local function constrainedPath(origin, targetPos, targetChar, ignore)
         end
     end
 
-    -- Try small vertical adjustments if horizontal failed
     if not bestPath then
         for _, yOffset in ipairs({maxVerticalStep, -maxVerticalStep}) do
             local vertStep = hitPos + Vector3.new(0, yOffset, 0) + slideDir * 2.0
-            
+
             local reachHit = rayTowards(origin, vertStep, ignore)
             if not reachHit or ignoreHit(reachHit) then
                 local seeHit = rayTowards(vertStep, targetPos, ignore)
@@ -370,7 +343,6 @@ local function constrainedPath(origin, targetPos, targetChar, ignore)
         end
     end
 
-    -- Return best path found, or fall back to hitting the obstacle
     return bestPath or (hitPos - dirToTarget * 1.0)
 end
 
@@ -382,7 +354,6 @@ local function clampToFloor(aim, targetAnchor, ignore)
     return hit and Vector3.new(aim.X, hit.Position.Y + 0.75, aim.Z) or aim
 end
 
--- Rate limiting
 local lastThrow, gapSec = 0, 0.25; local tokens, maxTokens, refill = 4,4,1.5; local lastRefill=os.clock()
 local function readyToThrow()
     local now=os.clock(); local dt=now-lastRefill
@@ -391,7 +362,6 @@ local function readyToThrow()
     tokens=tokens-1; lastThrow=now; return true
 end
 
--- Main loop
 local function step()
     if not CoreGui:FindFirstChild(SECURITY_MARKER) then if loopConn then loopConn:Disconnect(); loopConn=nil end return end
     if not Env.CRIMSON_AUTO_KNIFE.enabled then return end
@@ -414,7 +384,6 @@ local function step()
     local limbPred = predictPoint(origin, tc, targetLimb, sameGround, gpos)
     if not limbPred then return end
 
-    -- Use constrained pathfinding instead of the old advanced pathfinding
     local aimPos = constrainedPath(origin, limbPred, tc, ignore)
     if not aimPos or not finite3(aimPos) then return end
     aimPos = clampToFloor(aimPos, anchor, ignore)
