@@ -63,12 +63,36 @@ local function removeVisualsFor(player)
     State.lastRole[player] = nil
 end
 
-local function removeAllVisuals()
-    for plr, h in pairs(State.highlights) do destroySafe(h); State.highlights[plr] = nil end
-    for plr, b in pairs(State.billboards) do destroySafe(b); State.billboards[plr] = nil end
+local function sweepAllRoleESP()
+
+    for plr, inst in pairs(State.highlights) do destroySafe(inst); State.highlights[plr] = nil end
+    for plr, inst in pairs(State.billboards) do destroySafe(inst); State.billboards[plr] = nil end
+
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then removeVisualsFor(plr) end
+        local char = plr.Character
+        if char then
+
+            for _, obj in ipairs(char:GetChildren()) do
+                if obj:IsA("Highlight") then destroySafe(obj) end
+            end
+
+            local head = char:FindFirstChild("Head")
+            if head then
+                for _, obj in ipairs(head:GetChildren()) do
+                    if obj:IsA("BillboardGui") and obj.Name == "RoleBillboard" then
+                        destroySafe(obj)
+                    end
+                end
+            end
+        end
+
+        State.bumpedOnce[plr] = nil
+        State.lastRole[plr] = nil
     end
+end
+
+local function removeAllVisuals()
+    sweepAllRoleESP()
 end
 
 local function createHighlight(character, color, outlineColor)
@@ -241,13 +265,9 @@ Shared.CRIMSON_ESP = {
     end,
 
     disable = function(silent)
-        if not State.enabled then
-            removeAllVisuals()
-            return
-        end
         State.enabled = false
         disconnectAll()
-        removeAllVisuals()
+        sweepAllRoleESP()  
         if not silent then
         end
     end
