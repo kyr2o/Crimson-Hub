@@ -1,3 +1,4 @@
+-- Auto Shoot Script (Logic and Hub Hooks)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -6,6 +7,7 @@ local LocalPlayer = Players.LocalPlayer
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
+-- Expose the calibration logic globally
 do
     local function predictionFromPing(ms)
         if not ms or ms ~= ms then return 0.14 end
@@ -24,7 +26,7 @@ do
         local net = Stats and Stats.Network
         local item = net and net.ServerStatsItem and net.ServerStatsItem["Data Ping"]
         local v = item and item:GetValue()
-        if v and v < 1 then return math.floor(v*1000 + 0.5) end
+        if v and v < 1 then return math.floor(v * 1000 + 0.5) end
         return math.floor((v or 0) + 0.5)
     end
 
@@ -36,16 +38,14 @@ do
     end
 end
 
+-- Auto Shoot Core Logic
 local shootConnection
 
 local function findMurderer()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             local bp = player:FindFirstChild("Backpack")
-            if bp and bp:FindFirstChild("Knife") then
-                return player
-            end
-            if player.Character:FindFirstChild("Knife") then
+            if (bp and bp:FindFirstChild("Knife")) or player.Character:FindFirstChild("Knife") then
                 return player
             end
         end
@@ -62,7 +62,6 @@ end
 
 local function onCharacter(character)
     disconnectShoot()
-
     local backpack = LocalPlayer:WaitForChild("Backpack", 5)
     if not backpack then return end
 
@@ -79,8 +78,10 @@ local function onCharacter(character)
         shootConnection = RunService.Heartbeat:Connect(function()
             if not G.CRIMSON_AUTO_SHOOT.enabled then return end
             if not character:FindFirstChild("Gun") then return end
+            
             local murderer = findMurderer()
             local root = murderer and murderer.Character and murderer.Character:FindFirstChild("UpperTorso")
+            
             if root then
                 local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0
                 local aimPos = root.Position + (root.Velocity * pred)
@@ -90,14 +91,10 @@ local function onCharacter(character)
     end
 
     character.ChildAdded:Connect(function(child)
-        if child.Name == "Gun" then
-            tryBindGun()
-        end
+        if child.Name == "Gun" then tryBindGun() end
     end)
     character.ChildRemoved:Connect(function(child)
-        if child.Name == "Gun" then
-            disconnectShoot()
-        end
+        if child.Name == "Gun" then disconnectShoot() end
     end)
 
     tryBindGun()
@@ -109,31 +106,8 @@ LocalPlayer.CharacterAdded:Connect(onCharacter)
 G.CRIMSON_AUTO_SHOOT.enable = function()
     G.CRIMSON_AUTO_SHOOT.enabled = true
 end
+
 G.CRIMSON_AUTO_SHOOT.disable = function()
     G.CRIMSON_AUTO_SHOOT.enabled = false
     disconnectShoot()
-end
-
-G.CRIMSON_HUB = G.CRIMSON_HUB or {}
-G.CRIMSON_HUB.AddAutoCalibrateButton = function(parent, createButton)
-
-    if typeof(createButton) ~= "function" then return end
-    local btn = createButton(parent, "Auto-Calibrate")
-    local function onClick()
-        if G and G.CRIMSON_AUTO_SHOOT and G.CRIMSON_AUTO_SHOOT.calibrate then
-            local ms, pred = G.CRIMSON_AUTO_SHOOT.calibrate()
-
-            if btn and btn.SetText then
-                btn:SetText(string.format("Ping %dms → %.3f", ms or 0, pred or 0))
-                task.delay(1.25, function() pcall(function() btn:SetText("Auto-Calibrate") end) end)
-            end
-        end
-    end
-
-    if btn and btn.MouseButton1Click then
-        btn.MouseButton1Click:Connect(onClick)
-    elseif btn and btn.Activated then
-        btn.Activated:Connect(onClick)
-    end
-    return btn, onClick
 end
