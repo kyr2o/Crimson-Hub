@@ -15,7 +15,7 @@ Env.CRIMSON_AUTO_KNIFE = Env.CRIMSON_AUTO_KNIFE or { enabled = true }
 local AllowedAnimIds = {
     "rbxassetid://1957618848", 
 }
-local AnimGateSeconds = 0.25
+local AnimGateSeconds = 0.75
 
 local leadAmount = 1.50
 local rangeGainPerStud = 0.0025
