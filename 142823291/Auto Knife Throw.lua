@@ -15,22 +15,27 @@ Env.CRIMSON_AUTO_KNIFE = Env.CRIMSON_AUTO_KNIFE or { enabled = true }
 local AllowedAnimIds = {
     "rbxassetid://1957618848", 
 }
-local AnimGateSeconds = 0.75
+local AnimGateSeconds = 0.25
 
 local leadAmount = 1.50
 local rangeGainPerStud = 0.0025
-local maxWallSteps = 4
-local sideProbe = {3.0, 6.0, 9.0}
-local heightProbe = {2.0, -2.0}
-local peekForward = 6.0
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
 local groundProbeRadius = 2.5
 local maxGroundSnap = 24
 local sameGroundTolerance = 1.75
 
-local groundedMemorySec = 0.35       
-local groundedTorsoYOffset = 1.0     
+local maxPathSteps = 8                   
+local gapProbeRadius = 4.0               
+local gapMinWidth = 1.8                  
+local verticalClearance = 2.2            
+local windowSearchAngles = {-45, -30, -15, 0, 15, 30, 45} 
+local cornerPeekDist = 5.5               
+local intermediateWaypointSpacing = 6.0  
+local maxDetourDistance = 16.0           
+
+local groundedMemorySec = 0.35
+local groundedTorsoYOffset = 1.0
 
 local myChar = me.Character or me.CharacterAdded:Wait()
 local myHum = myChar:WaitForChild("Humanoid")
@@ -39,10 +44,9 @@ local myKnife, knifeRemote
 local loopConn
 
 local trackStart = setmetatable({}, { __mode = "k" })
-
-local lastGroundY = {}          
-local lastGroundedTorso = {}    
-local lastGroundedTime = {}     
+local lastGroundY = {}
+local lastGroundedTorso = {}
+local lastGroundedTime = {}
 
 local function unit(v)
     local m = v.Magnitude
@@ -56,6 +60,11 @@ local function clamp(v, a, b)
 end
 local function finite3(v)
     return v and v.X == v.X and v.Y == v.Y and v.Z == v.Z
+end
+local function rotateVectorY(v, degrees)
+    local rad = math.rad(degrees)
+    local cos, sin = math.cos(rad), math.sin(rad)
+    return Vector3.new(v.X * cos - v.Z * sin, v.Y, v.X * sin + v.Z * cos)
 end
 
 local function findKnife()
@@ -142,7 +151,6 @@ local function chooseTarget()
 
     table.sort(rest, function(a,b) return a.d < b.d end)
     if #rest > 0 then return rest[1].player end
-
     return nil
 end
 
@@ -154,19 +162,160 @@ local function ignoreHit(hit)
         if s.X < ignoreMinThickness or s.Y < ignoreMinThickness or s.Z < ignoreMinThickness then return true end
         local mat = inst.Material
         if mat == Enum.Material.Glass or mat == Enum.Material.ForceField then return true end
+
+        if s.X < 0.8 and s.Y < 0.8 and s.Z < 0.8 then return true end
     end
     return false
 end
+
 local function rayTo(origin, dir, length, ignore)
     local p = RaycastParams.new()
     p.FilterType = Enum.RaycastFilterType.Exclude
     p.FilterDescendantsInstances = ignore
     return Workspace:Raycast(origin, dir * length, p)
 end
+
 local function rayTowards(origin, target, ignore)
     local u, mag = unit(target - origin)
     local hit = rayTo(origin, u, clamp(mag, 0, 12288), ignore)
     return hit, u, mag
+end
+
+local function hasVerticalClearance(position, ignore)
+    local up = rayTo(position, Vector3.new(0, 1, 0), verticalClearance, ignore)
+    local down = rayTo(position, Vector3.new(0, -1, 0), verticalClearance, ignore)
+    return not up and not down
+end
+
+local function findGapInDirection(from, toTarget, ignore)
+    local baseDir = unit(toTarget - from)
+    local right = baseDir:Cross(Vector3.new(0, 1, 0)).Unit
+    local bestGap = nil
+    local bestScore = math.huge
+
+    for _, angle in ipairs(windowSearchAngles) do
+        local probeDir = rotateVectorY(baseDir, angle)
+        local probePoint = from + probeDir * gapProbeRadius
+
+        local hit = rayTowards(from, probePoint, ignore)
+        if not hit then
+
+            if hasVerticalClearance(probePoint, ignore) then
+
+                local score = math.abs(angle) + (probePoint - toTarget).Magnitude * 0.1
+                if score < bestScore then
+                    bestGap = probePoint
+                    bestScore = score
+                end
+            end
+        end
+    end
+
+    return bestGap
+end
+
+local function findAdvancedPath(origin, targetPos, ignore)
+    local waypoints = {origin}
+    local current = origin
+    local remaining = targetPos - origin
+    local totalDetour = 0
+
+    for step = 1, maxPathSteps do
+        local toTarget = targetPos - current
+        local dist = toTarget.Magnitude
+        if dist < 2.0 then
+            table.insert(waypoints, targetPos)
+            break
+        end
+
+        local hit = rayTowards(current, targetPos, ignore)
+        if not hit or ignoreHit(hit) then
+            table.insert(waypoints, targetPos)
+            break
+        end
+
+        local gap = findGapInDirection(current, targetPos, ignore)
+        if gap then
+            local gapDist = (gap - current).Magnitude
+            if totalDetour + gapDist <= maxDetourDistance then
+                table.insert(waypoints, gap)
+                current = gap
+                totalDetour = totalDetour + gapDist
+                continue
+            end
+        end
+
+        local u = unit(toTarget)
+        local right = u:Cross(Vector3.new(0, 1, 0)).Unit
+
+        local targetChar = nil
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl ~= me and pl.Character then
+                local anchor = aimPart(pl.Character)
+                if anchor and (anchor.Position - targetPos).Magnitude < 5 then
+                    targetChar = pl.Character
+                    break
+                end
+            end
+        end
+
+        local slideDir = right
+        if targetChar then
+            local vel = worldVel(targetChar)
+            local velRight = Vector3.new(vel.X, 0, vel.Z):Dot(right)
+            slideDir = velRight >= 0 and right or -right
+        end
+
+        local foundSlide = false
+        for _, offset in ipairs({3.0, 6.0, 9.0, 12.0}) do
+            local slidePoint = hit.Position + slideDir * offset
+            local peek = slidePoint + u * cornerPeekDist
+
+            local slideHit = rayTowards(current, slidePoint, ignore)
+            local peekHit = rayTowards(slidePoint, peek, ignore)
+
+            if (not slideHit or ignoreHit(slideHit)) and 
+               (not peekHit or ignoreHit(peekHit)) and 
+               hasVerticalClearance(slidePoint, ignore) then
+
+                local slideDist = (slidePoint - current).Magnitude
+                if totalDetour + slideDist <= maxDetourDistance then
+                    table.insert(waypoints, slidePoint)
+                    current = slidePoint
+                    totalDetour = totalDetour + slideDist
+                    foundSlide = true
+                    break
+                end
+            end
+        end
+
+        if not foundSlide then
+
+            for _, yOffset in ipairs({2.5, -2.5, 5.0}) do
+                local altPoint = hit.Position + slideDir * 4.0 + Vector3.new(0, yOffset, 0)
+                local altHit = rayTowards(current, altPoint, ignore)
+
+                if not altHit or ignoreHit(altHit) then
+                    local altDist = (altPoint - current).Magnitude
+                    if totalDetour + altDist <= maxDetourDistance then
+                        table.insert(waypoints, altPoint)
+                        current = altPoint
+                        totalDetour = totalDetour + altDist
+                        foundSlide = true
+                        break
+                    end
+                end
+            end
+        end
+
+        if not foundSlide then
+
+            table.insert(waypoints, hit.Position - u * 1.0)
+            break
+        end
+    end
+
+    return #waypoints > 1 and waypoints[#waypoints] or nil
 end
 
 local function rememberGroundedTorso(targetChar, sameGround, groundPos)
@@ -177,7 +326,7 @@ local function rememberGroundedTorso(targetChar, sameGround, groundPos)
     if sameGround and groundPos then
         local p = torso.Position
         lastGroundedTorso[id] = Vector3.new(p.X, groundPos.Y + groundedTorsoYOffset, p.Z)
-        lastGroundedTime[id]  = os.clock()
+        lastGroundedTime[id] = os.clock()
     end
 end
 
@@ -193,11 +342,8 @@ local function groundGhost(targetChar, ignore)
         f = (f.Magnitude > 0) and f.Unit or Vector3.new(0,0,1)
         local r = f:Cross(Vector3.new(0,1,0)).Unit
         local samples = {
-            Vector3.new(0,0,0),
-            r * groundProbeRadius,
-            -r * groundProbeRadius,
-            f * groundProbeRadius,
-            -f * groundProbeRadius,
+            Vector3.new(0,0,0), r * groundProbeRadius, -r * groundProbeRadius,
+            f * groundProbeRadius, -f * groundProbeRadius,
         }
         for _,off in ipairs(samples) do
             local h2 = rayTo(from + off, Vector3.new(0,-1,0), maxGroundSnap, ignore)
@@ -209,9 +355,7 @@ local function groundGhost(targetChar, ignore)
     local same = false
     if groundPos then
         local lastY = lastGroundY[id]
-        if lastY then
-            same = math.abs(groundPos.Y - lastY) <= sameGroundTolerance
-        end
+        if lastY then same = math.abs(groundPos.Y - lastY) <= sameGroundTolerance end
         lastGroundY[id] = groundPos.Y
     end
     return groundPos, same
@@ -266,7 +410,6 @@ local function verticalOffset(targetChar, t, focusPart, sameGround, groundPos)
         y = y * 0.75
     end
     if (hum.WalkSpeed or 16) < 8 then y = y * 0.7 end
-
     return y
 end
 
@@ -311,7 +454,6 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
     if not useTorsoStick then
         y = verticalOffset(targetChar, t, p, sameGround, groundPos)
     else
-
         y = clamp(worldVel(targetChar).Y * t * 0.12, -3, 3)
     end
 
@@ -319,36 +461,13 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
     return finite3(pred) and pred or basePos
 end
 
-local function axes(v)
-    local u,_ = unit(v)
-    if u.Magnitude == 0 then return Vector3.new(1,0,0), Vector3.new(0,1,0) end
-    local up = Vector3.new(0,1,0)
-    if math.abs(u:Dot(up)) > 0.95 then up = Vector3.new(1,0,0) end
-    local right = (u:Cross(up)).Unit
-    local newUp = (right:Cross(u)).Unit
-    return right, newUp
-end
-
-local function advancedPath(origin, targetChar, ignoreList, sameGround, groundPos)
+local function advancedPathfinding(origin, targetChar, ignoreList, sameGround, groundPos)
     local head = targetChar:FindFirstChild("Head")
     if head then
         local headPred = predictPoint(origin, targetChar, head, sameGround, groundPos)
         if headPred then
-            local hit, u = rayTowards(origin, headPred, ignoreList)
-            if not hit or hit.Instance:IsDescendantOf(targetChar) or ignoreHit(hit) then
-                return headPred
-            end
-            local v = worldVel(targetChar)
-            local right,_ = axes(u)
-            local lateral = (v:Dot(right) >= 0) and right or -right
-            for _,off in ipairs({2.5, 5.0, 7.5}) do
-                local side = hit.Position + lateral * off
-                local slide = side + (headPred - hit.Position) * 0.8
-                local h2 = select(1, rayTowards(origin, slide, ignoreList))
-                if not h2 or h2.Instance:IsDescendantOf(targetChar) or ignoreHit(h2) then
-                    return slide
-                end
-            end
+            local advancedAim = findAdvancedPath(origin, headPred, ignoreList)
+            if advancedAim then return advancedAim end
         end
     end
 
@@ -356,21 +475,8 @@ local function advancedPath(origin, targetChar, ignoreList, sameGround, groundPo
     if a then
         local bodyPred = predictPoint(origin, targetChar, a, sameGround, groundPos)
         if bodyPred then
-            local hit, u = rayTowards(origin, bodyPred, ignoreList)
-            if not hit or hit.Instance:IsDescendantOf(targetChar) or ignoreHit(hit) then
-                return bodyPred
-            end
-            local v = worldVel(targetChar)
-            local right,_ = axes(u)
-            local lateral = (v:Dot(right) >= 0) and right or -right
-            for _,off in ipairs({3.0, 6.0}) do
-                local side = hit.Position + lateral * off
-                local slide = side + (bodyPred - hit.Position) * 0.6
-                local h2 = select(1, rayTowards(origin, slide, ignoreList))
-                if not h2 or h2.Instance:IsDescendantOf(targetChar) or ignoreHit(h2) then
-                    return slide
-                end
-            end
+            local advancedAim = findAdvancedPath(origin, bodyPred, ignoreList)
+            if advancedAim then return advancedAim end
         end
     end
 
@@ -437,7 +543,7 @@ local function step()
     local groundPos, sameGround = groundGhost(tc, ignore)
     rememberGroundedTorso(tc, sameGround, groundPos)
 
-    local aimPos = advancedPath(origin, tc, ignore, sameGround, groundPos)
+    local aimPos = advancedPathfinding(origin, tc, ignore, sameGround, groundPos)
     if not aimPos or not finite3(aimPos) then return end
     aimPos = clampToFloor(aimPos, tAnchor, ignore)
     if not finite3(aimPos) then return end
