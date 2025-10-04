@@ -4,49 +4,39 @@ local stats = game:GetService("Stats")
 local localPlayer = players.LocalPlayer
 
 local G = (getgenv and getgenv()) or _G
-G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or {
-    enabled = false,
-    prediction = 0.14,
-    auto_ping = false
-}
+G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
 local shootConnection
 
-local function readPingMs()
-    local ok, val = pcall(function()
-        local item = stats.Network.ServerStatsItem["Data Ping"]
-        return item and item:GetValue() or nil
-    end)
-    if ok and type(val) == "number" then return val end
-
-    ok, val = pcall(function()
-        local item = stats.Network.ServerStatsItem["Ping"]
-        return item and item:GetValue() or nil
-    end)
-    if ok and type(val) == "number" then return val end
-
-    return 120 
+local function predictionFromPing(ms)
+    if not ms or ms ~= ms then return 0.14 end
+    if ms <= 40  then return 0.06 end
+    if ms <= 60  then return 0.08 end
+    if ms <= 80  then return 0.10 end
+    if ms <= 100 then return 0.12 end
+    if ms <= 120 then return 0.135 end
+    if ms <= 150 then return 0.15 end     
+    if ms <= 180 then return 0.17 end
+    if ms <= 220 then return 0.19 end
+    return 0.21
 end
 
-local function pingToPrediction(ms)
+local function getPingMs()
+    local net = stats and stats.Network
+    local incoming = net and net.ServerStatsItem and net.ServerStatsItem["Data Ping"]
+    local avg = incoming and incoming:GetValue()
 
-    ms = math.clamp(ms, 20, 300)
-
-    if ms <= 40 then
-        return 0.05 + (ms-20) * (0.02/20)
-    elseif ms <= 70 then
-        return 0.07 + (ms-40) * (0.03/30)
-    elseif ms <= 100 then
-        return 0.10 + (ms-70) * (0.03/30)
-    elseif ms <= 120 then
-        return 0.13 + (ms-100) * (0.01/20)
-    elseif ms <= 150 then
-        return 0.14 + (ms-120) * (0.01/30)
-    elseif ms <= 200 then
-        return 0.15 + (ms-150) * (0.03/50)
-    else
-        return 0.18 + (ms-200) * (0.05/100)
+    if avg and avg < 1 then
+        return math.floor((avg or 0) * 1000 + 0.5)
     end
+    return math.floor((avg or 0) + 0.5)
+end
+
+G.CRIMSON_AUTO_SHOOT.calibrate = function()
+    local ms = getPingMs()
+    local pred = predictionFromPing(ms)
+    G.CRIMSON_AUTO_SHOOT.prediction = pred
+    return ms, pred
 end
 
 local function findMurderer()
@@ -88,18 +78,11 @@ local function onCharacter(character)
         shootConnection = runService.Heartbeat:Connect(function()
             if not G.CRIMSON_AUTO_SHOOT.enabled then return end
             if not character:FindFirstChild("Gun") then return end
-
-            if G.CRIMSON_AUTO_SHOOT.auto_ping then
-                local ping = readPingMs()
-                G.CRIMSON_AUTO_SHOOT.prediction = pingToPrediction(ping)
-            end
-
             local murderer = findMurderer()
-            local root = murderer and murderer.Character and (murderer.Character:FindFirstChild("UpperTorso") or murderer.Character:FindFirstChild("HumanoidRootPart"))
+            local root = murderer and murderer.Character and murderer.Character:FindFirstChild("UpperTorso")
             if root then
-                local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.12
-                local vel = root.AssemblyLinearVelocity or root.Velocity
-                local aimPos = root.Position + (vel * pred)
+                local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0
+                local aimPos = root.Position + (root.Velocity * pred)
                 rf:InvokeServer(1, aimPos, "AH2")
             end
         end)
@@ -130,15 +113,4 @@ end
 G.CRIMSON_AUTO_SHOOT.disable = function()
     G.CRIMSON_AUTO_SHOOT.enabled = false
     disconnectShoot()
-end
-
-G.CRIMSON_AUTO_SHOOT.set_auto_ping = function(state)
-    G.CRIMSON_AUTO_SHOOT.auto_ping = state and true or false
-end
-
-G.CRIMSON_AUTO_SHOOT.snap_prediction_from_ping = function()
-    local ping = readPingMs()
-    local pred = pingToPrediction(ping)
-    G.CRIMSON_AUTO_SHOOT.prediction = pred
-    return ping, pred
 end
