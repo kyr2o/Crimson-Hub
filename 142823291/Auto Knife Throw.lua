@@ -25,14 +25,24 @@ local groundProbeRadius = 2.5
 local maxGroundSnap = 24
 local sameGroundTolerance = 1.75
 
-local maxPathSteps = 8                   
-local gapProbeRadius = 4.0               
-local gapMinWidth = 1.8                  
-local verticalClearance = 2.2            
-local windowSearchAngles = {-45, -30, -15, 0, 15, 30, 45} 
-local cornerPeekDist = 5.5               
-local intermediateWaypointSpacing = 6.0  
-local maxDetourDistance = 16.0           
+local maxPathSteps = 8
+local gapProbeRadius = 4.0
+local gapMinWidth = 1.8
+local verticalClearance = 2.2
+local windowSearchAngles = {-45, -30, -15, 0, 15, 30, 45}
+local cornerPeekDist = 5.5
+local intermediateWaypointSpacing = 6.0
+local maxDetourDistance = 16.0
+
+local BODY_PART_PRIORITY = {
+    "Left Leg", "Right Leg",           
+    "Left Foot", "Right Foot",         
+    "Left Arm", "Right Arm",           
+    "Left Hand", "Right Hand",         
+    "LowerTorso", "UpperTorso",        
+    "HumanoidRootPart",                
+    "Head"                             
+}
 
 local groundedMemorySec = 0.35
 local groundedTorsoYOffset = 1.0
@@ -119,6 +129,30 @@ local function worldVel(char)
     return p and p.AssemblyLinearVelocity or Vector3.zero
 end
 
+local function getExposedBodyPartsInPriority(character, ignore)
+    if not character then return {} end
+
+    local exposed = {}
+    local origin = camera.CFrame.Position
+
+    for _, partName in ipairs(BODY_PART_PRIORITY) do
+        local part = character:FindFirstChild(partName)
+        if part and part:IsA("BasePart") then
+            local p = RaycastParams.new()
+            p.FilterType = Enum.RaycastFilterType.Exclude
+            p.FilterDescendantsInstances = ignore
+            local u, mag = unit(part.Position - origin)
+            local hit = Workspace:Raycast(origin, u * clamp(mag, 0, 12288), p)
+
+            if not hit or hit.Instance:IsDescendantOf(character) or ignoreHit(hit) then
+                table.insert(exposed, {part = part, name = partName, priority = #exposed + 1})
+            end
+        end
+    end
+
+    return exposed
+end
+
 local function chooseTarget()
     local mouse = me:GetMouse()
     local front, rest = {}, {}
@@ -189,7 +223,6 @@ end
 
 local function findGapInDirection(from, toTarget, ignore)
     local baseDir = unit(toTarget - from)
-    local right = baseDir:Cross(Vector3.new(0, 1, 0)).Unit
     local bestGap = nil
     local bestScore = math.huge
 
@@ -199,9 +232,7 @@ local function findGapInDirection(from, toTarget, ignore)
 
         local hit = rayTowards(from, probePoint, ignore)
         if not hit then
-
             if hasVerticalClearance(probePoint, ignore) then
-
                 local score = math.abs(angle) + (probePoint - toTarget).Magnitude * 0.1
                 if score < bestScore then
                     bestGap = probePoint
@@ -217,7 +248,6 @@ end
 local function findAdvancedPath(origin, targetPos, ignore)
     local waypoints = {origin}
     local current = origin
-    local remaining = targetPos - origin
     local totalDetour = 0
 
     for step = 1, maxPathSteps do
@@ -290,7 +320,6 @@ local function findAdvancedPath(origin, targetPos, ignore)
         end
 
         if not foundSlide then
-
             for _, yOffset in ipairs({2.5, -2.5, 5.0}) do
                 local altPoint = hit.Position + slideDir * 4.0 + Vector3.new(0, yOffset, 0)
                 local altHit = rayTowards(current, altPoint, ignore)
@@ -309,7 +338,6 @@ local function findAdvancedPath(origin, targetPos, ignore)
         end
 
         if not foundSlide then
-
             table.insert(waypoints, hit.Position - u * 1.0)
             break
         end
@@ -434,7 +462,14 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
     if not basePos then
         basePos = p.Position
         if groundPos then
-            basePos = Vector3.new(basePos.X, groundPos.Y + (p.Name == "Head" and 1.5 or 1.0), basePos.Z)
+
+            local yOffset = 1.0
+            if p.Name:find("Leg") or p.Name:find("Foot") then
+                yOffset = 0.5  
+            elseif p.Name == "Head" then
+                yOffset = 1.5
+            end
+            basePos = Vector3.new(basePos.X, groundPos.Y + yOffset, basePos.Z)
         end
     end
 
@@ -462,12 +497,17 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
 end
 
 local function advancedPathfinding(origin, targetChar, ignoreList, sameGround, groundPos)
-    local head = targetChar:FindFirstChild("Head")
-    if head then
-        local headPred = predictPoint(origin, targetChar, head, sameGround, groundPos)
-        if headPred then
-            local advancedAim = findAdvancedPath(origin, headPred, ignoreList)
-            if advancedAim then return advancedAim end
+
+    local exposedParts = getExposedBodyPartsInPriority(targetChar, ignoreList)
+
+    for _, partInfo in ipairs(exposedParts) do
+        local part = partInfo.part
+        local pred = predictPoint(origin, targetChar, part, sameGround, groundPos)
+        if pred then
+            local advancedAim = findAdvancedPath(origin, pred, ignoreList)
+            if advancedAim then 
+                return advancedAim, part  
+            end
         end
     end
 
@@ -476,11 +516,11 @@ local function advancedPathfinding(origin, targetChar, ignoreList, sameGround, g
         local bodyPred = predictPoint(origin, targetChar, a, sameGround, groundPos)
         if bodyPred then
             local advancedAim = findAdvancedPath(origin, bodyPred, ignoreList)
-            if advancedAim then return advancedAim end
+            if advancedAim then return advancedAim, a end
         end
     end
 
-    return nil
+    return nil, nil
 end
 
 local function clampToFloor(aim, targetAnchor, ignore)
@@ -543,7 +583,7 @@ local function step()
     local groundPos, sameGround = groundGhost(tc, ignore)
     rememberGroundedTorso(tc, sameGround, groundPos)
 
-    local aimPos = advancedPathfinding(origin, tc, ignore, sameGround, groundPos)
+    local aimPos, targetedPart = advancedPathfinding(origin, tc, ignore, sameGround, groundPos)
     if not aimPos or not finite3(aimPos) then return end
     aimPos = clampToFloor(aimPos, tAnchor, ignore)
     if not finite3(aimPos) then return end
