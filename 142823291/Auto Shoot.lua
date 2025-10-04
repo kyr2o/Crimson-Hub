@@ -6,6 +6,8 @@ local Workspace = game:GetService("Workspace")
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
+G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT = G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT or 100.0
+
 local function __mm2_pred_from_ping(ms)
     if not ms or ms ~= ms then return 0.14 end
     if ms <= 40  then return 0.11 end
@@ -83,12 +85,11 @@ local function fallAimOffsets(rootPos, vel, hum, ignore, basePred)
 
         local baseDown = 1.0
         if distToFloor then
-
             baseDown = math.clamp(0.6 + distToFloor * 0.32, 1.0, 10.0)
         else
             baseDown = 1.2
         end
-        local speedFactor = math.clamp(math.abs(vy)/40, 0.0, 1.2) 
+        local speedFactor = math.clamp(math.abs(vy)/40, 0.0, 1.2)
         outY = - (baseDown * (1.0 + 0.7*speedFactor))
 
         if floorY then
@@ -103,8 +104,9 @@ local function fallAimOffsets(rootPos, vel, hum, ignore, basePred)
         local speedScale = math.clamp(math.abs(vy)/35, 0.0, 1.6)
         local pingBoost = math.clamp(basePred*2.2, 0.10, 0.38)
 
-        forwardScale = 1.0 + pingBoost + 0.55*distScale + 0.45*speedScale
-        forwardScale = math.clamp(forwardScale, 1.35, 3.2) 
+        forwardScale = (1.0 + pingBoost + 0.55*distScale + 0.45*speedScale)
+        forwardScale = forwardScale * math.max(0.2, tonumber(G.CRIMSON_AUTO_SHOOT.FALL_LEAD_MULT) or 1.0)
+        forwardScale = math.clamp(forwardScale, 1.0, 4.5) 
 
     elseif jumping then
         outY = math.clamp(vy * 0.03, 0, 1.2)
@@ -152,7 +154,6 @@ local function onCharacter(character)
             local horizLead = vel * (basePred * fScale)
 
             local aimPos = root.Position + horizLead + Vector3.new(0, nudgeY, 0)
-
             rf:InvokeServer(1, aimPos, "AH2")
         end)
     end
