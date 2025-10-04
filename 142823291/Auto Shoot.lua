@@ -54,14 +54,11 @@ local function humanoidAndRoot(char)
 end
 
 local function findMurderer()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local c = player.Character
-            if c then
-                local bp = player:FindFirstChild("Backpack")
-                if (bp and bp:FindFirstChild("Knife")) or c:FindFirstChild("Knife") then
-                    return player
-                end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local bp = p:FindFirstChild("Backpack")
+            if (bp and bp:FindFirstChild("Knife")) or p.Character:FindFirstChild("Knife") then
+                return p
             end
         end
     end
@@ -75,8 +72,8 @@ local function disconnectShoot()
     end
 end
 
-local function verticalNudgeForFall(originPos, rootPos, vel, hum, ignore)
-    if not hum then return Vector3.new() end
+local function verticalNudgeForAir(rootPos, vel, hum, ignore)
+    if not hum then return 0 end
 
     local gravity = Workspace.Gravity or 196.2
     local jp = hum.JumpPower or 50
@@ -85,62 +82,43 @@ local function verticalNudgeForFall(originPos, rootPos, vel, hum, ignore)
 
     local falling = (state == Enum.HumanoidStateType.Freefall) or (vy < -1.0)
     local jumping = (state == Enum.HumanoidStateType.Jumping)
-    if not (falling or jumping) then
-        return Vector3.new() 
-    end
 
-    local downHit = raycastDown(rootPos + Vector3.new(0, 1.5, 0), 64, ignore)
-    if not downHit then
+    local downHit = raycastDown(rootPos + Vector3.new(0, 1.5, 0), 80, ignore)
+    local floorY = downHit and downHit.Position.Y or nil
+    local distToFloor = floorY and (rootPos.Y - floorY) or nil
 
-        local airTilt = math.clamp(-vy * 0.02, -3, 3)
-        return Vector3.new(0, airTilt, 0)
-    end
+    if falling then
 
-    local floorY = downHit.Position.Y
-    local distToFloor = rootPos.Y - floorY 
+        local baseDown = 0
+        if distToFloor then
 
-    local tToFloor
-    do
-        local a = 0.5*gravity
-        local b = -vy
-        local c = -distToFloor
-        local disc = b*b - 4*a*c
-        if disc >= 0 then
-            local sqrtD = math.sqrt(disc)
-            local t1 = (b + sqrtD)/(2*a)
-            local t2 = (b - sqrtD)/(2*a)
-            local t = math.max(t1, t2)
-            if t and t==t and t>0 and t<2.0 then
-                tToFloor = t
+            baseDown = math.clamp(0.3 + (distToFloor * 0.11), 0.4, 2.4)
+        else
+
+            baseDown = 0.8
+        end
+
+        local speedFactor = math.clamp(math.abs(vy) / 40, 0.0, 1.0) 
+        local nudgeDown = baseDown * (1.0 + 0.6 * speedFactor)
+
+        if floorY then
+            local minAbove = 1.2
+            local targetY = rootPos.Y - nudgeDown
+            if targetY < (floorY + minAbove) then
+                nudgeDown = (rootPos.Y - (floorY + minAbove))
+                nudgeDown = math.max(nudgeDown, 0.4) 
             end
         end
-    end
 
-    local nudgeY = 0
-
-    if falling and tToFloor then
-
-        local closeFactor = math.clamp(1.0 / math.max(distToFloor, 0.5), 0.05, 2.0)
-        nudgeY = math.clamp(6.0 * closeFactor, 0.5, 5.0)
-
-        if vy < -20 then
-            nudgeY = nudgeY * 0.7
-        end
+        return -math.abs(nudgeDown) 
     elseif jumping then
 
-        local jpScale = math.clamp(jp/50, 0.6, 1.4)
-        nudgeY = math.clamp(vy * 0.05 * jpScale, 0, 3.0)
+        local up = math.clamp(vy * 0.03 * math.clamp(jp/50, 0.6, 1.4), 0, 1.2)
+        return up
     else
 
-        nudgeY = math.clamp(vy * 0.03, -2, 2)
+        return math.clamp(vy * 0.02, -0.8, 0.8)
     end
-
-    local minAboveFloor = 1.2
-    if (rootPos.Y + nudgeY) < (floorY + minAboveFloor) then
-        nudgeY = (floorY + minAboveFloor) - rootPos.Y
-    end
-
-    return Vector3.new(0, nudgeY, 0)
 end
 
 local function onCharacter(character)
@@ -163,18 +141,24 @@ local function onCharacter(character)
             if not character:FindFirstChild("Gun") then return end
 
             local murderer = findMurderer()
-            local rootPlayer = murderer and murderer.Character
-            if not rootPlayer then return end
+            local tChar = murderer and murderer.Character
+            if not tChar then return end
 
-            local hum, root = humanoidAndRoot(rootPlayer)
+            local hum, root = humanoidAndRoot(tChar)
             if not hum or not root then return end
 
             local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0
-            local baseAim = root.Position + (root.Velocity * pred)
+            local vel = root.Velocity
+            local baseAim = root.Position + (vel * pred)
 
             local ignore = {character, LocalPlayer.Character}
-            local nudge = verticalNudgeForFall(myRootPos or baseAim, root.Position, root.Velocity, hum, ignore)
-            local aimPos = baseAim + nudge
+            local nudgeY = verticalNudgeForAir(root.Position, vel, hum, ignore)
+
+            if hum:GetState() == Enum.HumanoidStateType.Freefall or vel.Y < -1.0 then
+                nudgeY = math.min(nudgeY, 0) 
+            end
+
+            local aimPos = baseAim + Vector3.new(0, nudgeY, 0)
 
             rf:InvokeServer(1, aimPos, "AH2")
         end)
