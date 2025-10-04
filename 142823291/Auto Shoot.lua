@@ -13,8 +13,8 @@ local function __mm2_pred_from_ping(ms)
     if ms <= 100 then return 0.135 end
     if ms <= 120 then return 0.14 end
     if ms <= 150 then return 0.15 end
-    if ms <= 180 then return 0.17 end
-    if ms <= 220 then return 0.19 end
+    if ms <= 180 then return 0.18 end
+    if ms <= 220 then return 0.2 end
     return 0.21
 end
 
