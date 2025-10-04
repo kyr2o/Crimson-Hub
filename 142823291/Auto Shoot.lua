@@ -3,7 +3,7 @@ local runService = game:GetService("RunService")
 local localPlayer = players.LocalPlayer
 
 local G = (getgenv and getgenv()) or _G
-G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.15 }
+G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
 local shootConnection
 
