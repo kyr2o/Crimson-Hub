@@ -52,10 +52,13 @@ local function removeVisualsFor(player)
 
     local character = player.Character
     if character then
-        local hl = character:FindFirstChildOfClass("Highlight"); if hl then destroySafe(hl) end
+        local hl = character:FindFirstChildOfClass("Highlight")
+        if hl then destroySafe(hl) end
+
         local head = character:FindFirstChild("Head")
         if head then
-            local bb = head:FindFirstChild("RoleBillboard"); if bb then destroySafe(bb) end
+            local bb = head:FindFirstChild("RoleBillboard")
+            if bb then destroySafe(bb) end
         end
     end
 
@@ -64,16 +67,23 @@ local function removeVisualsFor(player)
 end
 
 local function sweepAllRoleESP()
+    for plr, inst in pairs(State.highlights) do 
+        destroySafe(inst)
+        State.highlights[plr] = nil 
+    end
 
-    for plr, inst in pairs(State.highlights) do destroySafe(inst); State.highlights[plr] = nil end
-    for plr, inst in pairs(State.billboards) do destroySafe(inst); State.billboards[plr] = nil end
+    for plr, inst in pairs(State.billboards) do 
+        destroySafe(inst)
+        State.billboards[plr] = nil 
+    end
 
     for _, plr in ipairs(Players:GetPlayers()) do
         local char = plr.Character
         if char then
-
             for _, obj in ipairs(char:GetChildren()) do
-                if obj:IsA("Highlight") then destroySafe(obj) end
+                if obj:IsA("Highlight") then 
+                    destroySafe(obj) 
+                end
             end
 
             local head = char:FindFirstChild("Head")
@@ -221,7 +231,7 @@ local function updatePlayer(player)
         setHighlight(player, character, Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0.7))
         setBillboard(player, character, "Sheriff", Color3.new(0.7, 0.7, 1), Color3.new(0, 0, 0))
     else
-        setHighlight(player, character, Color3.new(0.7, 1, 0.7), Color3.new(0, 0.7, 0))
+        setHighlight(player, character, Color3.new(0.7, 1, 0.7), Color3.new(0, 0. 7, 0))
         setBillboard(player, character, "Innocent", Color3.new(0.7, 1, 0.7), Color3.new(0, 0, 0))
     end
 end
@@ -267,9 +277,7 @@ Shared.CRIMSON_ESP = {
     disable = function(silent)
         State.enabled = false
         disconnectAll()
-        sweepAllRoleESP()  
-        if not silent then
-        end
+        sweepAllRoleESP()
     end
 }
 
