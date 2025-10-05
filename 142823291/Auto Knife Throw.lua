@@ -217,7 +217,7 @@ local function groundGhost(targetChar, ignore)
     return gpos,same
 end
 
-local baseKnifeSpeed=205
+local baseKnifeSpeed = 615  -- Multiplied by 3 (was 205)
 local function knifeSpeedAt(dist) return baseKnifeSpeed * (1 + math.clamp(dist*0.0035,0,1.5)) end
 local function timeTo(dist) local s=knifeSpeedAt(dist) if s<=0 or dist~=dist then return 0 end return dist/s end
 local function hasNormalJP(h) local jp=h and h.JumpPower or 50 return jp>=40 and jp<=75 end
@@ -333,6 +333,34 @@ local function readyToThrow()
     tokens=tokens-1; lastThrow=now; return true
 end
 
+-- New kill zone function
+local killZoneRadius = 10
+local function killNearbyPlayers(origin)
+    if not myKnife or not knifeRemote or not myChar:FindFirstChild("Knife") then return end
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= me and player.Character then
+            local targetChar = player.Character
+            local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+            local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+            
+            if targetHum and targetHum.Health > 0 and targetRoot then
+                local distance = (targetRoot.Position - origin).Magnitude
+                
+                if distance <= killZoneRadius then
+                    local ignore = {myChar}
+                    local hit = rayTowards(origin, targetRoot.Position, ignore)
+                    
+                    if not hit or hit.Instance:IsDescendantOf(targetChar) or ignoreHit(hit) then
+                        knifeRemote:FireServer(CFrame.new(targetRoot.Position), origin)
+                        task.wait(0.05)
+                    end
+                end
+            end
+        end
+    end
+end
+
 local function step()
     if not CoreGui:FindFirstChild(MARKER_NAME) then
         if loopConn then loopConn:Disconnect(); loopConn=nil end
@@ -344,6 +372,12 @@ local function step()
     if not throwIsAllowedNow() then return end
 
     local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
+    
+    -- Kill zone activation during throw
+    if throwIsAllowedNow() and myChar:FindFirstChild("Knife") then
+        killNearbyPlayers(origin)
+    end
+    
     local targetPlr, targetLimb = (function()
         return (function(o) return pickExposedTarget(o) end)(origin)
     end)()
