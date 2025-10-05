@@ -217,7 +217,7 @@ local function groundGhost(targetChar, ignore)
     return gpos,same
 end
 
-local baseKnifeSpeed = 615  -- Multiplied by 3 (was 205)
+local baseKnifeSpeed = 615
 local function knifeSpeedAt(dist) return baseKnifeSpeed * (1 + math.clamp(dist*0.0035,0,1.5)) end
 local function timeTo(dist) local s=knifeSpeedAt(dist) if s<=0 or dist~=dist then return 0 end return dist/s end
 local function hasNormalJP(h) local jp=h and h.JumpPower or 50 return jp>=40 and jp<=75 end
@@ -323,7 +323,7 @@ local function clampToStairPlane(originAim, limbPred, ignore)
     return originAim
 end
 
-local lastThrow, gapSec = 0, 0.27
+local lastThrow, gapSec = 0, 0.1
 local tokens, maxTokens, refill = 4,4,1.5
 local lastRefill=os.clock()
 local function readyToThrow()
@@ -333,27 +333,33 @@ local function readyToThrow()
     tokens=tokens-1; lastThrow=now; return true
 end
 
--- New kill zone function
-local killZoneRadius = 100
-local function killNearbyPlayers(origin)
-    if not myKnife or not knifeRemote or not myChar:FindFirstChild("Knife") then return end
-    
+local killZoneRadius = 10
+local lastKillCheck = 0
+local function killNearbyPlayers()
+    local now = os.clock()
+    if now - lastKillCheck < 0.1 then return end
+    lastKillCheck = now
+
+    if not myKnife or not knifeRemote then return end
+
+    local origin = myRoot and myRoot.Position or Vector3.zero
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= me and player.Character then
             local targetChar = player.Character
             local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
             local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-            
+
             if targetHum and targetHum.Health > 0 and targetRoot then
                 local distance = (targetRoot.Position - origin).Magnitude
-                
+
                 if distance <= killZoneRadius then
                     local ignore = {myChar}
                     local hit = rayTowards(origin, targetRoot.Position, ignore)
-                    
+
                     if not hit or hit.Instance:IsDescendantOf(targetChar) or ignoreHit(hit) then
-                        knifeRemote:FireServer(CFrame.new(targetRoot.Position), origin)
-                        task.wait(0.05)
+                        local handlePos = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or origin
+                        knifeRemote:FireServer(CFrame.new(targetRoot.Position), handlePos)
                     end
                 end
             end
@@ -369,15 +375,14 @@ local function step()
     if not Env.CRIMSON_AUTO_KNIFE.enabled then return end
     resolveKnife(); if not myKnife or not knifeRemote then return end
     if not myChar or not myRoot or not myHum or myHum.Health<=0 then return end
+
+    if myKnife.Parent == myChar then
+        killNearbyPlayers()
+    end
+
     if not throwIsAllowedNow() then return end
 
     local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
-    
-    -- Kill zone activation during throw
-    if throwIsAllowedNow() and myChar:FindFirstChild("Knife") then
-        killNearbyPlayers(origin)
-    end
-    
     local targetPlr, targetLimb = (function()
         return (function(o) return pickExposedTarget(o) end)(origin)
     end)()
