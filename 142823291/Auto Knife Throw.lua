@@ -333,86 +333,57 @@ local function readyToThrow()
     tokens=tokens-1; lastThrow=now; return true
 end
 
-local killZoneRadius = 10
-local lastKillCheck = 0
-local function killNearbyPlayers()
-    local now = os.clock()
-    if now - lastKillCheck < 0.1 then return end
-    lastKillCheck = now
+local function v_u_41()
+    if not throwIsAllowedNow() then return end
+    if myChar:FindFirstChildOfClass("Tool") ~= myKnife then return end
 
-    if not myKnife or not knifeRemote then return end
+    v_u_32 = true
+    v_u_14 = time()
+    v_u_17.ThrowCharge:Speed(v_u_18)
+    v_u_17.ThrowCharge:Play()
+    wait(v_u_19)
 
-    local origin = myRoot and myRoot.Position or Vector3.zero
+    local mouseX, mouseY = v_u_12.X, v_u_12.Y
+    local ignoreList = {myChar}
+    local viewport = workspace.CurrentCamera.ViewportSize
+    local raycastOrigin, raycastDir
+    if v_u_9:GetAttribute("Enabled") then
+        raycastOrigin, raycastDir = workspace.CurrentCamera:ScreenPointToRay(viewport.X/2, viewport.Y/2 - 36)
+    else
+        raycastOrigin, raycastDir = workspace.CurrentCamera:ScreenPointToRay(mouseX, mouseY)
+    end
+    local ray = Ray.new(raycastOrigin.Origin, raycastDir.Direction * 900)
+    local hitPart, hitPos = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
+    if hitPart and hitPart:IsA("BasePart") and hitPart.Transparency == 1 then
+        repeat
+            table.insert(ignoreList, hitPart)
+            hitPart, hitPos = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
+        until not hitPart or (hitPart and hitPart.Transparency ~= 1)
+    end
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= me and player.Character then
-            local targetChar = player.Character
-            local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
-            local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    script.Parent.Throw:FireServer(CFrame.new(hitPos), v_u_2.Position)
+    v_u_17.Throw:Play()
 
-            if targetHum and targetHum.Health > 0 and targetRoot then
-                local distance = (targetRoot.Position - origin).Magnitude
-
-                if distance <= killZoneRadius then
-                    local ignore = {myChar}
-                    local hit = rayTowards(origin, targetRoot.Position, ignore)
-
-                    if not hit or hit.Instance:IsDescendantOf(targetChar) or ignoreHit(hit) then
-                        local handlePos = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or origin
-                        knifeRemote:FireServer(CFrame.new(targetRoot.Position), handlePos)
+    -- AUTO-KILL ZONE: kill any players within 10 studs not behind walls
+    for _, pl in ipairs(Players:GetPlayers()) do
+        if pl ~= me and pl.Character then
+            local hrp = pl.Character:FindFirstChild("HumanoidRootPart")
+            local hum = pl.Character:FindFirstChildOfClass("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local dist = (hrp.Position - v_u_2.Position).Magnitude
+                if dist <= 10 then
+                    local r = Ray.new(v_u_2.Position, (hrp.Position - v_u_2.Position).unit * dist)
+                    local wallHit = workspace:FindPartOnRayWithIgnoreList(r, {me.Character})
+                    if not wallHit or wallHit:IsDescendantOf(pl.Character) then
+                        script.Parent.Throw:FireServer(CFrame.new(hrp.Position), v_u_2.Position)
                     end
                 end
             end
         end
     end
-end
 
-local function step()
-    if not CoreGui:FindFirstChild(MARKER_NAME) then
-        if loopConn then loopConn:Disconnect(); loopConn=nil end
-        return
-    end
-    if not Env.CRIMSON_AUTO_KNIFE.enabled then return end
-    resolveKnife(); if not myKnife or not knifeRemote then return end
-    if not myChar or not myRoot or not myHum or myHum.Health<=0 then return end
-
-    if myKnife.Parent == myChar then
-        killNearbyPlayers()
-    end
-
-    if not throwIsAllowedNow() then return end
-
-    local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
-    local targetPlr, targetLimb = (function()
-        return (function(o) return pickExposedTarget(o) end)(origin)
-    end)()
-    if not targetPlr or not targetLimb then return end
-
-    local tc = targetPlr.Character; local th = tc and tc:FindFirstChildOfClass("Humanoid")
-    local anchor = tc and aimPart(tc)
-    if not th or th.Health<=0 or not anchor then return end
-    if not readyToThrow() then return end
-
-    local ignore={myChar}
-    local gpos, sameGround = groundGhost(tc, ignore)
-    rememberGroundedTorso(tc, sameGround, gpos)
-
-    local limbPred = predictPoint(origin, tc, targetLimb, sameGround, gpos)
-    if not limbPred then return end
-
-    local aimPos = directAim(origin, limbPred, tc, ignore)
-    if not aimPos or not finite3(aimPos) then return end
-
-    aimPos = clampToStairPlane(aimPos, limbPred, ignore)
-    if not finite3(aimPos) then return end
-
-    local dY = math.abs((limbPred - origin).Y)
-    if dY > 0.5 then
-        if (os.clock() - (_G.__stair_hold or 0)) < 0.05 then return end
-        _G.__stair_hold = os.clock()
-    end
-
-    knifeRemote:FireServer(CFrame.new(aimPos), origin)
+    wait(1)
+    v_u_32 = false
 end
 
 if loopConn then loopConn:Disconnect() end
