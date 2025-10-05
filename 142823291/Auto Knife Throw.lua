@@ -6,7 +6,7 @@ local workspace = game:GetService("Workspace")
 local markerName = "_cr1m50n__kv_ok__7F2B1D"
 if not coreGui:FindFirstChild(markerName) then return end
 
-local predLeadAmount = 5
+local predLeadAmount = 1
 local predRangeGain = 0.005
 local predKnifeSpeed = 64/0.85
 
