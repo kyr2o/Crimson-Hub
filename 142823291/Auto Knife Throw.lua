@@ -17,7 +17,7 @@ local AllowedAnimIds = {
 }
 local AnimGateSeconds = 0.75
 
-local leadAmount = 0.0
+local leadAmount = 3
 local rangeGainPerStud = 0.0025
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
@@ -237,7 +237,7 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
 
     local basePos = useStick and lastGroundedTorso[id] or p.Position
     if not useStick and groundPos then
-        basePos = Vector3.new(basePos.X, groundPos.Y + (p.Name=="Head" and 1.5 or 0.9), basePos.Z)
+        basePos = Vector3.new(basePos.X, groundPos.Y + (p.Name=="Head" and 1 or 0.9), basePos.Z)
     end
 
     local dist=(basePos - origin).Magnitude
@@ -246,7 +246,7 @@ local function predictPoint(origin, targetChar, focusPart, sameGround, groundPos
     local vel=worldVel(targetChar)
     local horiz=Vector3.new(vel.X,0,vel.Z)
     local speed=horiz.Magnitude
-    local STILL_SPEED=1.25
+    local STILL_SPEED=4.25
     local doLead = speed > STILL_SPEED
 
     local distScale = 1 + math.clamp(dist * rangeGainPerStud, 0, 2.0)
