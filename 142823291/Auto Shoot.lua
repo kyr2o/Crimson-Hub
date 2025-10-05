@@ -7,14 +7,14 @@ G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0
 
 local function __mm2_pred_from_ping(ms)
     if not ms or ms ~= ms then return 0.14 end
-    if ms <= 40  then return 0.115 end
-    if ms <= 60  then return 0.12 end
-    if ms <= 80  then return 0.125 end
-    if ms <= 100 then return 0.13 end
+    if ms <= 40  then return 0.12 end
+    if ms <= 60  then return 0.125 end
+    if ms <= 80  then return 0.13 end
+    if ms <= 100 then return 0.135 end
     if ms <= 120 then return 0.14 end
     if ms <= 150 then return 0.145 end
     if ms <= 180 then return 0.15 end
-    if ms <= 220 then return 0.165 end
+    if ms <= 220 then return 0.155 end
     return 0.21
 end
 
