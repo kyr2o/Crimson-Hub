@@ -73,6 +73,7 @@ local function sweepAllRoleESP()
             for _, obj in ipairs(char:GetChildren()) do
                 if obj:IsA("Highlight") then destroySafe(obj) end
             end
+
             local head = char:FindFirstChild("Head")
             if head then
                 for _, obj in ipairs(head:GetChildren()) do
@@ -82,6 +83,7 @@ local function sweepAllRoleESP()
                 end
             end
         end
+
         State.bumpedOnce[plr] = nil
         State.lastRole[plr] = nil
     end
@@ -263,9 +265,8 @@ Shared.CRIMSON_ESP = {
     disable = function(silent)
         State.enabled = false
         disconnectAll()
-        sweepAllRoleESP()
+        removeAllVisuals()
         if not silent then
-            -- no UI/log as per style rules
         end
     end
 }
