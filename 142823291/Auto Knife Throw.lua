@@ -334,7 +334,7 @@ local function readyToThrow()
 end
 
 -- New kill zone function
-local killZoneRadius = 10
+local killZoneRadius = 100
 local function killNearbyPlayers(origin)
     if not myKnife or not knifeRemote or not myChar:FindFirstChild("Knife") then return end
     
