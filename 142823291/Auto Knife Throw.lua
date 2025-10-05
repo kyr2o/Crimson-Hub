@@ -17,7 +17,7 @@ local AllowedAnimIds = {
 }
 local AnimGateSeconds = 0.75
 
-local leadAmount = 3.6
+local leadAmount = 4.2
 local rangeGainPerStud = 0.0025
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
@@ -217,7 +217,7 @@ local function groundGhost(targetChar, ignore)
     return gpos,same
 end
 
-local baseKnifeSpeed=205123
+local baseKnifeSpeed=20213123131313135123
 local function knifeSpeedAt(dist) return baseKnifeSpeed * (1 + math.clamp(dist*0.0035,0,1.5)) end
 local function timeTo(dist) local s=knifeSpeedAt(dist) if s<=0 or dist~=dist then return 0 end return dist/s end
 local function hasNormalJP(h) local jp=h and h.JumpPower or 50 return jp>=40 and jp<=75 end
