@@ -8,7 +8,7 @@ if not coreGui:FindFirstChild(markerName) then return end
 
 local predLeadAmount = 0
 local predRangeGain = 0.00
-local predKnifeSpeed = 64/0.85
+local predKnifeSpeed = 0/0
 
 local env = (getgenv and getgenv()) or _G
 env.CRIMSON_AUTO_KNIFE = env.CRIMSON_AUTO_KNIFE or { enabled = true }
