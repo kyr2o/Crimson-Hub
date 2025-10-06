@@ -153,32 +153,22 @@ end
 local function hasItem(character, itemName)
     local plr = Players:GetPlayerFromCharacter(character)
     if not plr then return false end
-
+    
     if character:FindFirstChild(itemName) then return true end
-
+    
     local bp = plr:FindFirstChild("Backpack")
     if bp and bp:FindFirstChild(itemName) then return true end
-
+    
     return false
 end
 
-local function isAlive(player)
-    local char = player.Character
-    if not char then return false end
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return false end
-    if char:GetAttribute("Alive") == false then return false end
-    return hum.Health > 0
-end
-
 local function determineRole(player)
-    if not isAlive(player) then return nil end
     local char = player.Character
-    if not char then return nil end
+    if not char then return "Innocent" end
 
     local knife = hasItem(char, "Knife")
     local gun = hasItem(char, "Gun")
-
+    
     if knife then return "Murderer" end
     if gun then return "Sheriff" end
     return "Innocent"
@@ -227,6 +217,9 @@ local function setHighlight(player, character, fillColor, outlineColor)
         State.highlights[player] = createHighlight(character, fillColor, outlineColor)
     else
         local hl = State.highlights[player]
+        if hl.Parent ~= character then
+            hl.Parent = character
+        end
         hl.FillColor    = fillColor
         hl.OutlineColor = outlineColor
     end
@@ -234,18 +227,14 @@ end
 
 local function updatePlayer(player)
     if player == LocalPlayer then return end
-
-    local currentRole = determineRole(player)
-    if not currentRole then
-        removeVisualsFor(player)
-        return
-    end
-
-    if State.roleCache[player] == currentRole then return end
-    State.roleCache[player] = currentRole
-
+    
     local char = player.Character
     if not char then return end
+    
+    local currentRole = determineRole(player)
+    
+    if State.roleCache[player] == currentRole then return end
+    State.roleCache[player] = currentRole
 
     if currentRole == "Murderer" then
         setHighlight(player, char, Color3.new(1,0.7,0.7), Color3.new(0.7,0,0))
@@ -263,7 +252,7 @@ local function setupToolTracking(player)
     if State.toolConns[player] then
         pcall(function() State.toolConns[player]:Disconnect() end)
     end
-
+    
     local bp = player:FindFirstChild("Backpack")
     if bp then
         State.toolConns[player] = track(bp.ChildAdded:Connect(function()
@@ -292,7 +281,6 @@ local function disableRoleESP(silent)
     for plr in pairs(State.billboards) do State.billboards[plr] = nil end
     for plr in pairs(State.toolConns) do State.toolConns[plr] = nil end
     if not silent then
-
     end
 end
 
@@ -305,6 +293,7 @@ Shared.CRIMSON_ESP = {
             setupToolTracking(plr)
             State.charConns[plr] = track(plr.CharacterAdded:Connect(function()
                 task.wait(1)
+                State.roleCache[plr] = nil
                 updatePlayer(plr)
                 setupToolTracking(plr)
             end))
@@ -313,6 +302,7 @@ Shared.CRIMSON_ESP = {
             setupToolTracking(plr)
             State.charConns[plr] = track(plr.CharacterAdded:Connect(function()
                 task.wait(1)
+                State.roleCache[plr] = nil
                 updatePlayer(plr)
                 setupToolTracking(plr)
             end))
@@ -328,7 +318,7 @@ Shared.CRIMSON_ESP = {
             end
             removeVisualsFor(plr)
         end))
-
+        
         local updateConn
         updateConn = track(RunService.Stepped:Connect(function()
             if tick() % 0.5 < 0.016 then
