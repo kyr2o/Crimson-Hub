@@ -5,8 +5,6 @@ local Stats = game:GetService("Stats")
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
-local GRAVITY = workspace.Gravity or 196.2
-
 local function __mm2_pred_from_ping(ms)
     if not ms or ms ~= ms then return 0.14 end
     if ms <= 40  then return 0.12 end
@@ -84,65 +82,93 @@ local function findMurderer()
     return nil
 end
 
--- Calculate vertical aim offset based on movement
-local function calculateVerticalAimOffset(targetRoot, targetHumanoid, predTime)
-    local velocity = targetRoot.Velocity
-    local verticalVel = velocity.Y
+local function calculateVerticalAimOffset(character, verticalVelocity, prediction)
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return 0 end
     
-    -- Get jump power (default to 50 if not accessible)
-    local jumpPower = 50
-    if targetHumanoid and targetHumanoid:FindFirstChild("JumpPower") then
-        jumpPower = targetHumanoid.JumpPower
-    elseif targetHumanoid and targetHumanoid:FindFirstChild("JumpHeight") then
-        -- Convert JumpHeight to JumpPower equivalent
-        jumpPower = math.sqrt(2 * GRAVITY * targetHumanoid.JumpHeight)
-    end
+    local jumpPower = humanoid.JumpPower or 50
+    local gravity = workspace.Gravity or 196.2
     
-    -- Calculate predicted vertical position change
-    -- Using kinematic equation: y = v*t - 0.5*g*t^2
-    local verticalDisplacement = (verticalVel * predTime) - (0.5 * GRAVITY * predTime * predTime)
+    local verticalDisplacement = verticalVelocity * prediction - 0.5 * gravity * (prediction * prediction)
     
-    -- Determine aim adjustment based on vertical movement
-    local aimOffset = Vector3.new(0, 0, 0)
-    local absVerticalVel = math.abs(verticalVel)
+    local normalizedJumpPower = jumpPower / 50
+    local velocityDirection = math.sign(verticalVelocity)
+    local velocityMagnitude = math.abs(verticalVelocity)
     
-    -- Ascending (moving upward)
-    if verticalVel > 2 then
-        -- Calculate how much of jump they've completed
-        local jumpProgress = verticalVel / jumpPower
-        
-        if jumpProgress > 0.5 then
-            -- Early ascent - aim higher (head region)
-            aimOffset = Vector3.new(0, 1.5, 0)
-        elseif jumpProgress > 0.2 then
-            -- Mid ascent - aim for upper torso
-            aimOffset = Vector3.new(0, 0.8, 0)
+    local baseOffset = 0
+    
+    if velocityDirection > 0 then
+        if velocityMagnitude > 30 then
+            baseOffset = 1.5 * normalizedJumpPower
+        elseif velocityMagnitude > 15 then
+            baseOffset = 0.5 * normalizedJumpPower
         else
-            -- Late ascent (slowing down) - aim for torso
-            aimOffset = Vector3.new(0, 0.3, 0)
+            baseOffset = -0.5 * normalizedJumpPower
         end
-        
-    -- Descending (falling down)
-    elseif verticalVel < -2 then
-        local descendSpeed = math.abs(verticalVel)
-        
-        if descendSpeed > 40 then
-            -- Fast descent - aim much lower (legs/feet)
-            aimOffset = Vector3.new(0, -1.8, 0)
-        elseif descendSpeed > 20 then
-            -- Moderate descent - aim for legs
-            aimOffset = Vector3.new(0, -1.2, 0)
+    elseif velocityDirection < 0 then
+        if velocityMagnitude > 30 then
+            baseOffset = -2.0 * normalizedJumpPower
+        elseif velocityMagnitude > 15 then
+            baseOffset = -1.0 * normalizedJumpPower
         else
-            -- Slow descent - aim for lower torso
-            aimOffset = Vector3.new(0, -0.5, 0)
+            baseOffset = -0.3 * normalizedJumpPower
         end
-        
-    -- On ground or minimal vertical movement
     else
-        aimOffset = Vector3.new(0, 0, 0)
+        baseOffset = 0.5
     end
     
-    return aimOffset
+    return baseOffset + (verticalDisplacement * 0.3)
+end
+
+local function getOptimalAimPart(character, verticalVelocity, prediction)
+    if not character then return nil, 0 end
+    
+    local head = character:FindFirstChild("Head")
+    local upperTorso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+    local lowerTorso = character:FindFirstChild("LowerTorso")
+    
+    local aimOffset = calculateVerticalAimOffset(character, verticalVelocity, prediction)
+    
+    local targetPart = upperTorso or head
+    local yOffset = aimOffset
+    
+    if head and upperTorso then
+        local velocityDirection = math.sign(verticalVelocity)
+        local velocityMagnitude = math.abs(verticalVelocity)
+        
+        if velocityDirection > 0 then
+            if velocityMagnitude > 25 then
+                targetPart = head
+                yOffset = aimOffset
+            elseif velocityMagnitude > 10 then
+                targetPart = upperTorso
+                yOffset = aimOffset * 0.7
+            else
+                targetPart = upperTorso
+                yOffset = aimOffset * 0.5
+            end
+        elseif velocityDirection < 0 then
+            if velocityMagnitude > 30 then
+                targetPart = head
+                yOffset = aimOffset
+            elseif velocityMagnitude > 15 then
+                targetPart = upperTorso
+                yOffset = aimOffset * 0.8
+            else
+                if lowerTorso then
+                    targetPart = lowerTorso
+                else
+                    targetPart = upperTorso
+                end
+                yOffset = aimOffset * 0.6
+            end
+        else
+            targetPart = head
+            yOffset = 0.5
+        end
+    end
+    
+    return targetPart, yOffset
 end
 
 local function disconnectShoot()
@@ -174,23 +200,27 @@ local function onCharacter(character)
             local murderer = findMurderer()
             if not murderer or not murderer.Character then return end
             
-            local root = murderer.Character:FindFirstChild("UpperTorso") or murderer.Character:FindFirstChild("HumanoidRootPart")
-            local humanoid = murderer.Character:FindFirstChild("Humanoid")
+            local root = murderer.Character:FindFirstChild("UpperTorso") or murderer.Character:FindFirstChild("Torso")
+            if not root then return end
 
-            if root then
-                local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
+            local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
+            
+            local verticalVelocity = root.AssemblyLinearVelocity.Y
+            
+            local targetPart, yOffset = getOptimalAimPart(murderer.Character, verticalVelocity, pred)
+            
+            if targetPart then
+                local horizontalVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
+                local predictedHorizontal = targetPart.Position + (horizontalVelocity * pred)
                 
-                -- Calculate vertical aim adjustment
-                local verticalOffset = Vector3.new(0, 0, 0)
-                if humanoid then
-                    verticalOffset = calculateVerticalAimOffset(root, humanoid, pred)
-                end
+                local gravity = workspace.Gravity or 196.2
+                local verticalDisplacement = verticalVelocity * pred - 0.5 * gravity * (pred * pred)
                 
-                -- Predict horizontal movement
-                local horizontalPrediction = root.Velocity * pred
-                
-                -- Combine base position, horizontal prediction, and vertical aim offset
-                local aimPos = root.Position + horizontalPrediction + verticalOffset
+                local aimPos = Vector3.new(
+                    predictedHorizontal.X,
+                    targetPart.Position.Y + verticalDisplacement + yOffset,
+                    predictedHorizontal.Z
+                )
                 
                 rf:InvokeServer(1, aimPos, "AH2")
             end
