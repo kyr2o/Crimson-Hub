@@ -15,18 +15,21 @@ Environment.CRIMSON_AUTO_KNIFE = Environment.CRIMSON_AUTO_KNIFE or {
     silentKnifeEnabled = false
 }
 
+-- Throw gate: this is the “charge” animation that must play for at least 0.75s
 local AllowedAnimationIds = { "rbxassetid://1957618848" }
 local AnimationGateSeconds = 0.75
 
+-- Knife speed used to compute travel time (distance / speed)
 local KNIFE_SPEED = 63/0.85
 
+-- Raycast filtering for paper-thin or glass-like parts
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
 
+-- Grounding helpers (kept from original Auto Knife)
 local groundProbeRadius = 2.5
 local maxGroundSnap = 24
 local sameGroundTolerance = 1.75
-
 local groundedMemorySec = 0.35
 local groundedTorsoYOffset = 1.0
 
@@ -104,7 +107,7 @@ local function throwAllowed()
 end
 
 local function getAimPart(ch)
-    return ch and (ch:FindFirstChild("UpperTorso") or ch:FindFirstChild("HumanoidRootPart") or ch:FindFirstChild("Head"))
+    return ch and (ch:FindFirstChild("HumanoidRootPart") or ch:FindFirstChild("UpperTorso") or ch:FindFirstChild("Head"))
 end
 
 local function worldVel(ch)
@@ -283,57 +286,98 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
--- [[ Silent Knife Feature - FIXED WITH CORRECT REMOTE FORMAT ]]
-local function silentThrow()
-    if not throwAllowed() then return end
+-- ===========================
+-- Silent Knife (Re-coded)
+-- ===========================
+local __silent_busy = false
 
-    -- 1. Pick target first
+local function silentThrow()
+    -- Only trigger when the charge animation has gated long enough
+    if not throwAllowed() then return end
+    if __silent_busy then return end
+    if not myKnife or not knifeRemote or not myRoot then return end
+
+    __silent_busy = true
+
+    -- Choose target up-front
     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
-
     if not targetPlayer or not targetLimb then
+        __silent_busy = false
         return
     end
 
     local targetCharacter = targetPlayer.Character
     local targetHumanoid = targetCharacter and targetCharacter:FindFirstChildOfClass("Humanoid")
     local targetPart = getAimPart(targetCharacter)
-
     if not targetHumanoid or targetHumanoid.Health <= 0 or not targetPart then
+        __silent_busy = false
         return
     end
 
-    -- 2. Check for obstacles BEFORE unequipping
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    raycastParams.FilterDescendantsInstances = {myCharacter, targetCharacter}
+    -- LOS check before committing
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.FilterDescendantsInstances = { myCharacter, targetCharacter }
 
     local originPoint = myRoot.Position
-    local targetPoint = targetPart.Position
-    local direction = targetPoint - originPoint
-
-    local wallCheck = Workspace:Raycast(originPoint, direction, raycastParams)
-
-    -- 3. If obstacle detected (and it's not part of target), abort
-    if wallCheck and not wallCheck.Instance:IsDescendantOf(targetCharacter) then
-        return -- They're behind cover, don't throw
+    local initialTargetPoint = targetPart.Position
+    local toTarget = initialTargetPoint - originPoint
+    local preCheck = Workspace:Raycast(originPoint, toTarget, rayParams)
+    if preCheck and not preCheck.Instance:IsDescendantOf(targetCharacter) then
+        __silent_busy = false
+        return
     end
 
-    -- 4. Unequip the knife to simulate the start of the throw
+    -- Simulate the travel time; do not throw from our position; only fire at impact time
+    local distance = toTarget.Magnitude
+    local travelTime = distance / KNIFE_SPEED
+
+    -- Visual: unequip to sell the throw, but do not teleport the player
     myHumanoid:UnequipTools()
 
-    -- 5. Small delay for visual effect
-    task.wait(0.1)
+    task.spawn(function()
+        -- Wait exactly until the knife would arrive
+        task.wait(math.max(travelTime, 0.02))
 
-    -- 6. Fire remote using CORRECT format (from Kill All module)
-    -- Format: throw:FireServer(myRoot.CFrame, targetRoot.Position)
-    knifeRemote:FireServer(myRoot.CFrame, targetPoint)
+        -- Re-acquire current data at impact moment
+        if not myCharacter or not myRoot or not knifeRemote then
+            __silent_busy = false
+            return
+        end
+        local tc = targetPlayer.Character
+        local th = tc and tc:FindFirstChildOfClass("Humanoid")
+        local ap = getAimPart(tc)
 
-    -- 7. Re-equip the knife to complete the animation
-    task.wait(0.05)
-    if myKnife then
-        myHumanoid:EquipTool(myKnife)
-    end
+        if not tc or not th or th.Health <= 0 or not ap then
+            __silent_busy = false
+            -- Re-equip even if it failed
+            task.wait(0.05)
+            if myKnife then myHumanoid:EquipTool(myKnife) end
+            return
+        end
+
+        -- Final LOS check just before impact
+        local currentTargetPos = ap.Position
+        local finalCheck = Workspace:Raycast(originPoint, currentTargetPos - originPoint, rayParams)
+        if finalCheck and not finalCheck.Instance:IsDescendantOf(tc) then
+            __silent_busy = false
+            task.wait(0.05)
+            if myKnife then myHumanoid:EquipTool(myKnife) end
+            return
+        end
+
+        -- CRITICAL: Fire from the TARGET’S POSITION, not ours
+        -- Arg1: CFrame at the target (spawns knife there)
+        -- Arg2: Vector3 at the target (direct hit registration)
+        knifeRemote:FireServer(CFrame.new(currentTargetPos), currentTargetPos)
+
+        -- Re-equip to complete the fake-throw look
+        task.wait(0.06)
+        if myKnife then myHumanoid:EquipTool(myKnife) end
+
+        __silent_busy = false
+    end)
 end
 
 local function step()
@@ -342,20 +386,20 @@ local function step()
         return
     end
 
-    -- Stop everything if both features are disabled
+    -- If neither feature is active, do nothing
     if not Environment.CRIMSON_AUTO_KNIFE.enabled and not Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then return end
 
     resolveKnife()
     if not myKnife or not knifeRemote then return end
     if not myCharacter or not myRoot or not myHumanoid or myHumanoid.Health<=0 then return end
 
-    -- Check if Silent Knife is active first
+    -- Silent Knife mode: only run the silent throw logic when enabled
     if Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
         silentThrow()
-        return -- Skip the rest of the function to prevent normal throw
+        return
     end
 
-    -- If Silent Knife is not active, proceed with normal Auto Knife Throw
+    -- Normal Auto Knife Throw (unchanged)
     if not Environment.CRIMSON_AUTO_KNIFE.enabled then return end
     if not throwAllowed() then return end
 
@@ -382,13 +426,14 @@ local function step()
         _G.__stair_hold=os.clock()
     end
 
+    -- Default throw from our side for the standard mode
     knifeRemote:FireServer(CFrame.new(aim),origin)
 end
 
 if loopConnection then loopConnection:Disconnect() end
 loopConnection=RunService.Heartbeat:Connect(step)
 
--- Enable/Disable functions for hub integration
+-- Hub toggles preserved
 Environment.CRIMSON_AUTO_KNIFE.enable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = true end
 Environment.CRIMSON_AUTO_KNIFE.disable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = false end
 Environment.CRIMSON_AUTO_KNIFE.enableSilentKnife = function() Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = true end
