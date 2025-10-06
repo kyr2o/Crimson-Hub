@@ -42,7 +42,7 @@ local theme = {
 local CATEGORY_SPEC = {
     [MM2_PLACEID] = {
         { title = "ESP", modules = { "RoleESP", "Trap ESP" } },
-        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw", "Silent Knife" } },
+        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw" } },
         { title = "Farming", modules = { "Coin Farm" } },
         { title = "Other", modules = "REMAINDER" },
     },
@@ -1258,19 +1258,6 @@ function mainUI:Create()
                                     
                                     if state then
                                         fn(true)
-                                    end
-                                end)
-                            elseif modName == "Silent Knife" then
-                                local Env = (getgenv and getgenv()) or _G
-                                createScriptButton(content, modName, function(state)
-                                    if state then
-                                        if Env.CRIMSON_SILENT_KNIFE and Env.CRIMSON_SILENT_KNIFE.enable then
-                                            Env.CRIMSON_SILENT_KNIFE.enable()
-                                        end
-                                    else
-                                        if Env.CRIMSON_SILENT_KNIFE and Env.CRIMSON_SILENT_KNIFE.disable then
-                                            Env.CRIMSON_SILENT_KNIFE.disable()
-                                        end
                                     end
                                 end)
                             else
