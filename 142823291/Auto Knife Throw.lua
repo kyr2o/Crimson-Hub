@@ -1,4 +1,3 @@
--- Auto Knife Throw (original, unchanged)
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -12,6 +11,27 @@ local camera = Workspace.CurrentCamera
 
 local Environment = (getgenv and getgenv()) or _G
 Environment.CRIMSON_AUTO_KNIFE = Environment.CRIMSON_AUTO_KNIFE or { enabled = true }
+
+Environment.CRIMSON_SILENT_KNIFE = Environment.CRIMSON_SILENT_KNIFE or {
+    enabled = false,
+    postGateDelay = 0.12,   
+    finishWindow = 0.2,     
+    finalProbeRadius = 1.0, 
+}
+Environment.CRIMSON_SILENT_KNIFE.enable = function() Environment.CRIMSON_SILENT_KNIFE.enabled = true end
+Environment.CRIMSON_SILENT_KNIFE.disable = function() Environment.CRIMSON_SILENT_KNIFE.enabled = false end
+
+pcall(function()
+    if Environment.CRIMSON_UI and Environment.CRIMSON_UI.addButton then
+        Environment.CRIMSON_UI.addButton("Silent Knife", function(state)
+            if state then
+                Environment.CRIMSON_SILENT_KNIFE.enable()
+            else
+                Environment.CRIMSON_SILENT_KNIFE.disable()
+            end
+        end, Environment.CRIMSON_SILENT_KNIFE.enabled)
+    end
+end)
 
 local AllowedAnimationIds = { "rbxassetid://1957618848" }
 local AnimationGateSeconds = 0.75
@@ -280,6 +300,63 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
+local function clearLineForFinisher(fromPos, toPos, ignore, radius)
+    local r = radius or 1.0
+    local offsets = {
+        Vector3.new(0,0,0),
+        Vector3.new(r,0,0), Vector3.new(-r,0,0),
+        Vector3.new(0,r,0), Vector3.new(0,-r,0),
+        Vector3.new(0,0,r), Vector3.new(0,0,-r),
+    }
+    for _, off in ipairs(offsets) do
+        local start = fromPos + off
+        local hit = rayTowards(start, toPos, ignore)
+        if hit and not ignoreHit(hit) then
+            return false
+        end
+    end
+    return true
+end
+
+local function performSilentThrow(origin, aimPoint, targetCharacter)
+    if not myKnife or not knifeRemote or not myHumanoid or myHumanoid.Health <= 0 then return end
+
+    pcall(function()
+        if myHumanoid and myKnife.Parent == myCharacter then
+            myHumanoid:UnequipTools()
+        end
+    end)
+
+    knifeRemote:FireServer(CFrame.new(aimPoint), origin)
+
+    local tc = targetCharacter
+    if not tc then return end
+    local targetHum = tc:FindFirstChildOfClass("Humanoid")
+    local anchor = getAimPart(tc)
+    if not targetHum or targetHum.Health <= 0 or not anchor then return end
+
+    local ig = { myCharacter, tc }
+    local startClock = os.clock()
+    local window = Environment.CRIMSON_SILENT_KNIFE.finishWindow
+    local probeR = Environment.CRIMSON_SILENT_KNIFE.finalProbeRadius
+
+    task.delay(0.06, function()
+        if not Environment.CRIMSON_SILENT_KNIFE.enabled then return end
+        if not targetHum or targetHum.Health <= 0 then return end
+        if os.clock() - startClock > window then return end
+
+        local nowAnchor = getAimPart(tc)
+        if not nowAnchor then return end
+
+        local okFinish = clearLineForFinisher(origin, nowAnchor.Position, ig, probeR)
+        if not okFinish then
+            return
+        end
+
+        knifeRemote:FireServer(CFrame.new(nowAnchor.Position), origin)
+    end)
+end
+
 local function step()
     if not CoreGui:FindFirstChild(MARKER_NAME) then
         if loopConnection then loopConnection:Disconnect(); loopConnection=nil end
@@ -314,7 +391,21 @@ local function step()
         _G.__stair_hold=os.clock()
     end
 
-    knifeRemote:FireServer(CFrame.new(aim),origin)
+    if Environment.CRIMSON_SILENT_KNIFE.enabled then
+        local delayAmt = Environment.CRIMSON_SILENT_KNIFE.postGateDelay or 0
+        if delayAmt > 0 then
+            local savedOrigin = origin
+            local savedAim = aim
+            local savedTC = tc
+            task.delay(delayAmt, function()
+                performSilentThrow(savedOrigin, savedAim, savedTC)
+            end)
+        else
+            performSilentThrow(origin, aim, tc)
+        end
+    else
+        knifeRemote:FireServer(CFrame.new(aim),origin)
+    end
 end
 
 if loopConnection then loopConnection:Disconnect() end
