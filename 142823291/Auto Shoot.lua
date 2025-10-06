@@ -3,7 +3,12 @@ local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
 local G = (getgenv and getgenv()) or _G
-G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
+G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { 
+    enabled = false, 
+    prediction = 0.14,
+    gravity = 196.2, 
+    jumpPower = 50   
+}
 
 local function __mm2_pred_from_ping(ms)
     if not ms or ms ~= ms then return 0.14 end
@@ -55,6 +60,74 @@ local function __mm2_ping_ms()
     end
 
     return 140 
+end
+
+local function getPlayerMovementStats(player)
+    if not player.Character then return G.CRIMSON_AUTO_SHOOT.jumpPower, G.CRIMSON_AUTO_SHOOT.gravity end
+
+    local humanoid = player.Character:FindFirstChild("Humanoid")
+    local jumpPower = G.CRIMSON_AUTO_SHOOT.jumpPower
+    local gravity = G.CRIMSON_AUTO_SHOOT.gravity
+
+    if humanoid then
+        jumpPower = humanoid.JumpPower or humanoid.JumpHeight * 2 or G.CRIMSON_AUTO_SHOOT.jumpPower
+    end
+
+    local workspace = game:GetService("Workspace")
+    if workspace then
+        gravity = workspace.Gravity or G.CRIMSON_AUTO_SHOOT.gravity
+    end
+
+    return jumpPower, gravity
+end
+
+local function calculateVerticalPrediction(target, predictionTime)
+    local jumpPower, gravity = getPlayerMovementStats(target)
+    local humanoidRootPart = target.Character:FindFirstChild("UpperTorso")
+    if not humanoidRootPart then return Vector3.new(0, 0, 0) end
+
+    local currentVelocity = humanoidRootPart.Velocity
+    local verticalVelocity = currentVelocity.Y
+
+    local predictedY = humanoidRootPart.Position.Y + (verticalVelocity * predictionTime) - (0.5 * gravity * predictionTime^2)
+
+    local aimOffset = Vector3.new(0, 0, 0)
+    local movementSpeed = math.abs(verticalVelocity)
+    local isAscending = verticalVelocity > 0
+    local isDescending = verticalVelocity < 0
+
+    if isAscending then
+
+        if movementSpeed > jumpPower * 0.7 then
+
+            aimOffset = Vector3.new(0, 1.5, 0)
+        elseif movementSpeed > jumpPower * 0.3 then
+
+            aimOffset = Vector3.new(0, 0.5, 0)
+        else
+
+            aimOffset = Vector3.new(0, 0, 0)
+        end
+    elseif isDescending then
+
+        if movementSpeed > jumpPower * 0.5 then
+
+            aimOffset = Vector3.new(0, -1.5, 0)
+        else
+
+            aimOffset = Vector3.new(0, -0.5, 0)
+        end
+    else
+
+        aimOffset = Vector3.new(0, 0, 0)
+    end
+
+    local horizontalVelocity = Vector3.new(currentVelocity.X, 0, currentVelocity.Z)
+    local predictedHorizontal = humanoidRootPart.Position + (horizontalVelocity * predictionTime)
+
+    local finalPosition = Vector3.new(predictedHorizontal.X, predictedY, predictedHorizontal.Z) + aimOffset
+
+    return finalPosition
 end
 
 G.CRIMSON_AUTO_SHOOT.calibrate = function()
@@ -109,13 +182,16 @@ local function onCharacter(character)
             if not character:FindFirstChild("Gun") then return end
 
             local murderer = findMurderer()
-            local root = murderer and murderer.Character and murderer.Character:FindFirstChild("UpperTorso")
+            if not murderer or not murderer.Character then return end
 
-            if root then
-                local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
-                local aimPos = root.Position + (root.Velocity * pred)
-                rf:InvokeServer(1, aimPos, "AH2")
-            end
+            local root = murderer.Character:FindFirstChild("UpperTorso")
+            if not root then return end
+
+            local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
+
+            local aimPos = calculateVerticalPrediction(murderer, pred)
+
+            rf:InvokeServer(1, aimPos, "AH2")
         end)
     end
 
@@ -139,4 +215,12 @@ end
 G.CRIMSON_AUTO_SHOOT.disable = function()
     G.CRIMSON_AUTO_SHOOT.enabled = false
     disconnectShoot()
+end
+
+G.CRIMSON_AUTO_SHOOT.setGravity = function(gravity)
+    G.CRIMSON_AUTO_SHOOT.gravity = gravity or 196.2
+end
+
+G.CRIMSON_AUTO_SHOOT.setJumpPower = function(jumpPower)
+    G.CRIMSON_AUTO_SHOOT.jumpPower = jumpPower or 50
 end
