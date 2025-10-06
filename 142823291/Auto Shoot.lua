@@ -8,7 +8,7 @@ G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or {
     prediction = 0.14,
     gravity = 196.2, 
     jumpPower = 50,  
-    fallCompensation = 1.2 
+    fallCompensation = 1.5
 }
 
 local function __mm2_pred_from_ping(ms)
