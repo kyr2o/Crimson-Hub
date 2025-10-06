@@ -283,7 +283,7 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
--- [[ Silent Knife Feature - NO UNEQUIP ]]
+-- [[ Silent Knife Feature - TARGET HUMANOIDROOTPART ]]
 local function silentThrow()
     if not throwAllowed() then return end
 
@@ -297,13 +297,14 @@ local function silentThrow()
 
     local targetCharacter = targetPlayer.Character
     local targetHumanoid = targetCharacter and targetCharacter:FindFirstChildOfClass("Humanoid")
-    local targetPart = getAimPart(targetCharacter)
 
-    if not targetHumanoid or targetHumanoid.Health <= 0 or not targetPart then
+    -- SPECIFICALLY target HumanoidRootPart
+    local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+    if not targetHumanoid or targetHumanoid.Health <= 0 or not targetRoot then
         return
     end
 
-    local targetPosition = targetPart.Position
+    local targetPosition = targetRoot.Position
 
     -- 2. Check for obstacles (cover detection)
     local raycastParams = RaycastParams.new()
@@ -331,15 +332,17 @@ local function silentThrow()
             return
         end
 
-        -- Get current target position (they might have moved)
-        local currentTargetPos = targetPart.Position
+        -- Get CURRENT HumanoidRootPart position (they might have moved)
+        local currentTargetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+        if not currentTargetRoot then return end
+        local currentTargetPos = currentTargetRoot.Position
         
         -- Final cover check at moment of impact
-        local finalCheck = Workspace:Raycast(origin, currentTargetPos - origin, raycastParams)
+        local finalDirection = currentTargetPos - origin
+        local finalCheck = Workspace:Raycast(origin, finalDirection, raycastParams)
         
         if not finalCheck or finalCheck.Instance:IsDescendantOf(targetCharacter) then
-            -- Format: Throw:FireServer(CFrame at target position, target position)
-            -- This makes the knife appear at the target's position and kill them
+            -- Format: Throw:FireServer(CFrame at HumanoidRootPart position, HumanoidRootPart position)
             local targetCFrame = CFrame.new(currentTargetPos)
             knifeRemote:FireServer(targetCFrame, currentTargetPos)
         end
