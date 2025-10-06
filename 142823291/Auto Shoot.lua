@@ -57,26 +57,13 @@ local function __mm2_ping_ms()
     return 140 
 end
 
-local function getMeasuredClientPing()
-    local pingSum = 0
-    local samples = 0
-    local maxSamples = 5
+local function getInstantClientPing()
+    local success, ping = pcall(function()
+        return LocalPlayer:GetNetworkPing()
+    end)
     
-    for i = 1, maxSamples do
-        local success, ping = pcall(function()
-            return LocalPlayer:GetNetworkPing()
-        end)
-        
-        if success and ping then
-            pingSum = pingSum + (ping * 1000)
-            samples = samples + 1
-        end
-        
-        task.wait(0.05)
-    end
-    
-    if samples > 0 then
-        return pingSum / samples
+    if success and ping then
+        return ping * 1000
     end
     
     return __mm2_ping_ms()
@@ -123,7 +110,6 @@ local function calculateVerticalAimOffset(character, verticalVelocity, serverDel
     local normalizedJumpPower = jumpPower / 50
     local velocityDirection = math.sign(verticalVelocity)
     local velocityMagnitude = math.abs(verticalVelocity)
-    local futureVelocityMagnitude = math.abs(futureVerticalVelocity)
     
     local baseOffset = 0
     
@@ -146,7 +132,7 @@ local function calculateVerticalAimOffset(character, verticalVelocity, serverDel
             baseOffset = -0.8 * normalizedJumpPower
         end
     else
-        if futureVelocityMagnitude > 10 then
+        if math.abs(futureVerticalVelocity) > 10 then
             baseOffset = -1.0 * normalizedJumpPower
         else
             baseOffset = 0.5
@@ -265,7 +251,7 @@ local function onCharacter(character)
             local root = murderer.Character:FindFirstChild("UpperTorso") or murderer.Character:FindFirstChild("Torso")
             if not root then return end
 
-            local clientPing = getMeasuredClientPing()
+            local clientPing = getInstantClientPing()
             
             local serverDelay = (clientPing / 1000) * 0.5
             
