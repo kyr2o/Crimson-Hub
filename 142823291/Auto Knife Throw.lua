@@ -1,3 +1,4 @@
+-- Auto Knife Throw (original, unchanged)
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
