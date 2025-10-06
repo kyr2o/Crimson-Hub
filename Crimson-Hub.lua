@@ -42,7 +42,7 @@ local theme = {
 local CATEGORY_SPEC = {
     [MM2_PLACEID] = {
         { title = "ESP", modules = { "RoleESP", "Trap ESP" } },
-        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw" } },
+        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw", "Silent Knife" } },
         { title = "Farming", modules = { "Coin Farm" } },
         { title = "Other", modules = "REMAINDER" },
     },
@@ -499,6 +499,16 @@ local function createAutoBreakGun()
     end
 
     return toggleAutoBreakGun
+end
+
+-- Silent Knife state
+do
+    local Shared = (getgenv and getgenv()) or _G
+    Shared.CRIMSON_SILENT_KNIFE = Shared.CRIMSON_SILENT_KNIFE or {
+        enabled = false
+    }
+    function Shared.CRIMSON_SILENT_KNIFE.enable() Shared.CRIMSON_SILENT_KNIFE.enabled = true end
+    function Shared.CRIMSON_SILENT_KNIFE.disable() Shared.CRIMSON_SILENT_KNIFE.enabled = false end
 end
 
 function mainUI:Create()
@@ -1260,36 +1270,19 @@ function mainUI:Create()
                                         fn(true)
                                     end
                                 end)
-                                do
-                                    -- Ensure the runtime flag exists; defaults to disabled if not defined yet
-                                    local Environment = (getgenv and getgenv()) or _G
-                                    Environment.CRIMSON_SILENT_KNIFE = Environment.CRIMSON_SILENT_KNIFE or {
-                                        enabled = false,
-                                        postGateDelay = 0.12,
-                                        finishWindow = 0.2,
-                                        finalProbeRadius = 1.0,
-                                    }
-
-                                    -- UI: Silent Knife toggle under Auto Knife Throw
-                                    local initial = not not Environment.CRIMSON_SILENT_KNIFE.enabled
-                                    createToggle(content, "Silent Knife", initial, function(state)
-                                        -- Update runtime flag
-                                        Environment.CRIMSON_SILENT_KNIFE.enabled = state
-
-                                        -- Optional: expose helpers for external binds to stay consistent
-                                        Environment.CRIMSON_SILENT_KNIFE.enable = function() Environment.CRIMSON_SILENT_KNIFE.enabled = true end
-                                        Environment.CRIMSON_SILENT_KNIFE.disable = function() Environment.CRIMSON_SILENT_KNIFE.enabled = false end
-
-                                        -- UX feedback
-                                        if state then
-                                            sendNotification("Silent Knife", "Enabled", 1.2, "success")
-                                            playSound("toggleOn")
-                                        else
-                                            sendNotification("Silent Knife", "Disabled", 1.2, "warning")
-                                            playSound("toggleOff")
+                            elseif modName == "Silent Knife" then
+                                local Env = (getgenv and getgenv()) or _G
+                                createScriptButton(content, modName, function(state)
+                                    if state then
+                                        if Env.CRIMSON_SILENT_KNIFE and Env.CRIMSON_SILENT_KNIFE.enable then
+                                            Env.CRIMSON_SILENT_KNIFE.enable()
                                         end
-                                    end)
-                                end
+                                    else
+                                        if Env.CRIMSON_SILENT_KNIFE and Env.CRIMSON_SILENT_KNIFE.disable then
+                                            Env.CRIMSON_SILENT_KNIFE.disable()
+                                        end
+                                    end
+                                end)
                             else
                                 createScriptButton(content, modName, function(state)
                                     if state then fn(true) end
