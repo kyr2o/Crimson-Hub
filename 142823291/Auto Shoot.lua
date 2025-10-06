@@ -57,6 +57,31 @@ local function __mm2_ping_ms()
     return 140 
 end
 
+local function getMeasuredClientPing()
+    local pingSum = 0
+    local samples = 0
+    local maxSamples = 5
+    
+    for i = 1, maxSamples do
+        local success, ping = pcall(function()
+            return LocalPlayer:GetNetworkPing()
+        end)
+        
+        if success and ping then
+            pingSum = pingSum + (ping * 1000)
+            samples = samples + 1
+        end
+        
+        task.wait(0.05)
+    end
+    
+    if samples > 0 then
+        return pingSum / samples
+    end
+    
+    return __mm2_ping_ms()
+end
+
 G.CRIMSON_AUTO_SHOOT.calibrate = function()
     local ms = __mm2_ping_ms()
     local pred = __mm2_pred_from_ping(ms)
@@ -82,23 +107,30 @@ local function findMurderer()
     return nil
 end
 
-local function calculateVerticalAimOffset(character, verticalVelocity, prediction)
+local function calculateVerticalAimOffset(character, verticalVelocity, serverDelay, prediction)
     local humanoid = character:FindFirstChild("Humanoid")
     if not humanoid then return 0 end
     
     local jumpPower = humanoid.JumpPower or 50
     local gravity = workspace.Gravity or 196.2
     
-    local verticalDisplacement = verticalVelocity * prediction - 0.5 * gravity * (prediction * prediction)
+    local totalTime = prediction + serverDelay
+    
+    local verticalDisplacement = verticalVelocity * totalTime - 0.5 * gravity * (totalTime * totalTime)
+    
+    local futureVerticalVelocity = verticalVelocity - (gravity * totalTime)
     
     local normalizedJumpPower = jumpPower / 50
     local velocityDirection = math.sign(verticalVelocity)
     local velocityMagnitude = math.abs(verticalVelocity)
+    local futureVelocityMagnitude = math.abs(futureVerticalVelocity)
     
     local baseOffset = 0
     
     if velocityDirection > 0 then
-        if velocityMagnitude > 30 then
+        if futureVerticalVelocity < 5 then
+            baseOffset = -1.5 * normalizedJumpPower
+        elseif velocityMagnitude > 30 then
             baseOffset = 1.5 * normalizedJumpPower
         elseif velocityMagnitude > 15 then
             baseOffset = 0.5 * normalizedJumpPower
@@ -107,51 +139,72 @@ local function calculateVerticalAimOffset(character, verticalVelocity, predictio
         end
     elseif velocityDirection < 0 then
         if velocityMagnitude > 30 then
-            baseOffset = -2.0 * normalizedJumpPower
+            baseOffset = -2.2 * normalizedJumpPower
         elseif velocityMagnitude > 15 then
-            baseOffset = -1.0 * normalizedJumpPower
+            baseOffset = -1.5 * normalizedJumpPower
         else
-            baseOffset = -0.3 * normalizedJumpPower
+            baseOffset = -0.8 * normalizedJumpPower
         end
     else
-        baseOffset = 0.5
+        if futureVelocityMagnitude > 10 then
+            baseOffset = -1.0 * normalizedJumpPower
+        else
+            baseOffset = 0.5
+        end
     end
     
     return baseOffset + (verticalDisplacement * 0.3)
 end
 
-local function getOptimalAimPart(character, verticalVelocity, prediction)
+local function getOptimalAimPart(character, verticalVelocity, serverDelay, prediction)
     if not character then return nil, 0 end
     
     local head = character:FindFirstChild("Head")
     local upperTorso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
     local lowerTorso = character:FindFirstChild("LowerTorso")
+    local leftLeg = character:FindFirstChild("LeftUpperLeg") or character:FindFirstChild("Left Leg")
     
-    local aimOffset = calculateVerticalAimOffset(character, verticalVelocity, prediction)
+    local aimOffset = calculateVerticalAimOffset(character, verticalVelocity, serverDelay, prediction)
     
-    local targetPart = upperTorso or head
+    local totalTime = prediction + serverDelay
+    local gravity = workspace.Gravity or 196.2
+    local futureVerticalVelocity = verticalVelocity - (gravity * totalTime)
+    
+    local targetPart = head or upperTorso
     local yOffset = aimOffset
     
     if head and upperTorso then
         local velocityDirection = math.sign(verticalVelocity)
         local velocityMagnitude = math.abs(verticalVelocity)
+        local futureVelocityDirection = math.sign(futureVerticalVelocity)
+        local futureVelocityMagnitude = math.abs(futureVerticalVelocity)
         
         if velocityDirection > 0 then
-            if velocityMagnitude > 25 then
+            if futureVerticalVelocity < 5 and futureVerticalVelocity > -5 then
+                if leftLeg then
+                    targetPart = leftLeg
+                else
+                    targetPart = lowerTorso or upperTorso
+                end
+                yOffset = aimOffset * 0.9
+            elseif velocityMagnitude > 25 then
                 targetPart = head
-                yOffset = aimOffset
+                yOffset = aimOffset * 1.1
             elseif velocityMagnitude > 10 then
-                targetPart = upperTorso
-                yOffset = aimOffset * 0.7
+                targetPart = head
+                yOffset = aimOffset * 0.9
             else
                 targetPart = upperTorso
-                yOffset = aimOffset * 0.5
+                yOffset = aimOffset * 0.6
             end
         elseif velocityDirection < 0 then
-            if velocityMagnitude > 30 then
+            if velocityMagnitude > 35 then
                 targetPart = head
-                yOffset = aimOffset
-            elseif velocityMagnitude > 15 then
+                yOffset = aimOffset * 1.2
+            elseif velocityMagnitude > 20 then
+                targetPart = head
+                yOffset = aimOffset * 1.0
+            elseif velocityMagnitude > 10 then
                 targetPart = upperTorso
                 yOffset = aimOffset * 0.8
             else
@@ -160,11 +213,20 @@ local function getOptimalAimPart(character, verticalVelocity, prediction)
                 else
                     targetPart = upperTorso
                 end
-                yOffset = aimOffset * 0.6
+                yOffset = aimOffset * 0.7
             end
         else
-            targetPart = head
-            yOffset = 0.5
+            if futureVelocityDirection < 0 and futureVelocityMagnitude > 15 then
+                if leftLeg then
+                    targetPart = leftLeg
+                else
+                    targetPart = lowerTorso or upperTorso
+                end
+                yOffset = aimOffset * 0.8
+            else
+                targetPart = head
+                yOffset = 0.5
+            end
         end
     end
     
@@ -203,18 +265,24 @@ local function onCharacter(character)
             local root = murderer.Character:FindFirstChild("UpperTorso") or murderer.Character:FindFirstChild("Torso")
             if not root then return end
 
+            local clientPing = getMeasuredClientPing()
+            
+            local serverDelay = (clientPing / 1000) * 0.5
+            
             local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
             
             local verticalVelocity = root.AssemblyLinearVelocity.Y
             
-            local targetPart, yOffset = getOptimalAimPart(murderer.Character, verticalVelocity, pred)
+            local targetPart, yOffset = getOptimalAimPart(murderer.Character, verticalVelocity, serverDelay, pred)
             
             if targetPart then
                 local horizontalVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
-                local predictedHorizontal = targetPart.Position + (horizontalVelocity * pred)
+                
+                local totalTime = pred + serverDelay
+                local predictedHorizontal = targetPart.Position + (horizontalVelocity * totalTime)
                 
                 local gravity = workspace.Gravity or 196.2
-                local verticalDisplacement = verticalVelocity * pred - 0.5 * gravity * (pred * pred)
+                local verticalDisplacement = verticalVelocity * totalTime - 0.5 * gravity * (totalTime * totalTime)
                 
                 local aimPos = Vector3.new(
                     predictedHorizontal.X,
