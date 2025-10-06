@@ -1122,7 +1122,7 @@ function mainUI:Create()
                     content.Name = "RowContent"
                     content.BackgroundTransparency = 1
                     content.Position = UDim2.new(0, 180, 0, 12)  
-                    content.Size = UDim2.new(1, -210, 0, 0)    
+                    content.Size = UDim2.new(1, -210, 0, 0)   
                     content.AutomaticSize = Enum.AutomaticSize.Y
 
                     local grid = Instance.new("UIGridLayout", content)
@@ -1258,6 +1258,32 @@ function mainUI:Create()
                                     
                                     if state then
                                         fn(true)
+                                    end
+                                end)
+                            elseif modName == "Silent Knife" then
+                                createScriptButton(content, modName, function(state)
+                                    local G = (getgenv and getgenv()) or _G
+                                    -- Ensure the silent knife state table exists
+                                    G.CRIMSON_SILENT_KNIFE = G.CRIMSON_SILENT_KNIFE or { enabled = false }
+
+                                    -- Toggle internal state
+                                    G.CRIMSON_SILENT_KNIFE.enabled = state and true or false
+
+                                    -- Call enable/disable if provided by the Auto Knife script integration
+                                    if state then
+                                        if G.CRIMSON_SILENT_KNIFE.enable then
+                                            pcall(G.CRIMSON_SILENT_KNIFE.enable)
+                                        end
+                                        -- Optional: nudge Auto Knife Throw on if user enables Silent Knife
+                                        G.CRIMSON_AUTOKNIFE = G.CRIMSON_AUTOKNIFE or { enabled = false }
+                                        if not G.CRIMSON_AUTOKNIFE.enabled then
+                                            G.CRIMSON_AUTOKNIFE.enabled = true
+                                            if G.CRIMSON_AUTOKNIFE.enable then pcall(G.CRIMSON_AUTOKNIFE.enable) end
+                                        end
+                                    else
+                                        if G.CRIMSON_SILENT_KNIFE.disable then
+                                            pcall(G.CRIMSON_SILENT_KNIFE.disable)
+                                        end
                                     end
                                 end)
                             else
