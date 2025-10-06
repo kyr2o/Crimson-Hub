@@ -42,7 +42,7 @@ local theme = {
 local CATEGORY_SPEC = {
     [MM2_PLACEID] = {
         { title = "ESP", modules = { "RoleESP", "Trap ESP" } },
-        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw" } },
+        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw", "Silent Knife" } },
         { title = "Farming", modules = { "Coin Farm" } },
         { title = "Other", modules = "REMAINDER" },
     },
@@ -1122,7 +1122,7 @@ function mainUI:Create()
                     content.Name = "RowContent"
                     content.BackgroundTransparency = 1
                     content.Position = UDim2.new(0, 180, 0, 12)  
-                    content.Size = UDim2.new(1, -210, 0, 0)   
+                    content.Size = UDim2.new(1, -210, 0, 0)    
                     content.AutomaticSize = Enum.AutomaticSize.Y
 
                     local grid = Instance.new("UIGridLayout", content)
