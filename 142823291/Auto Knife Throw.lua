@@ -283,68 +283,58 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
--- [[ Silent Knife Feature - TARGET HUMANOIDROOTPART ]]
+-- [[ COMPLETELY RECODED SILENT KNIFE FUNCTION ]]
 local function silentThrow()
     if not throwAllowed() then return end
 
-    -- 1. Pick target
-    local origin = myRoot.Position
+    -- Get the target first
+    local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
-
-    if not targetPlayer or not targetLimb then
-        return
-    end
+    
+    if not targetPlayer or not targetLimb then return end
 
     local targetCharacter = targetPlayer.Character
     local targetHumanoid = targetCharacter and targetCharacter:FindFirstChildOfClass("Humanoid")
-
-    -- SPECIFICALLY target HumanoidRootPart
-    local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
-    if not targetHumanoid or targetHumanoid.Health <= 0 or not targetRoot then
-        return
-    end
-
-    local targetPosition = targetRoot.Position
-
-    -- 2. Check for obstacles (cover detection)
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    raycastParams.FilterDescendantsInstances = {myCharacter, targetCharacter}
+    local targetRoot = targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart")
     
-    local direction = targetPosition - origin
-    local wallCheck = Workspace:Raycast(origin, direction, raycastParams)
+    if not targetHumanoid or targetHumanoid.Health <= 0 or not targetRoot then return end
 
-    -- 3. If they're behind cover, abort
-    if wallCheck and not wallCheck.Instance:IsDescendantOf(targetCharacter) then
-        return
-    end
-
-    -- 4. Calculate knife travel time
-    local distance = (targetPosition - origin).Magnitude
+    -- Calculate travel time for invisible knife to reach target
+    local distance = (targetRoot.Position - origin).Magnitude
     local travelTime = distance / KNIFE_SPEED
-
-    -- 5. Wait for the "invisible knife" to travel to target (NO UNEQUIP!)
+    
+    -- 1. Unequip knife to simulate throw animation
+    myHumanoid:UnequipTools()
+    
+    -- 2. Wait for invisible knife to travel and pass the target
     task.spawn(function()
-        task.wait(travelTime)
+        task.wait(travelTime + 0.1) -- Extra 0.1 to ensure it "passes" them
         
-        -- Re-check if target is still valid
-        if not targetHumanoid or targetHumanoid.Health <= 0 then
-            return
+        -- Check if target is still valid
+        if not targetCharacter.Parent or not targetRoot.Parent or targetHumanoid.Health <= 0 then 
+            return 
         end
-
-        -- Get CURRENT HumanoidRootPart position (they might have moved)
-        local currentTargetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
-        if not currentTargetRoot then return end
-        local currentTargetPos = currentTargetRoot.Position
         
-        -- Final cover check at moment of impact
-        local finalDirection = currentTargetPos - origin
-        local finalCheck = Workspace:Raycast(origin, finalDirection, raycastParams)
+        -- Check for obstacles between knife position and target at time of kill
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        raycastParams.FilterDescendantsInstances = {myCharacter, targetCharacter}
         
-        if not finalCheck or finalCheck.Instance:IsDescendantOf(targetCharacter) then
-            -- Format: Throw:FireServer(CFrame at HumanoidRootPart position, HumanoidRootPart position)
+        local currentTargetPos = targetRoot.Position
+        local wallCheck = Workspace:Raycast(origin, currentTargetPos - origin, raycastParams)
+        
+        -- If there's no wall blocking, execute the kill
+        if not wallCheck then
+            -- 3. Fire the remote from the target's position to instantly kill them
+            -- Using the target's position as both the CFrame and origin point
             local targetCFrame = CFrame.new(currentTargetPos)
             knifeRemote:FireServer(targetCFrame, currentTargetPos)
+        end
+        
+        -- Re-equip the knife after a short delay
+        task.wait(0.2)
+        if myKnife and myKnife.Parent then
+            myHumanoid:EquipTool(myKnife)
         end
     end)
 end
@@ -355,7 +345,6 @@ local function step()
         return
     end
 
-    -- Stop everything if both features are disabled
     if not Environment.CRIMSON_AUTO_KNIFE.enabled and not Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then return end
 
     resolveKnife()
@@ -365,10 +354,10 @@ local function step()
     -- Check if Silent Knife is active first
     if Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
         silentThrow()
-        return -- Skip the rest of the function to prevent normal throw
+        return -- Skip normal throw
     end
 
-    -- If Silent Knife is not active, proceed with normal Auto Knife Throw
+    -- Normal Auto Knife Throw
     if not Environment.CRIMSON_AUTO_KNIFE.enabled then return end
     if not throwAllowed() then return end
 
@@ -401,7 +390,7 @@ end
 if loopConnection then loopConnection:Disconnect() end
 loopConnection=RunService.Heartbeat:Connect(step)
 
--- Enable/Disable functions for hub integration
+-- Crimson Hub Integration Functions (keeping the same functions as requested)
 Environment.CRIMSON_AUTO_KNIFE.enable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = true end
 Environment.CRIMSON_AUTO_KNIFE.disable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = false end
 Environment.CRIMSON_AUTO_KNIFE.enableSilentKnife = function() Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = true end
