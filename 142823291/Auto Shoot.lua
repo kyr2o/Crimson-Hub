@@ -7,7 +7,8 @@ G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or {
     enabled = false, 
     prediction = 0.14,
     gravity = 196.2, 
-    jumpPower = 50   
+    jumpPower = 50,  
+    fallCompensation = 1.2 
 }
 
 local function __mm2_pred_from_ping(ms)
@@ -89,43 +90,51 @@ local function calculateVerticalPrediction(target, predictionTime)
     local currentVelocity = humanoidRootPart.Velocity
     local verticalVelocity = currentVelocity.Y
 
-    local predictedY = humanoidRootPart.Position.Y + (verticalVelocity * predictionTime) - (0.5 * gravity * predictionTime^2)
+    local enhancedPredTime = predictionTime
+    if verticalVelocity < -10 then
+        enhancedPredTime = predictionTime * G.CRIMSON_AUTO_SHOOT.fallCompensation
+    end
+
+    local predictedY = humanoidRootPart.Position.Y
+        + (verticalVelocity * enhancedPredTime)
+        - (0.5 * gravity * enhancedPredTime^2)
 
     local aimOffset = Vector3.new(0, 0, 0)
     local movementSpeed = math.abs(verticalVelocity)
-    local isAscending = verticalVelocity > 0
-    local isDescending = verticalVelocity < 0
+    local isAscending = verticalVelocity > 2
+    local isDescending = verticalVelocity < -2
 
     if isAscending then
-
-        if movementSpeed > jumpPower * 0.7 then
-
+        if movementSpeed > jumpPower * 0.8 then
+            aimOffset = Vector3.new(0, 2.0, 0)
+        elseif movementSpeed > jumpPower * 0.5 then
             aimOffset = Vector3.new(0, 1.5, 0)
-        elseif movementSpeed > jumpPower * 0.3 then
-
-            aimOffset = Vector3.new(0, 0.5, 0)
+        elseif movementSpeed > jumpPower * 0.2 then
+            aimOffset = Vector3.new(0, 0.8, 0)
         else
-
-            aimOffset = Vector3.new(0, 0, 0)
+            aimOffset = Vector3.new(0, 0.2, 0)
         end
     elseif isDescending then
-
-        if movementSpeed > jumpPower * 0.5 then
-
-            aimOffset = Vector3.new(0, -1.5, 0)
+        if movementSpeed > jumpPower * 0.8 then
+            aimOffset = Vector3.new(0, -2.5, 0)
+        elseif movementSpeed > jumpPower * 0.5 then
+            aimOffset = Vector3.new(0, -2.0, 0)
+        elseif movementSpeed > jumpPower * 0.2 then
+            aimOffset = Vector3.new(0, -1.0, 0)
         else
-
-            aimOffset = Vector3.new(0, -0.5, 0)
+            aimOffset = Vector3.new(0, -0.3, 0)
         end
     else
-
-        aimOffset = Vector3.new(0, 0, 0)
+        aimOffset = Vector3.new(0, 0.1, 0)
     end
 
     local horizontalVelocity = Vector3.new(currentVelocity.X, 0, currentVelocity.Z)
-    local predictedHorizontal = humanoidRootPart.Position + (horizontalVelocity * predictionTime)
-
-    local finalPosition = Vector3.new(predictedHorizontal.X, predictedY, predictedHorizontal.Z) + aimOffset
+    local predictedHorizontal = humanoidRootPart.Position + (horizontalVelocity * enhancedPredTime)
+    local finalPosition = Vector3.new(
+        predictedHorizontal.X,
+        predictedY,
+        predictedHorizontal.Z
+    ) + aimOffset
 
     return finalPosition
 end
@@ -188,7 +197,6 @@ local function onCharacter(character)
             if not root then return end
 
             local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
-
             local aimPos = calculateVerticalPrediction(murderer, pred)
 
             rf:InvokeServer(1, aimPos, "AH2")
@@ -223,4 +231,16 @@ end
 
 G.CRIMSON_AUTO_SHOOT.setJumpPower = function(jumpPower)
     G.CRIMSON_AUTO_SHOOT.jumpPower = jumpPower or 50
+end
+
+G.CRIMSON_AUTO_SHOOT.setFallCompensation = function(compensation)
+    G.CRIMSON_AUTO_SHOOT.fallCompensation = compensation or 1.2
+end
+
+G.CRIMSON_AUTO_SHOOT.increaseFallComp = function()
+    G.CRIMSON_AUTO_SHOOT.fallCompensation = G.CRIMSON_AUTO_SHOOT.fallCompensation + 0.1
+end
+
+G.CRIMSON_AUTO_SHOOT.decreaseFallComp = function()
+    G.CRIMSON_AUTO_SHOOT.fallCompensation = math.max(0.5, G.CRIMSON_AUTO_SHOOT.fallCompensation - 0.1)
 end
