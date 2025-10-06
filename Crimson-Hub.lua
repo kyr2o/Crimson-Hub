@@ -42,7 +42,7 @@ local theme = {
 local CATEGORY_SPEC = {
     [MM2_PLACEID] = {
         { title = "ESP", modules = { "RoleESP", "Trap ESP" } },
-        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw", "Silent Knife" } },
+        { title = "Actions", modules = { "KillAll", "Auto Shoot", "Break Gun", "Auto Knife Throw" } },
         { title = "Farming", modules = { "Coin Farm" } },
         { title = "Other", modules = "REMAINDER" },
     },
@@ -338,7 +338,7 @@ local function tryCopyToClipboard(text, parentForFallback)
     box.Size = UDim2.new(1, -40, 0, 36)
     box.Position = UDim2.new(0, 20, 1, 10)
     box.BackgroundColor3 = theme.backgroundSecondary
-    box.TextColor3 = Color3.new(1, 1, 1) 
+    box.TextColor3 = Color3.new(1, 1, 1)
     box.TextEditable = false
     box.ClearTextOnFocus = false
     box.Text = text
@@ -358,7 +358,7 @@ local mainUI = {}
 
 local function addCategoryRow(parent, titleText)
     local container = Instance.new("Frame", parent)
-    container.Size = UDim2.new(1, 0, 0, 35) 
+    container.Size = UDim2.new(1, 0, 0, 35)
     container.BackgroundTransparency = 1
 
     local padding = Instance.new("UIPadding", container)
@@ -366,7 +366,7 @@ local function addCategoryRow(parent, titleText)
     padding.PaddingBottom = UDim.new(0, 8)
 
     local title = Instance.new("TextLabel", container)
-    title.Size = UDim2.new(0, 140, 1, 0)  
+    title.Size = UDim2.new(0, 140, 1, 0)
     title.Text = titleText
     title.Font = Enum.Font.Michroma
     title.TextSize = 16
@@ -377,7 +377,7 @@ local function addCategoryRow(parent, titleText)
     local line = Instance.new("Frame", container)
     line.BorderSizePixel = 0
     line.BackgroundColor3 = theme.accent
-    line.Size = UDim2.new(1, -(140 + 25), 0, 3)  
+    line.Size = UDim2.new(1, -(140 + 25), 0, 3)
     line.Position = UDim2.new(0, 140 + 15, 0.5, -1)
     Instance.new("UICorner", line).CornerRadius = UDim.new(0, 2)
 
@@ -615,20 +615,20 @@ function mainUI:Create()
     title.TextXAlignment = Enum.TextXAlignment.Left
 
     local closeButton = Instance.new("TextButton", header)
-    closeButton.Size = UDim2.new(0, 28, 0, 28) 
+    closeButton.Size = UDim2.new(0, 28, 0, 28)
     closeButton.Position = UDim2.new(1, -38, 0.5, -14)
-    closeButton.Text = "✕" 
+    closeButton.Text = "✕"
     closeButton.Font = Enum.Font.GothamBold
     closeButton.TextSize = 16
-    closeButton.TextColor3 = Color3.new(1, 1, 1) 
-    closeButton.BackgroundColor3 = theme.error 
+    closeButton.TextColor3 = Color3.new(1, 1, 1)
+    closeButton.BackgroundColor3 = theme.error
     closeButton.ZIndex = 3
     Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0, 8)
 
     local closeButtonGradient = Instance.new("UIGradient", closeButton)
     closeButtonGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, theme.error),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 20, 40)) 
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 20, 40))
     })
     closeButtonGradient.Rotation = 45
 
@@ -677,7 +677,7 @@ function mainUI:Create()
     welcomeMessage.Text = "Welcome,\n" .. localPlayer.DisplayName
     welcomeMessage.Font = Enum.Font.Michroma
     welcomeMessage.TextSize = 16
-    welcomeMessage.TextColor3 = theme.text 
+    welcomeMessage.TextColor3 = theme.text
     welcomeMessage.TextWrapped = true
     welcomeMessage.BackgroundTransparency = 1
     welcomeMessage.LayoutOrder = -1
@@ -716,7 +716,7 @@ function mainUI:Create()
         tab.Text = name
         tab.Font = Enum.Font.Michroma
         tab.TextSize = 17
-        tab.TextColor3 = theme.text 
+        tab.TextColor3 = theme.text
         tab.TextXAlignment = Enum.TextXAlignment.Center
         Instance.new("UICorner", tab).CornerRadius = UDim.new(0, 10)
 
@@ -743,14 +743,14 @@ function mainUI:Create()
         })
         indicatorGradient.Rotation = 90
 
-        tab.MouseEnter:Connect(function() 
+        tab.MouseEnter:Connect(function()
             if pages[name] and not pages[name].Visible then
-                tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accentLight}):Play() 
+                tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accentLight}):Play()
             end
         end)
-        tab.MouseLeave:Connect(function() 
+        tab.MouseLeave:Connect(function()
             if pages[name] and not pages[name].Visible then
-                tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() 
+                tweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play()
             end
         end)
         tab.MouseButton1Click:Connect(function() selectTab(tab) end)
@@ -778,7 +778,7 @@ function mainUI:Create()
     local scriptsLayout = Instance.new("UIListLayout", scriptsPage)
     scriptsLayout.Padding = UDim.new(0, 18)
     scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    scriptsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left 
+    scriptsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
     local universalPage = createPage("Universal")
     local universalLayout = Instance.new("UIListLayout", universalPage)
@@ -859,7 +859,7 @@ function mainUI:Create()
         toggleStroke.Thickness = 2
 
         local toggleKnob = Instance.new("Frame", toggle)
-        toggleKnob.Size = UDim2.new(0, 22, 0, 22) 
+        toggleKnob.Size = UDim2.new(0, 22, 0, 22)
         toggleKnob.Position = UDim2.new(0, 4, 0.5, -11)
         toggleKnob.BackgroundColor3 = theme.primary
         Instance.new("UICorner", toggleKnob).CornerRadius = UDim.new(1, 0)
@@ -892,12 +892,12 @@ function mainUI:Create()
         end
 
         button.MouseButton1Click:Connect(function() updateToggle(true) end)
-        button.MouseEnter:Connect(function() 
-            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accentLight}):Play() 
+        button.MouseEnter:Connect(function()
+            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accentLight}):Play()
             tweenService:Create(buttonStroke, TweenInfo.new(0.2), {Transparency = 0.2}):Play()
         end)
-        button.MouseLeave:Connect(function() 
-            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() 
+        button.MouseLeave:Connect(function()
+            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play()
             tweenService:Create(buttonStroke, TweenInfo.new(0.2), {Transparency = 0.5}):Play()
         end)
         return button
@@ -906,11 +906,11 @@ function mainUI:Create()
     local function createActionButton(parent, name, callback)
         local button = Instance.new("TextButton", parent)
         button.Size = UDim2.new(0, 220, 0, 60)
-        button.BackgroundColor3 = theme.accent 
+        button.BackgroundColor3 = theme.accent
         button.Text = name
         button.Font = Enum.Font.Michroma
         button.TextSize = 16
-        button.TextColor3 = theme.text 
+        button.TextColor3 = theme.text
         Instance.new("UICorner", button).CornerRadius = UDim.new(0, 12)
 
         local buttonGradient = Instance.new("UIGradient", button)
@@ -930,12 +930,12 @@ function mainUI:Create()
             playSound("click")
             pcall(callback)
         end)
-        button.MouseEnter:Connect(function() 
+        button.MouseEnter:Connect(function()
             tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accentLight}):Play()
             tweenService:Create(buttonStroke, TweenInfo.new(0.2), {Transparency = 0.2}):Play()
         end)
-        button.MouseLeave:Connect(function() 
-            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play() 
+        button.MouseLeave:Connect(function()
+            tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = theme.accent}):Play()
             tweenService:Create(buttonStroke, TweenInfo.new(0.2), {Transparency = 0.5}):Play()
         end)
         return button
@@ -962,7 +962,7 @@ function mainUI:Create()
 
         rebindButton.MouseButton1Click:Connect(function()
             rebindButton.Text = "Press a key..."
-            local conn  
+            local conn
             conn = userInputService.InputBegan:Connect(function(input, gameProcessed)
                 if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard then
                     toggleKey = input.KeyCode
@@ -992,7 +992,7 @@ function mainUI:Create()
             input.Position = UDim2.new(0.6, 0, 0.5, 0)
             input.AnchorPoint = Vector2.new(0, 0.5)
             input.BackgroundColor3 = theme.backgroundSecondary
-            input.TextColor3 = Color3.new(1, 1, 1) 
+            input.TextColor3 = Color3.new(1, 1, 1)
             input.Font = Enum.Font.SourceSans
             input.TextSize = 16
             input.Text = tostring(G.CRIMSON_SETTINGS[property] or defaultValue)
@@ -1087,7 +1087,7 @@ function mainUI:Create()
             if not child:IsA("UILayout") then child:Destroy() end
         end
 
-        scriptsPage.CanvasSize = UDim2.new(0, 0, 0, 0) 
+        scriptsPage.CanvasSize = UDim2.new(0, 0, 0, 0)
 
         local scripts = scriptLoader()
         if not scripts then return end
@@ -1102,7 +1102,7 @@ function mainUI:Create()
             local vertList = scriptsPage:FindFirstChildOfClass("UIListLayout")
             if not vertList then
                 vertList = Instance.new("UIListLayout", scriptsPage)
-                vertList.Padding = UDim.new(0, 18) 
+                vertList.Padding = UDim.new(0, 18)
                 vertList.SortOrder = Enum.SortOrder.LayoutOrder
                 vertList.HorizontalAlignment = Enum.HorizontalAlignment.Left
             end
@@ -1114,15 +1114,15 @@ function mainUI:Create()
                     addCategoryRow(scriptsPage, cat.title)
 
                     local row = Instance.new("Frame", scriptsPage)
-                    row.Size = UDim2.new(1, 0, 0, 60) 
+                    row.Size = UDim2.new(1, 0, 0, 60)
                     row.BackgroundTransparency = 1
                     row.AutomaticSize = Enum.AutomaticSize.Y
 
                     local content = Instance.new("Frame", row)
                     content.Name = "RowContent"
                     content.BackgroundTransparency = 1
-                    content.Position = UDim2.new(0, 180, 0, 12)  
-                    content.Size = UDim2.new(1, -210, 0, 0)    
+                    content.Position = UDim2.new(0, 180, 0, 12)
+                    content.Size = UDim2.new(1, -210, 0, 0)
                     content.AutomaticSize = Enum.AutomaticSize.Y
 
                     local grid = Instance.new("UIGridLayout", content)
@@ -1161,7 +1161,7 @@ function mainUI:Create()
                                     local G = (getgenv and getgenv()) or _G
                                     G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
                                     G.CRIMSON_AUTO_SHOOT.enabled = state
-                                    if state then fn(true) end 
+                                    if state then fn(true) end
                                 end)
                                 autoBtn.LayoutOrder = 1
                                 autoBtn.Size = UDim2.new(1, 0, 0, 60)
@@ -1194,7 +1194,7 @@ function mainUI:Create()
                                 predBox.BackgroundColor3 = theme.background
                                 predBox.Font = Enum.Font.SourceSans
                                 predBox.TextSize = 16
-                                predBox.TextColor3 = Color3.new(1, 1, 1) 
+                                predBox.TextColor3 = Color3.new(1, 1, 1)
                                 do
                                     local G = (getgenv and getgenv()) or _G
                                     local defaultPred = (G.CRIMSON_AUTO_SHOOT and G.CRIMSON_AUTO_SHOOT.prediction) or 0.15
@@ -1260,32 +1260,36 @@ function mainUI:Create()
                                         fn(true)
                                     end
                                 end)
-                            elseif modName == "Silent Knife" then
-                                createScriptButton(content, modName, function(state)
-                                    local G = (getgenv and getgenv()) or _G
-                                    -- Ensure the silent knife state table exists
-                                    G.CRIMSON_SILENT_KNIFE = G.CRIMSON_SILENT_KNIFE or { enabled = false }
+                                do
+                                    -- Ensure the runtime flag exists; defaults to disabled if not defined yet
+                                    local Environment = (getgenv and getgenv()) or _G
+                                    Environment.CRIMSON_SILENT_KNIFE = Environment.CRIMSON_SILENT_KNIFE or {
+                                        enabled = false,
+                                        postGateDelay = 0.12,
+                                        finishWindow = 0.2,
+                                        finalProbeRadius = 1.0,
+                                    }
 
-                                    -- Toggle internal state
-                                    G.CRIMSON_SILENT_KNIFE.enabled = state and true or false
+                                    -- UI: Silent Knife toggle under Auto Knife Throw
+                                    local initial = not not Environment.CRIMSON_SILENT_KNIFE.enabled
+                                    createToggle(content, "Silent Knife", initial, function(state)
+                                        -- Update runtime flag
+                                        Environment.CRIMSON_SILENT_KNIFE.enabled = state
 
-                                    -- Call enable/disable if provided by the Auto Knife script integration
-                                    if state then
-                                        if G.CRIMSON_SILENT_KNIFE.enable then
-                                            pcall(G.CRIMSON_SILENT_KNIFE.enable)
+                                        -- Optional: expose helpers for external binds to stay consistent
+                                        Environment.CRIMSON_SILENT_KNIFE.enable = function() Environment.CRIMSON_SILENT_KNIFE.enabled = true end
+                                        Environment.CRIMSON_SILENT_KNIFE.disable = function() Environment.CRIMSON_SILENT_KNIFE.enabled = false end
+
+                                        -- UX feedback
+                                        if state then
+                                            sendNotification("Silent Knife", "Enabled", 1.2, "success")
+                                            playSound("toggleOn")
+                                        else
+                                            sendNotification("Silent Knife", "Disabled", 1.2, "warning")
+                                            playSound("toggleOff")
                                         end
-                                        -- Optional: nudge Auto Knife Throw on if user enables Silent Knife
-                                        G.CRIMSON_AUTOKNIFE = G.CRIMSON_AUTOKNIFE or { enabled = false }
-                                        if not G.CRIMSON_AUTOKNIFE.enabled then
-                                            G.CRIMSON_AUTOKNIFE.enabled = true
-                                            if G.CRIMSON_AUTOKNIFE.enable then pcall(G.CRIMSON_AUTOKNIFE.enable) end
-                                        end
-                                    else
-                                        if G.CRIMSON_SILENT_KNIFE.disable then
-                                            pcall(G.CRIMSON_SILENT_KNIFE.disable)
-                                        end
-                                    end
-                                end)
+                                    end)
+                                end
                             else
                                 createScriptButton(content, modName, function(state)
                                     if state then fn(true) end
@@ -1311,7 +1315,7 @@ function mainUI:Create()
                         row.Size = UDim2.new(1, 0, 0, 60)
                         row.BackgroundTransparency = 1
 
-                        row.AutomaticSize = Enum.AutomaticSize.Y 
+                        row.AutomaticSize = Enum.AutomaticSize.Y
 
                         local content = Instance.new("Frame", row)
                         content.Name = "RowContent"
@@ -1321,8 +1325,8 @@ function mainUI:Create()
                         content.AutomaticSize = Enum.AutomaticSize.Y
 
                         local grid = Instance.new("UIGridLayout", content)
-                        grid.CellSize = UDim2.new(0, 220, 0, 120) 
-                        grid.CellPadding = UDim2.new(0, 20, 0, 20) 
+                        grid.CellSize = UDim2.new(0, 220, 0, 120)
+                        grid.CellPadding = UDim2.new(0, 20, 0, 20)
                         grid.SortOrder = Enum.SortOrder.LayoutOrder
                         grid.FillDirection = Enum.FillDirection.Horizontal
                         grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -1436,7 +1440,7 @@ local function createVerificationUI(onSuccess)
     title.BackgroundTransparency = 1
     title.Text = "VERIFICATION"
     title.Font = Enum.Font.Michroma
-    title.TextColor3 = theme.text 
+    title.TextColor3 = theme.text
     title.TextSize = 32
 
     local subtitle = Instance.new("TextLabel", frame)
@@ -1445,14 +1449,14 @@ local function createVerificationUI(onSuccess)
     subtitle.BackgroundTransparency = 1
     subtitle.Text = "Please enter your key to continue"
     subtitle.Font = Enum.Font.SourceSans
-    subtitle.TextColor3 = theme.textSecondary 
+    subtitle.TextColor3 = theme.textSecondary
     subtitle.TextSize = 18
 
     local input = Instance.new("TextBox")
     input.Size = UDim2.new(1, -50, 0, 55)
     input.Position = UDim2.new(0, 25, 0, 115)
     input.BackgroundColor3 = theme.backgroundSecondary
-    input.TextColor3 = Color3.new(1, 1, 1) 
+    input.TextColor3 = Color3.new(1, 1, 1)
     input.PlaceholderText = "Your Key"
     input.PlaceholderColor3 = theme.textSecondary
     input.Font = Enum.Font.SourceSans
@@ -1477,7 +1481,7 @@ local function createVerificationUI(onSuccess)
     submit.BackgroundColor3 = theme.primary
     submit.Text = "VERIFY"
     submit.Font = Enum.Font.Michroma
-    submit.TextColor3 = Color3.fromRGB(40, 40, 40) 
+    submit.TextColor3 = Color3.fromRGB(40, 40, 40)
     submit.TextSize = 20
     Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 10)
 
@@ -1493,7 +1497,7 @@ local function createVerificationUI(onSuccess)
     loadingSpinner.Size = UDim2.new(0, 30, 0, 30)
     loadingSpinner.Position = UDim2.new(0.5, -15, 0.5, -15)
     loadingSpinner.BackgroundTransparency = 1
-    loadingSpinner.ImageColor3 = Color3.fromRGB(40, 40, 40) 
+    loadingSpinner.ImageColor3 = Color3.fromRGB(40, 40, 40)
     loadingSpinner.Visible = false
 
     local getLink = Instance.new("TextButton", frame)
@@ -1502,7 +1506,7 @@ local function createVerificationUI(onSuccess)
     getLink.BackgroundColor3 = theme.accent
     getLink.Text = "GET LINK"
     getLink.Font = Enum.Font.Michroma
-    getLink.TextColor3 = theme.text 
+    getLink.TextColor3 = theme.text
     getLink.TextSize = 18
     Instance.new("UICorner", getLink).CornerRadius = UDim.new(0, 10)
 
