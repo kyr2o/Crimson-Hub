@@ -2,19 +2,9 @@ local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local HttpService = game:GetService("HttpService")
 
 local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
 if not CoreGui:FindFirstChild(MARKER_NAME) then return end
-
-local GITHUB_USERNAME = "kyr2o"
-local GITHUB_REPO = "Crimson-Hub"
-local GITHUB_BRANCH = "main"
-
-local GITHUB_FILE_PATH = "142823291/AutoKnifeThrow_Status.txt" 
-local isGithubEnabled = true 
-local lastGithubCheck = 0
-local checkInterval = 300 
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -22,7 +12,7 @@ local camera = Workspace.CurrentCamera
 local Environment = (getgenv and getgenv()) or _G
 Environment.CRIMSON_AUTO_KNIFE = Environment.CRIMSON_AUTO_KNIFE or {
     enabled = true,
-    silentKnifeEnabled = false 
+    silentKnifeEnabled = false
 }
 
 local AllowedAnimationIds = { "rbxassetid://1957618848" }
@@ -47,44 +37,13 @@ local myCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 local myHumanoid = myCharacter:WaitForChild("Humanoid")
 local myRoot = myCharacter:WaitForChild("HumanoidRootPart")
 local myKnife, knifeRemote
+
 local loopConnection
 
 local trackStart = setmetatable({}, { __mode = "k" })
 local lastGroundY = {}
 local lastGroundedTorso = {}
 local lastGroundedTime = {}
-
-local function httpGet(url)
-    local success, result = pcall(function() return HttpService:GetAsync(url) end)
-    if success and result then return true, tostring(result) end
-    local function tryRequest(reqFunc)
-        if not reqFunc then return false, nil end
-        local ok, resp = pcall(function() return reqFunc({Url = url, Method = "GET"}) end)
-        if ok and resp then return true, tostring(resp.Body or resp) end
-        return false, nil
-    end
-    local r, res = tryRequest(request)
-    if r then return r, res end
-    local s, res2 = tryRequest(syn and syn.request)
-    if s then return s, res2 end
-    return false, tostring(result or "Failed")
-end
-
-local function checkGithubStatus()
-    local now = os.clock()
-    if now - lastGithubCheck < checkInterval then return end
-    lastGithubCheck = now
-
-    task.spawn(function()
-        local url = ("https://raw.githubusercontent.com/%s/%s/%s/%s"):format(GITHUB_USERNAME, GITHUB_REPO, GITHUB_BRANCH, GITHUB_FILE_PATH)
-        local success, response = httpGet(url)
-
-        if success and response then
-            local content = response:lower():match("^%s*(.-)%s*$")
-            isGithubEnabled = (content == "true" or content == "1" or content == "enabled")
-        end
-    end)
-end
 
 local function unitVector(v)
     local m = v.Magnitude
@@ -324,67 +283,90 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
-local function performSilentThrow(origin, targetPlayer, targetLimb)
-    local tc = targetPlayer.Character
-    if not tc then return end
+-- [[ Silent Knife Feature - VERSION 1: INSTANT KILL ]]
+local function silentThrow()
+    if not throwAllowed() then return end
 
-    if myKnife and myKnife.Parent == myCharacter then
-        myKnife.Parent = localPlayer.Backpack
-        task.wait() 
-        if myKnife then
-           myKnife.Parent = myCharacter
-        end
+    -- 1. Pick target first
+    local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
+    local targetPlayer, targetLimb = pickTarget(origin)
+
+    if not targetPlayer or not targetLimb then
+        return
     end
 
-    local targetPos = targetLimb.Position
-    local dist = (targetPos - origin).Magnitude
-    local travelTime = dist / KNIFE_SPEED
+    local targetCharacter = targetPlayer.Character
+    local targetHumanoid = targetCharacter and targetCharacter:FindFirstChildOfClass("Humanoid")
+    local targetPart = getAimPart(targetCharacter)
 
-    task.delay(travelTime, function()
+    if not targetHumanoid or targetHumanoid.Health <= 0 or not targetPart then
+        return
+    end
 
-        if not targetPlayer or not targetPlayer.Parent or not targetPlayer.Character then return end
-        local currentCharacter = targetPlayer.Character
-        local currentHum = currentCharacter:FindFirstChildOfClass("Humanoid")
-        local currentRoot = currentCharacter:FindFirstChild("HumanoidRootPart")
+    -- 2. Check for obstacles BEFORE unequipping
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {myCharacter, targetCharacter}
+    
+    local originPoint = myRoot.Position
+    local targetPoint = targetPart.Position
+    local direction = targetPoint - originPoint
+    
+    local wallCheck = Workspace:Raycast(originPoint, direction, raycastParams)
 
-        if not currentHum or currentHum.Health <= 0 or not currentRoot then return end
+    -- 3. If obstacle detected (and it's not part of target), abort
+    if wallCheck and not wallCheck.Instance:IsDescendantOf(targetCharacter) then
+        return -- They're behind cover, don't throw
+    end
 
-        local finalTargetPos = currentRoot.Position
+    -- 4. Unequip the knife to simulate the start of the throw
+    myHumanoid:UnequipTools()
 
-        local ignoreList = {myCharacter, currentCharacter}
-        local hit, _, _ = rayTowards(origin, finalTargetPos, ignoreList)
+    -- 5. Small delay for visual effect
+    task.wait(0.1)
 
-        if not hit or ignoreHit(hit) then
-            if knifeRemote then
-                knifeRemote:FireServer(CFrame.new(finalTargetPos), origin)
-            end
-        end
-    end)
+    -- 6. INSTANTLY teleport knife to target's HumanoidRootPart and fire remote
+    if myKnife and myKnife:FindFirstChild("Handle") then
+        -- Teleport the knife handle directly to target
+        myKnife.Handle.CFrame = CFrame.new(targetPoint)
+        
+        -- Fire the remote FROM the target's position (not from player position)
+        knifeRemote:FireServer(CFrame.new(targetPoint), targetPoint)
+    end
+    
+    -- 7. Re-equip the knife to complete the animation
+    task.wait(0.05)
+    if myKnife then
+        myHumanoid:EquipTool(myKnife)
+    end
 end
 
 local function step()
-    checkGithubStatus()
-    if not isGithubEnabled then return end
-
     if not CoreGui:FindFirstChild(MARKER_NAME) then
         if loopConnection then loopConnection:Disconnect(); loopConnection=nil end
         return
     end
-    if not Environment.CRIMSON_AUTO_KNIFE.enabled then return end
+
+    -- Stop everything if both features are disabled
+    if not Environment.CRIMSON_AUTO_KNIFE.enabled and not Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then return end
+
     resolveKnife()
     if not myKnife or not knifeRemote then return end
     if not myCharacter or not myRoot or not myHumanoid or myHumanoid.Health<=0 then return end
+    
+    -- Check if Silent Knife is active first
+    if Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
+        silentThrow()
+        return -- Skip the rest of the function to prevent normal throw
+    end
+
+    -- If Silent Knife is not active, proceed with normal Auto Knife Throw
+    if not Environment.CRIMSON_AUTO_KNIFE.enabled then return end
     if not throwAllowed() then return end
 
     local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
     if not targetPlayer or not targetLimb then return end
-
-    if Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
-        performSilentThrow(origin, targetPlayer, targetLimb)
-
-        return 
-    end
 
     local tc,targetHum,anchor = targetPlayer.Character, nil, nil
     if tc then targetHum=tc:FindFirstChildOfClass("Humanoid"); anchor=getAimPart(tc) end
@@ -410,21 +392,9 @@ end
 
 if loopConnection then loopConnection:Disconnect() end
 loopConnection=RunService.Heartbeat:Connect(step)
-checkGithubStatus() 
 
-Environment.CRIMSON_AUTO_KNIFE.enable=function()Environment.CRIMSON_AUTO_KNIFE.enabled=true end
-Environment.CRIMSON_AUTO_KNIFE.disable=function()Environment.CRIMSON_AUTO_KNIFE.enabled=false end
-
-Environment.CRIMSON_AUTO_KNIFE.enableSilentKnife = function()
-    Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = true
-    if Environment.CRIMSON_NOTIFY then
-        pcall(Environment.CRIMSON_NOTIFY, "Silent Knife", "Enabled", 1, "success")
-    end
-end
-
-Environment.CRIMSON_AUTO_KNIFE.disableSilentKnife = function()
-    Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = false
-    if Environment.CRIMSON_NOTIFY then
-        pcall(Environment.CRIMSON_NOTIFY, "Silent Knife", "Disabled", 1, "info")
-    end
-end
+-- Enable/Disable functions for hub integration
+Environment.CRIMSON_AUTO_KNIFE.enable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = true end
+Environment.CRIMSON_AUTO_KNIFE.disable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = false end
+Environment.CRIMSON_AUTO_KNIFE.enableSilentKnife = function() Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = true end
+Environment.CRIMSON_AUTO_KNIFE.disableSilentKnife = function() Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = false end
