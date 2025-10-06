@@ -1,26 +1,25 @@
-local Players     = game:GetService("Players")
-local RunService  = game:GetService("RunService")
-local Stats       = game:GetService("Stats")
-local Workspace   = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 
 local G = (getgenv and getgenv()) or _G
-G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or {
-    enabled          = false,
-    prediction       = 0.14,
-    gravity          = 196.2,
-    jumpPower        = 50,
-    fallCompensation = 1.35,
+G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { 
+    enabled = false, 
+    prediction = 0.14,
+    gravity = 196.2, -- Default Roblox gravity
+    jumpPower = 50,  -- Default Roblox jump power
+    lastVelocityY = 0 -- Track previous velocity for jump detection
 }
 
 local function __mm2_pred_from_ping(ms)
     if not ms or ms ~= ms then return 0.14 end
-    if ms <= 40  then return 0.12  end
+    if ms <= 40  then return 0.12 end
     if ms <= 60  then return 0.125 end
-    if ms <= 80  then return 0.13  end
+    if ms <= 80  then return 0.13 end
     if ms <= 100 then return 0.135 end
-    if ms <= 120 then return 0.14  end
+    if ms <= 120 then return 0.14 end
     if ms <= 150 then return 0.145 end
-    if ms <= 180 then return 0.15  end
+    if ms <= 180 then return 0.15 end
     if ms <= 220 then return 0.155 end
     return 0.21
 end
@@ -28,129 +27,166 @@ end
 local function __mm2_ping_ms()
     local success, result = pcall(function()
         local net = Stats:FindFirstChild("Network")
-        local item = net and net:FindFirstChild("ServerStatsItem")
-        local data = item and item:FindFirstChild("Data Ping")
-        local v = data and data:GetValue()
-        if not v then return nil end
-        return math.floor((v < 1 and v*1000 or v) + 0.5)
+        if not net then return nil end
+
+        local serverStats = net:FindFirstChild("ServerStatsItem")
+        if not serverStats then return nil end
+
+        local dataPing = serverStats:FindFirstChild("Data Ping")
+        if not dataPing then return nil end
+
+        local value = dataPing:GetValue()
+        if not value then return nil end
+
+        if value < 1 then
+            return math.floor(value * 1000 + 0.5)
+        else
+            return math.floor(value + 0.5)
+        end
     end)
-    if success and result then return result end
-    local success2, res2 = pcall(function()
+
+    if success and result then
+        return result
+    end
+
+    local success2, result2 = pcall(function()
         return Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
     end)
-    if success2 and res2 then
-        local num = tonumber(res2:match("%d+%.?%d*"))
-        if num then return math.floor(num + 0.5) end
+
+    if success2 and result2 then
+        local num = tonumber(result2:match("%d+%.?%d*"))
+        if num then
+            return math.floor(num + 0.5)
+        end
     end
-    return 140
+
+    return 140 
 end
 
--- Completely recoded vertical prediction with nil safety
-local function calculateVerticalPrediction(target, predictionTime)
-    -- Validate inputs
-    if not target or not target.Character then
-        return nil
-    end
+-- Function to get player's jump power and calculate gravity effects
+local function getPlayerMovementStats(player)
+    if not player.Character then return G.CRIMSON_AUTO_SHOOT.jumpPower, G.CRIMSON_AUTO_SHOOT.gravity end
     
-    local root = target.Character:FindFirstChild("UpperTorso") or target.Character:FindFirstChild("HumanoidRootPart")
-    if not root then
-        return nil
-    end
-    
-    -- Safe defaults
-    local pred = tonumber(predictionTime) or tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
-    local grav = tonumber(Workspace.Gravity) or tonumber(G.CRIMSON_AUTO_SHOOT.gravity) or 196.2
-    
-    -- Get humanoid for jump power
-    local humanoid = target.Character:FindFirstChild("Humanoid")
-    local jumpPow = tonumber(G.CRIMSON_AUTO_SHOOT.jumpPower) or 50
+    local humanoid = player.Character:FindFirstChild("Humanoid")
+    local jumpPower = G.CRIMSON_AUTO_SHOOT.jumpPower
+    local gravity = G.CRIMSON_AUTO_SHOOT.gravity
     
     if humanoid then
-        local jp = tonumber(humanoid.JumpPower)
-        local jh = tonumber(humanoid.JumpHeight)
-        if jp and jp > 0 then
-            jumpPow = jp
-        elseif jh and jh > 0 then
-            jumpPow = jh * 2
-        end
+        jumpPower = humanoid.JumpPower or humanoid.JumpHeight * 2 or G.CRIMSON_AUTO_SHOOT.jumpPower
     end
     
-    -- Get current position and velocity safely
-    local pos = root.Position or Vector3.new(0,0,0)
-    local vel = root.Velocity or Vector3.new(0,0,0)
-    
-    local vx = tonumber(vel.X) or 0
-    local vy = tonumber(vel.Y) or 0
-    local vz = tonumber(vel.Z) or 0
-    
-    -- Adjust prediction time for falling
-    local adjustedPred = pred
-    if vy < -10 then
-        local comp = tonumber(G.CRIMSON_AUTO_SHOOT.fallCompensation) or 1.35
-        adjustedPred = pred * comp
+    -- Get workspace gravity
+    local workspace = game:GetService("Workspace")
+    if workspace then
+        gravity = workspace.Gravity or G.CRIMSON_AUTO_SHOOT.gravity
     end
     
-    -- Predict horizontal position
-    local futureX = pos.X + (vx * adjustedPred)
-    local futureZ = pos.Z + (vz * adjustedPred)
-    
-    -- Predict vertical position with gravity
-    -- Formula: y = y0 + vy*t - 0.5*g*t^2
-    local futureY = pos.Y + (vy * adjustedPred) - (0.5 * grav * adjustedPred * adjustedPred)
-    
-    -- Calculate aim offset based on vertical movement
-    local offsetY = 0
-    local speed = math.abs(vy)
-    
-    -- Ascending (jumping up)
-    if vy > 2 then
-        if speed > jumpPow * 0.8 then
-            offsetY = 2.0
-        elseif speed > jumpPow * 0.5 then
-            offsetY = 1.5
-        elseif speed > jumpPow * 0.2 then
-            offsetY = 0.8
-        else
-            offsetY = 0.2
-        end
-    -- Descending (falling down)
-    elseif vy < -2 then
-        if speed > jumpPow * 0.8 then
-            offsetY = -2.5
-        elseif speed > jumpPow * 0.5 then
-            offsetY = -2.0
-        elseif speed > jumpPow * 0.2 then
-            offsetY = -1.0
-        else
-            offsetY = -0.5
-        end
-    else
-        offsetY = 0.1
-    end
-    
-    -- Return final predicted position
-    return Vector3.new(futureX, futureY + offsetY, futureZ)
+    return jumpPower, gravity
 end
 
--- Calibration
+-- Function to detect if player just jumped (quick jump detection)
+local function isQuickJump(currentVelocityY, lastVelocityY, jumpPower)
+    local velocityChange = currentVelocityY - lastVelocityY
+    -- Quick jump detected if velocity suddenly increases significantly
+    return velocityChange > jumpPower * 0.6 and currentVelocityY > jumpPower * 0.4
+end
+
+-- Function to calculate vertical prediction with gravity
+local function calculateVerticalPrediction(target, predictionTime)
+    local jumpPower, gravity = getPlayerMovementStats(target)
+    local humanoidRootPart = target.Character:FindFirstChild("UpperTorso")
+    if not humanoidRootPart then return Vector3.new(0, 0, 0) end
+    
+    local currentVelocity = humanoidRootPart.Velocity
+    local verticalVelocity = currentVelocity.Y
+    
+    -- Check for quick jump
+    local quickJump = isQuickJump(verticalVelocity, G.CRIMSON_AUTO_SHOOT.lastVelocityY, jumpPower)
+    G.CRIMSON_AUTO_SHOOT.lastVelocityY = verticalVelocity
+    
+    -- Enhanced prediction time based on ping and movement
+    local enhancedPredTime = predictionTime
+    if math.abs(verticalVelocity) > 20 then
+        -- Increase prediction time for fast vertical movement
+        enhancedPredTime = predictionTime * 1.15
+    end
+    
+    -- Calculate predicted vertical position using kinematic equation
+    -- y = y0 + v0*t + (1/2)*a*t^2 where a = -gravity
+    local predictedY = humanoidRootPart.Position.Y + (verticalVelocity * enhancedPredTime) - (0.5 * gravity * enhancedPredTime^2)
+    
+    -- Determine aim offset based on movement direction and speed
+    local aimOffset = Vector3.new(0, 0, 0)
+    local movementSpeed = math.abs(verticalVelocity)
+    local isAscending = verticalVelocity > 2
+    local isDescending = verticalVelocity < -2
+    
+    -- Enhanced aim adjustment based on vertical movement and jump detection
+    if quickJump or (isAscending and movementSpeed > jumpPower * 0.5) then
+        -- Quick jump or fast ascent - aim for head area with more precision
+        aimOffset = Vector3.new(0, 2.2, 0) -- Increased head aim
+    elseif isAscending then
+        if movementSpeed > jumpPower * 0.3 then
+            -- Medium ascent - aim for upper torso/neck area
+            aimOffset = Vector3.new(0, 1.0, 0)
+        else
+            -- Slow ascent - aim for upper torso
+            aimOffset = Vector3.new(0, 0.5, 0)
+        end
+    elseif isDescending then
+        -- Player is falling/descending - MORE AGGRESSIVE compensation for falling
+        if movementSpeed > jumpPower * 0.7 then
+            -- Very fast descent (falling from high) - aim much higher to compensate for server delay
+            aimOffset = Vector3.new(0, 2.5, 0) -- AIM HIGHER when falling fast
+        elseif movementSpeed > jumpPower * 0.4 then
+            -- Medium descent - aim for head/neck area
+            aimOffset = Vector3.new(0, 1.8, 0)
+        else
+            -- Slow descent - aim for upper torso
+            aimOffset = Vector3.new(0, 0.8, 0)
+        end
+    else
+        -- No significant vertical movement - aim for center/slightly up
+        aimOffset = Vector3.new(0, 0.3, 0)
+    end
+    
+    -- Calculate horizontal prediction with slight lead
+    local horizontalVelocity = Vector3.new(currentVelocity.X, 0, currentVelocity.Z)
+    local horizontalSpeed = horizontalVelocity.Magnitude
+    local horizontalPredTime = enhancedPredTime
+    
+    -- Add extra horizontal lead for fast moving targets
+    if horizontalSpeed > 16 then
+        horizontalPredTime = horizontalPredTime * 1.1
+    end
+    
+    local predictedHorizontal = humanoidRootPart.Position + (horizontalVelocity * horizontalPredTime)
+    
+    -- Combine predictions with fine-tuning
+    local finalPosition = Vector3.new(predictedHorizontal.X, predictedY, predictedHorizontal.Z) + aimOffset
+    
+    return finalPosition
+end
+
 G.CRIMSON_AUTO_SHOOT.calibrate = function()
-    local ms   = __mm2_ping_ms()
+    local ms = __mm2_ping_ms()
     local pred = __mm2_pred_from_ping(ms)
     G.CRIMSON_AUTO_SHOOT.prediction = pred
     return ms, pred
 end
+
 G.CalibrateAutoShoot = G.CRIMSON_AUTO_SHOOT.calibrate
 G.CRIMSON_CalibrateShoot = G.CRIMSON_AUTO_SHOOT.calibrate
 
-local LocalPlayer    = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
 local shootConnection
 
 local function findMurderer()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            local bp = p:FindFirstChild("Backpack")
-            if (bp and bp:FindFirstChild("Knife")) or p.Character:FindFirstChild("Knife") then
-                return p
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local bp = player:FindFirstChild("Backpack")
+            if (bp and bp:FindFirstChild("Knife")) or player.Character:FindFirstChild("Knife") then
+                return player
             end
         end
     end
@@ -164,60 +200,54 @@ local function disconnectShoot()
     end
 end
 
-local function bindForCharacter(char)
+local function onCharacter(character)
     disconnectShoot()
     local backpack = LocalPlayer:WaitForChild("Backpack", 5)
     if not backpack then return end
 
-    local function tryBind()
-        local gun = char:FindFirstChild("Gun") or backpack:FindFirstChild("Gun")
+    local function tryBindGun()
+        local gun = character:FindFirstChild("Gun") or backpack:FindFirstChild("Gun")
         if not gun then return end
+
         local rf = gun:FindFirstChild("KnifeLocal")
             and gun.KnifeLocal:FindFirstChild("CreateBeam")
             and gun.KnifeLocal.CreateBeam:FindFirstChild("RemoteFunction")
         if not rf then return end
 
         if shootConnection then shootConnection:Disconnect() end
-        
         shootConnection = RunService.Heartbeat:Connect(function()
             if not G.CRIMSON_AUTO_SHOOT.enabled then return end
-            if not char:FindFirstChild("Gun") then return end
-            
+            if not character:FindFirstChild("Gun") then return end
+
             local murderer = findMurderer()
-            if not murderer then return end
+            if not murderer or not murderer.Character then return end
             
-            local aimPos = calculateVerticalPrediction(murderer, G.CRIMSON_AUTO_SHOOT.prediction)
-            if aimPos then
-                pcall(function()
-                    rf:InvokeServer(1, aimPos, "AH2")
-                end)
-            end
+            local root = murderer.Character:FindFirstChild("UpperTorso")
+            if not root then return end
+
+            local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
+            
+            -- Use advanced vertical prediction with enhanced falling compensation
+            local aimPos = calculateVerticalPrediction(murderer, pred)
+            
+            rf:InvokeServer(1, aimPos, "AH2")
         end)
     end
 
-    char.ChildAdded:Connect(function(c)
-        if c.Name == "Gun" then
-            tryBind()
-        end
+    character.ChildAdded:Connect(function(child)
+        if child.Name == "Gun" then tryBindGun() end
     end)
-    
-    char.ChildRemoved:Connect(function(c)
-        if c.Name == "Gun" then
-            disconnectShoot()
-        end
+    character.ChildRemoved:Connect(function(child)
+        if child.Name == "Gun" then disconnectShoot() end
     end)
-    
-    tryBind()
+
+    tryBindGun()
 end
 
-if LocalPlayer.Character then
-    bindForCharacter(LocalPlayer.Character)
-end
+if LocalPlayer.Character then onCharacter(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(onCharacter)
 
-LocalPlayer.CharacterAdded:Connect(bindForCharacter)
-
--- Control functions
-G.CRIMSON_AUTO_SHOOT.enable  = function()
+G.CRIMSON_AUTO_SHOOT.enable = function()
     G.CRIMSON_AUTO_SHOOT.enabled = true
 end
 
@@ -226,15 +256,11 @@ G.CRIMSON_AUTO_SHOOT.disable = function()
     disconnectShoot()
 end
 
--- Configuration setters
-G.CRIMSON_AUTO_SHOOT.setGravity = function(g)
-    G.CRIMSON_AUTO_SHOOT.gravity = tonumber(g) or 196.2
+-- Additional configuration functions
+G.CRIMSON_AUTO_SHOOT.setGravity = function(gravity)
+    G.CRIMSON_AUTO_SHOOT.gravity = gravity or 196.2
 end
 
-G.CRIMSON_AUTO_SHOOT.setJumpPower = function(j)
-    G.CRIMSON_AUTO_SHOOT.jumpPower = tonumber(j) or 50
-end
-
-G.CRIMSON_AUTO_SHOOT.setFallCompensation = function(f)
-    G.CRIMSON_AUTO_SHOOT.fallCompensation = tonumber(f) or 1.35
+G.CRIMSON_AUTO_SHOOT.setJumpPower = function(jumpPower)
+    G.CRIMSON_AUTO_SHOOT.jumpPower = jumpPower or 50
 end
