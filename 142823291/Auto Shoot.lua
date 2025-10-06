@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
+local Workspace = game:GetService("Workspace")
 
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
@@ -54,19 +55,7 @@ local function __mm2_ping_ms()
         end
     end
 
-    return 140 
-end
-
-local function getInstantClientPing()
-    local success, ping = pcall(function()
-        return LocalPlayer:GetNetworkPing()
-    end)
-    
-    if success and ping then
-        return ping * 1000
-    end
-    
-    return __mm2_ping_ms()
+    return 140
 end
 
 G.CRIMSON_AUTO_SHOOT.calibrate = function()
@@ -82,9 +71,94 @@ G.CRIMSON_CalibrateShoot = G.CRIMSON_AUTO_SHOOT.calibrate
 local LocalPlayer = Players.LocalPlayer
 local shootConnection
 
+local function getHumanoid(character)
+    return character and character:FindFirstChildOfClass("Humanoid") or nil
+end
+
+local function getVel(part)
+    if not part then return Vector3.zero end
+
+    local ok, v = pcall(function() return part.AssemblyLinearVelocity end)
+    if ok and v then return v end
+    return part.Velocity
+end
+
+local function isInAir(humanoid)
+    if not humanoid then return false end
+    local state = humanoid:GetState()
+    return state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping
+end
+
+local function getJumpV0(humanoid)
+
+    local g = Workspace.Gravity
+    if humanoid and humanoid.UseJumpPower then
+        local jp = humanoid.JumpPower or 50
+        return math.max(jp, 1)
+    else
+        local jh = (humanoid and humanoid.JumpHeight) or 7.2
+        return math.sqrt(math.max(2 * g * math.max(jh, 0.1), 1))
+    end
+end
+
+local function findPart(character, names)
+    for _, n in ipairs(names) do
+        local p = character:FindFirstChild(n)
+        if p and p:IsA("BasePart") then
+            return p
+        end
+    end
+    return nil
+end
+
+local function pickAimPart(character, vy, v0, groundedDefaultToHead)
+
+    local head = findPart(character, {"Head"})
+    local lowerTorso = findPart(character, {"LowerTorso", "Torso"})
+    local upperTorso = findPart(character, {"UpperTorso", "Torso"})
+    local leftLowerLeg = findPart(character, {"LeftLowerLeg", "Left Leg"})
+    local rightLowerLeg = findPart(character, {"RightLowerLeg", "Right Leg"})
+    local root = findPart(character, {"HumanoidRootPart"})
+
+    local fast = 0.6 * v0
+    local slow = 0.2 * v0
+
+    if vy > fast then
+        return head or upperTorso or lowerTorso or root
+    elseif vy > slow then
+        return lowerTorso or upperTorso or head or root
+    elseif vy < -slow then
+
+        return leftLowerLeg or rightLowerLeg or lowerTorso or upperTorso or head or root
+    else
+
+        return lowerTorso or upperTorso or head or root
+    end
+end
+
+local function computePredictedAimPos(part, t, doVerticalBallistics)
+    if not part then return nil end
+    local pos0 = part.Position
+    local v = getVel(part)
+
+    local x = pos0.X + v.X * t
+    local z = pos0.Z + v.Z * t
+
+    local y
+    if doVerticalBallistics then
+        local g = Workspace.Gravity
+        y = pos0.Y + v.Y * t - 0.5 * g * t * t
+    else
+        y = pos0.Y
+    end
+
+    return Vector3.new(x, y, z)
+end
+
 local function findMurderer()
+    local lp = LocalPlayer
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
+        if player ~= lp and player.Character then
             local bp = player:FindFirstChild("Backpack")
             if (bp and bp:FindFirstChild("Knife")) or player.Character:FindFirstChild("Knife") then
                 return player
@@ -92,131 +166,6 @@ local function findMurderer()
         end
     end
     return nil
-end
-
-local function calculateVerticalAimOffset(character, verticalVelocity, serverDelay, prediction)
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid then return 0 end
-    
-    local jumpPower = humanoid.JumpPower or 50
-    local gravity = workspace.Gravity or 196.2
-    
-    local totalTime = prediction + serverDelay
-    
-    local verticalDisplacement = verticalVelocity * totalTime - 0.5 * gravity * (totalTime * totalTime)
-    
-    local futureVerticalVelocity = verticalVelocity - (gravity * totalTime)
-    
-    local normalizedJumpPower = jumpPower / 50
-    local velocityDirection = math.sign(verticalVelocity)
-    local velocityMagnitude = math.abs(verticalVelocity)
-    
-    local baseOffset = 0
-    
-    if velocityDirection > 0 then
-        if futureVerticalVelocity < 5 then
-            baseOffset = -1.5 * normalizedJumpPower
-        elseif velocityMagnitude > 30 then
-            baseOffset = 1.5 * normalizedJumpPower
-        elseif velocityMagnitude > 15 then
-            baseOffset = 0.5 * normalizedJumpPower
-        else
-            baseOffset = -0.5 * normalizedJumpPower
-        end
-    elseif velocityDirection < 0 then
-        if velocityMagnitude > 30 then
-            baseOffset = -2.2 * normalizedJumpPower
-        elseif velocityMagnitude > 15 then
-            baseOffset = -1.5 * normalizedJumpPower
-        else
-            baseOffset = -0.8 * normalizedJumpPower
-        end
-    else
-        if math.abs(futureVerticalVelocity) > 10 then
-            baseOffset = -1.0 * normalizedJumpPower
-        else
-            baseOffset = 0.5
-        end
-    end
-    
-    return baseOffset + (verticalDisplacement * 0.3)
-end
-
-local function getOptimalAimPart(character, verticalVelocity, serverDelay, prediction)
-    if not character then return nil, 0 end
-    
-    local head = character:FindFirstChild("Head")
-    local upperTorso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
-    local lowerTorso = character:FindFirstChild("LowerTorso")
-    local leftLeg = character:FindFirstChild("LeftUpperLeg") or character:FindFirstChild("Left Leg")
-    
-    local aimOffset = calculateVerticalAimOffset(character, verticalVelocity, serverDelay, prediction)
-    
-    local totalTime = prediction + serverDelay
-    local gravity = workspace.Gravity or 196.2
-    local futureVerticalVelocity = verticalVelocity - (gravity * totalTime)
-    
-    local targetPart = head or upperTorso
-    local yOffset = aimOffset
-    
-    if head and upperTorso then
-        local velocityDirection = math.sign(verticalVelocity)
-        local velocityMagnitude = math.abs(verticalVelocity)
-        local futureVelocityDirection = math.sign(futureVerticalVelocity)
-        local futureVelocityMagnitude = math.abs(futureVerticalVelocity)
-        
-        if velocityDirection > 0 then
-            if futureVerticalVelocity < 5 and futureVerticalVelocity > -5 then
-                if leftLeg then
-                    targetPart = leftLeg
-                else
-                    targetPart = lowerTorso or upperTorso
-                end
-                yOffset = aimOffset * 0.9
-            elseif velocityMagnitude > 25 then
-                targetPart = head
-                yOffset = aimOffset * 1.1
-            elseif velocityMagnitude > 10 then
-                targetPart = head
-                yOffset = aimOffset * 0.9
-            else
-                targetPart = upperTorso
-                yOffset = aimOffset * 0.6
-            end
-        elseif velocityDirection < 0 then
-            if velocityMagnitude > 35 then
-                targetPart = head
-                yOffset = aimOffset * 1.2
-            elseif velocityMagnitude > 20 then
-                targetPart = head
-                yOffset = aimOffset * 1.0
-            elseif velocityMagnitude > 10 then
-                targetPart = upperTorso
-                yOffset = aimOffset * 0.8
-            else
-                if lowerTorso then
-                    targetPart = lowerTorso
-                else
-                    targetPart = upperTorso
-                end
-                yOffset = aimOffset * 0.7
-            end
-        else
-            if futureVelocityDirection < 0 and futureVelocityMagnitude > 15 then
-                if leftLeg then
-                    targetPart = leftLeg
-                else
-                    targetPart = lowerTorso or upperTorso
-                end
-                yOffset = aimOffset * 0.8
-            else
-                targetPart = head
-                yOffset = 0.5
-            end
-        end
-    end
-    
-    return targetPart, yOffset
 end
 
 local function disconnectShoot()
@@ -246,36 +195,31 @@ local function onCharacter(character)
             if not character:FindFirstChild("Gun") then return end
 
             local murderer = findMurderer()
-            if not murderer or not murderer.Character then return end
-            
-            local root = murderer.Character:FindFirstChild("UpperTorso") or murderer.Character:FindFirstChild("Torso")
-            if not root then return end
+            local mchar = murderer and murderer.Character
+            if not mchar then return end
 
-            local clientPing = getInstantClientPing()
-            
-            local serverDelay = (clientPing / 1000) * 0.5
-            
-            local pred = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
-            
-            local verticalVelocity = root.AssemblyLinearVelocity.Y
-            
-            local targetPart, yOffset = getOptimalAimPart(murderer.Character, verticalVelocity, serverDelay, pred)
-            
-            if targetPart then
-                local horizontalVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
-                
-                local totalTime = pred + serverDelay
-                local predictedHorizontal = targetPart.Position + (horizontalVelocity * totalTime)
-                
-                local gravity = workspace.Gravity or 196.2
-                local verticalDisplacement = verticalVelocity * totalTime - 0.5 * gravity * (totalTime * totalTime)
-                
-                local aimPos = Vector3.new(
-                    predictedHorizontal.X,
-                    targetPart.Position.Y + verticalDisplacement + yOffset,
-                    predictedHorizontal.Z
-                )
-                
+            local hum = getHumanoid(mchar)
+            local inAir = isInAir(hum)
+            local v0 = getJumpV0(hum)
+
+            local head = mchar:FindFirstChild("Head")
+            local baseAimPart
+            if inAir then
+
+                local torsoRef = findPart(mchar, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"}) or head
+                local vy = torsoRef and getVel(torsoRef).Y or 0
+                baseAimPart = pickAimPart(mchar, vy, v0, false)
+            else
+                baseAimPart = head or findPart(mchar, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"})
+            end
+            if not baseAimPart then return end
+
+            local t = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
+
+            local aimPos = computePredictedAimPos(baseAimPart, t, inAir)
+
+            if aimPos then
+
                 rf:InvokeServer(1, aimPos, "AH2")
             end
         end)
