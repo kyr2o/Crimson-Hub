@@ -283,7 +283,7 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
--- [[ Silent Knife Feature - RECODED ]]
+-- [[ Silent Knife Feature - NO UNEQUIP ]]
 local function silentThrow()
     if not throwAllowed() then return end
 
@@ -322,20 +322,12 @@ local function silentThrow()
     local distance = (targetPosition - origin).Magnitude
     local travelTime = distance / KNIFE_SPEED
 
-    -- 5. Unequip knife to simulate throw start
-    myHumanoid:UnequipTools()
-
-    -- 6. Wait for the "invisible knife" to travel to target
+    -- 5. Wait for the "invisible knife" to travel to target (NO UNEQUIP!)
     task.spawn(function()
         task.wait(travelTime)
         
         -- Re-check if target is still valid
         if not targetHumanoid or targetHumanoid.Health <= 0 then
-            -- Re-equip knife
-            task.wait(0.1)
-            if myKnife then
-                myHumanoid:EquipTool(myKnife)
-            end
             return
         end
 
@@ -350,12 +342,6 @@ local function silentThrow()
             -- This makes the knife appear at the target's position and kill them
             local targetCFrame = CFrame.new(currentTargetPos)
             knifeRemote:FireServer(targetCFrame, currentTargetPos)
-        end
-        
-        -- Re-equip knife
-        task.wait(0.1)
-        if myKnife then
-            myHumanoid:EquipTool(myKnife)
         end
     end)
 end
