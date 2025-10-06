@@ -16,10 +16,12 @@ local State = {
     enabled     = false,
     conns       = {},
     charConns   = {},
+    toolConns   = {},
     highlights  = {},
     billboards  = {},
     bumpedOnce  = {},
     lastRole    = {},
+    roleCache   = {},
 }
 
 local function track(conn)
@@ -42,10 +44,13 @@ local function disconnectAll()
         if c and c.Disconnect then pcall(function() c:Disconnect() end) end
         State.charConns[plr] = nil
     end
+    for plr, c in pairs(State.toolConns) do
+        if c and c.Disconnect then pcall(function() c:Disconnect() end) end
+        State.toolConns[plr] = nil
+    end
 end
 
 local function removeVisualsFor(player)
-    -- destroy tracked instances
     if State.highlights[player] then
         destroySafe(State.highlights[player])
         State.highlights[player] = nil
@@ -55,7 +60,6 @@ local function removeVisualsFor(player)
         State.billboards[player] = nil
     end
 
-    -- destroy any stray GUI/Highlight on character
     local char = player.Character
     if char then
         local hl = char:FindFirstChildOfClass("Highlight")
@@ -69,6 +73,7 @@ local function removeVisualsFor(player)
 
     State.bumpedOnce[player] = nil
     State.lastRole[player]  = nil
+    State.roleCache[player] = nil
 end
 
 local function sweepAllRoleESP()
@@ -97,6 +102,7 @@ local function sweepAllRoleESP()
         end
         State.bumpedOnce[plr] = nil
         State.lastRole[plr]  = nil
+        State.roleCache[plr] = nil
     end
 end
 
@@ -147,9 +153,12 @@ end
 local function hasItem(character, itemName)
     local plr = Players:GetPlayerFromCharacter(character)
     if not plr then return false end
+
     if character:FindFirstChild(itemName) then return true end
+
     local bp = plr:FindFirstChild("Backpack")
     if bp and bp:FindFirstChild(itemName) then return true end
+
     return false
 end
 
@@ -160,6 +169,19 @@ local function isAlive(player)
     if not hum then return false end
     if char:GetAttribute("Alive") == false then return false end
     return hum.Health > 0
+end
+
+local function determineRole(player)
+    if not isAlive(player) then return nil end
+    local char = player.Character
+    if not char then return nil end
+
+    local knife = hasItem(char, "Knife")
+    local gun = hasItem(char, "Gun")
+
+    if knife then return "Murderer" end
+    if gun then return "Sheriff" end
+    return "Innocent"
 end
 
 local function setBillboard(player, character, roleText, textColor, strokeColor)
@@ -212,25 +234,44 @@ end
 
 local function updatePlayer(player)
     if player == LocalPlayer then return end
-    if not isAlive(player) then
+
+    local currentRole = determineRole(player)
+    if not currentRole then
         removeVisualsFor(player)
         return
     end
+
+    if State.roleCache[player] == currentRole then return end
+    State.roleCache[player] = currentRole
+
     local char = player.Character
     if not char then return end
 
-    local knife = hasItem(char, "Knife")
-    local gun   = hasItem(char, "Gun")
-
-    if knife then
+    if currentRole == "Murderer" then
         setHighlight(player, char, Color3.new(1,0.7,0.7), Color3.new(0.7,0,0))
         setBillboard(player, char, "Murderer", Color3.new(1,0.7,0.7), Color3.new(0,0,0))
-    elseif gun then
+    elseif currentRole == "Sheriff" then
         setHighlight(player, char, Color3.new(0.7,0.7,1), Color3.new(0,0,0.7))
         setBillboard(player, char, "Sheriff", Color3.new(0.7,0.7,1), Color3.new(0,0,0))
     else
         setHighlight(player, char, Color3.new(0.7,1,0.7), Color3.new(0,0.7,0))
         setBillboard(player, char, "Innocent", Color3.new(0.7,1,0.7), Color3.new(0,0,0))
+    end
+end
+
+local function setupToolTracking(player)
+    if State.toolConns[player] then
+        pcall(function() State.toolConns[player]:Disconnect() end)
+    end
+
+    local bp = player:FindFirstChild("Backpack")
+    if bp then
+        State.toolConns[player] = track(bp.ChildAdded:Connect(function()
+            updatePlayer(player)
+        end))
+        track(bp.ChildRemoved:Connect(function()
+            updatePlayer(player)
+        end))
     end
 end
 
@@ -249,8 +290,9 @@ local function disableRoleESP(silent)
     end
     for plr in pairs(State.highlights) do State.highlights[plr] = nil end
     for plr in pairs(State.billboards) do State.billboards[plr] = nil end
+    for plr in pairs(State.toolConns) do State.toolConns[plr] = nil end
     if not silent then
-        -- notification placeholder
+
     end
 end
 
@@ -260,15 +302,19 @@ Shared.CRIMSON_ESP = {
         State.enabled = true
         for _, plr in ipairs(Players:GetPlayers()) do
             updatePlayer(plr)
+            setupToolTracking(plr)
             State.charConns[plr] = track(plr.CharacterAdded:Connect(function()
                 task.wait(1)
                 updatePlayer(plr)
+                setupToolTracking(plr)
             end))
         end
         track(Players.PlayerAdded:Connect(function(plr)
+            setupToolTracking(plr)
             State.charConns[plr] = track(plr.CharacterAdded:Connect(function()
                 task.wait(1)
                 updatePlayer(plr)
+                setupToolTracking(plr)
             end))
         end))
         track(Players.PlayerRemoving:Connect(function(plr)
@@ -276,9 +322,19 @@ Shared.CRIMSON_ESP = {
                 pcall(function() State.charConns[plr]:Disconnect() end)
                 State.charConns[plr] = nil
             end
+            if State.toolConns[plr] then
+                pcall(function() State.toolConns[plr]:Disconnect() end)
+                State.toolConns[plr] = nil
+            end
             removeVisualsFor(plr)
         end))
-        track(RunService.Heartbeat:Connect(updateAll))
+
+        local updateConn
+        updateConn = track(RunService.Stepped:Connect(function()
+            if tick() % 0.5 < 0.016 then
+                updateAll()
+            end
+        end))
     end,
     disable = disableRoleESP
 }
