@@ -283,7 +283,7 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
--- [[ COMPLETELY RECODED SILENT KNIFE FUNCTION ]]
+-- [[ SILENT KNIFE FUNCTION - NO UNEQUIP ]]
 local function silentThrow()
     if not throwAllowed() then return end
 
@@ -303,10 +303,7 @@ local function silentThrow()
     local distance = (targetRoot.Position - origin).Magnitude
     local travelTime = distance / KNIFE_SPEED
     
-    -- 1. Unequip knife to simulate throw animation
-    myHumanoid:UnequipTools()
-    
-    -- 2. Wait for invisible knife to travel and pass the target
+    -- Wait for invisible knife to travel and pass the target (NO UNEQUIP)
     task.spawn(function()
         task.wait(travelTime + 0.1) -- Extra 0.1 to ensure it "passes" them
         
@@ -325,16 +322,9 @@ local function silentThrow()
         
         -- If there's no wall blocking, execute the kill
         if not wallCheck then
-            -- 3. Fire the remote from the target's position to instantly kill them
-            -- Using the target's position as both the CFrame and origin point
+            -- Fire the remote from the target's position to instantly kill them
             local targetCFrame = CFrame.new(currentTargetPos)
             knifeRemote:FireServer(targetCFrame, currentTargetPos)
-        end
-        
-        -- Re-equip the knife after a short delay
-        task.wait(0.2)
-        if myKnife and myKnife.Parent then
-            myHumanoid:EquipTool(myKnife)
         end
     end)
 end
@@ -390,7 +380,7 @@ end
 if loopConnection then loopConnection:Disconnect() end
 loopConnection=RunService.Heartbeat:Connect(step)
 
--- Crimson Hub Integration Functions (keeping the same functions as requested)
+-- Crimson Hub Integration Functions
 Environment.CRIMSON_AUTO_KNIFE.enable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = true end
 Environment.CRIMSON_AUTO_KNIFE.disable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = false end
 Environment.CRIMSON_AUTO_KNIFE.enableSilentKnife = function() Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = true end
