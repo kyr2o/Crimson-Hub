@@ -283,7 +283,7 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
--- [[ Silent Knife Feature - VERSION 1: INSTANT KILL ]]
+-- [[ Silent Knife Feature - FIXED WITH CORRECT REMOTE FORMAT ]]
 local function silentThrow()
     if not throwAllowed() then return end
 
@@ -325,14 +325,9 @@ local function silentThrow()
     -- 5. Small delay for visual effect
     task.wait(0.1)
 
-    -- 6. INSTANTLY teleport knife to target's HumanoidRootPart and fire remote
-    if myKnife and myKnife:FindFirstChild("Handle") then
-        -- Teleport the knife handle directly to target
-        myKnife.Handle.CFrame = CFrame.new(targetPoint)
-        
-        -- Fire the remote FROM the target's position (not from player position)
-        knifeRemote:FireServer(CFrame.new(targetPoint), targetPoint)
-    end
+    -- 6. Fire remote using CORRECT format (from Kill All module)
+    -- Format: throw:FireServer(myRoot.CFrame, targetRoot.Position)
+    knifeRemote:FireServer(myRoot.CFrame, targetPoint)
     
     -- 7. Re-equip the knife to complete the animation
     task.wait(0.05)
