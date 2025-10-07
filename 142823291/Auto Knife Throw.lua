@@ -11,7 +11,7 @@ local camera = Workspace.CurrentCamera
 
 local Environment = (getgenv and getgenv()) or _G
 Environment.CRIMSON_AUTO_KNIFE = Environment.CRIMSON_AUTO_KNIFE or {
-    enabled = true,
+    enabled = false,
     silentKnifeEnabled = false
 }
 
@@ -283,48 +283,44 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
--- [[ SILENT KNIFE FUNCTION - NO UNEQUIP ]]
-local function silentThrow()
-    if not throwAllowed() then return end
-
-    -- Get the target first
+local function performSilentThrow()
     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
-    
     if not targetPlayer or not targetLimb then return end
 
     local targetCharacter = targetPlayer.Character
     local targetHumanoid = targetCharacter and targetCharacter:FindFirstChildOfClass("Humanoid")
     local targetRoot = targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart")
-    
     if not targetHumanoid or targetHumanoid.Health <= 0 or not targetRoot then return end
 
-    -- Calculate travel time for invisible knife to reach target
-    local distance = (targetRoot.Position - origin).Magnitude
+    local remote = knifeRemote
+    local initialOrigin = origin
+    
+    local distance = (targetRoot.Position - initialOrigin).Magnitude
     local travelTime = distance / KNIFE_SPEED
     
-    -- Wait for invisible knife to travel and pass the target (NO UNEQUIP)
+    myHumanoid:UnequipTools()
+    task.wait()
+    if myKnife then myHumanoid:EquipTool(myKnife) end
+
     task.spawn(function()
-        task.wait(travelTime + 0.1) -- Extra 0.1 to ensure it "passes" them
-        
-        -- Check if target is still valid
-        if not targetCharacter.Parent or not targetRoot.Parent or targetHumanoid.Health <= 0 then 
-            return 
+        task.wait(travelTime + 0.1)
+
+        if not targetCharacter or not targetCharacter.Parent or not targetRoot or not targetRoot.Parent or targetHumanoid.Health <= 0 then
+            return
         end
-        
-        -- Check for obstacles between knife position and target at time of kill
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        raycastParams.FilterDescendantsInstances = {myCharacter, targetCharacter}
-        
+
         local currentTargetPos = targetRoot.Position
-        local wallCheck = Workspace:Raycast(origin, currentTargetPos - origin, raycastParams)
+        local direction = currentTargetPos - initialOrigin
         
-        -- If there's no wall blocking, execute the kill
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.FilterDescendantsInstances = {myCharacter, targetCharacter}
+        
+        local wallCheck = Workspace:Raycast(initialOrigin, direction, params)
+        
         if not wallCheck then
-            -- Fire the remote from the target's position to instantly kill them
-            local targetCFrame = CFrame.new(currentTargetPos)
-            knifeRemote:FireServer(targetCFrame, currentTargetPos)
+            remote:FireServer(CFrame.new(currentTargetPos), initialOrigin)
         end
     end)
 end
@@ -336,51 +332,50 @@ local function step()
     end
 
     if not Environment.CRIMSON_AUTO_KNIFE.enabled and not Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then return end
-
-    resolveKnife()
-    if not myKnife or not knifeRemote then return end
-    if not myCharacter or not myRoot or not myHumanoid or myHumanoid.Health<=0 then return end
     
-    -- Check if Silent Knife is active first
-    if Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
-        silentThrow()
-        return -- Skip normal throw
+    resolveKnife()
+    if not myKnife or not knifeRemote or not myCharacter or not myRoot or not myHumanoid or myHumanoid.Health<=0 then
+        return
     end
 
-    -- Normal Auto Knife Throw
-    if not Environment.CRIMSON_AUTO_KNIFE.enabled then return end
     if not throwAllowed() then return end
 
-    local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
-    local targetPlayer, targetLimb = pickTarget(origin)
-    if not targetPlayer or not targetLimb then return end
-
-    local tc,targetHum,anchor = targetPlayer.Character, nil, nil
-    if tc then targetHum=tc:FindFirstChildOfClass("Humanoid"); anchor=getAimPart(tc) end
-    if not targetHum or targetHum.Health<=0 or not anchor then return end
-    if not (os.clock()-(_G.__stair_hold or 0)>=0) then return end
-
-    local ig={myCharacter}
-    local gp,same = findGround(tc,ig)
-    rememberGroundTorso(tc,same,gp)
-
-    local pred = predictPoint(origin,tc,targetLimb,same,gp)
-    if not pred then return end
-
-    local aim = directAim(origin,pred,tc,ig)
-    if not isFinite(aim) then return end
-
-    if math.abs((pred-origin).Y)>0.5 then
-        _G.__stair_hold=os.clock()
+    if Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
+        performSilentThrow()
+        return
     end
 
-    knifeRemote:FireServer(CFrame.new(aim),origin)
+    if Environment.CRIMSON_AUTO_KNIFE.enabled then
+        local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
+        local targetPlayer, targetLimb = pickTarget(origin)
+        if not targetPlayer or not targetLimb then return end
+
+        local tc,targetHum,anchor = targetPlayer.Character, nil, nil
+        if tc then targetHum=tc:FindFirstChildOfClass("Humanoid"); anchor=getAimPart(tc) end
+        if not targetHum or targetHum.Health<=0 or not anchor then return end
+        if not (os.clock()-(_G.__stair_hold or 0)>=0) then return end
+
+        local ig={myCharacter}
+        local gp,same = findGround(tc,ig)
+        rememberGroundTorso(tc,same,gp)
+
+        local pred = predictPoint(origin,tc,targetLimb,same,gp)
+        if not pred then return end
+
+        local aim = directAim(origin,pred,tc,ig)
+        if not isFinite(aim) then return end
+
+        if math.abs((pred-origin).Y)>0.5 then
+            _G.__stair_hold=os.clock()
+        end
+
+        knifeRemote:FireServer(CFrame.new(aim),origin)
+    end
 end
 
 if loopConnection then loopConnection:Disconnect() end
 loopConnection=RunService.Heartbeat:Connect(step)
 
--- Crimson Hub Integration Functions
 Environment.CRIMSON_AUTO_KNIFE.enable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = true end
 Environment.CRIMSON_AUTO_KNIFE.disable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = false end
 Environment.CRIMSON_AUTO_KNIFE.enableSilentKnife = function() Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = true end
