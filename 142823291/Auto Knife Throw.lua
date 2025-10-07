@@ -283,7 +283,7 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
-local function performSilentThrow()
+local function performSilentStab()
     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
     if not targetPlayer or not targetLimb then return end
@@ -293,9 +293,7 @@ local function performSilentThrow()
     local targetRoot = targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart")
     if not targetHumanoid or targetHumanoid.Health <= 0 or not targetRoot then return end
 
-    local remote = knifeRemote
     local initialOrigin = origin
-    
     local distance = (targetRoot.Position - initialOrigin).Magnitude
     local travelTime = distance / KNIFE_SPEED
     
@@ -310,8 +308,8 @@ local function performSilentThrow()
             return
         end
 
-        local currentTargetPos = targetRoot.Position
-        local direction = currentTargetPos - initialOrigin
+        local currentTargetPosition = targetRoot.Position
+        local direction = currentTargetPosition - initialOrigin
         
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Exclude
@@ -320,7 +318,10 @@ local function performSilentThrow()
         local wallCheck = Workspace:Raycast(initialOrigin, direction, params)
         
         if not wallCheck then
-            remote:FireServer(CFrame.new(currentTargetPos), initialOrigin)
+            local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
+            if stabRemote then
+                stabRemote:FireServer("Slash")
+            end
         end
     end)
 end
@@ -334,18 +335,19 @@ local function step()
     if not Environment.CRIMSON_AUTO_KNIFE.enabled and not Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then return end
     
     resolveKnife()
-    if not myKnife or not knifeRemote or not myCharacter or not myRoot or not myHumanoid or myHumanoid.Health<=0 then
+    if not myKnife or not myCharacter or not myRoot or not myHumanoid or myHumanoid.Health<=0 then
         return
     end
 
     if not throwAllowed() then return end
 
     if Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
-        performSilentThrow()
+        performSilentStab()
         return
     end
 
     if Environment.CRIMSON_AUTO_KNIFE.enabled then
+        if not knifeRemote then return end
         local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
         local targetPlayer, targetLimb = pickTarget(origin)
         if not targetPlayer or not targetLimb then return end
