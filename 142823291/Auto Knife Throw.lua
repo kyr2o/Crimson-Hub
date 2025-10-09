@@ -47,7 +47,7 @@ local lastGroundedTime = {}
 
 -- Silent Knife Tracking
 local trackedTargets = {}
-local SILENT_KNIFE_RANGE = 15
+local SILENT_KNIFE_RANGE = 25
 
 local function unitVector(v)
     local m = v.Magnitude
