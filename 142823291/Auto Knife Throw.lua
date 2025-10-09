@@ -254,3 +254,221 @@ local function predictPoint(origin,ch,focus,same,gp)
     end
     local base=useStick and lastGroundedTorso[id] or p.Position
     if not useStick and gp then base=Vector3.new(base.X,gp.Y+(p.Name=="Head" and 1 or 0.9),base.Z) end
+    local dist=(base-origin).Magnitude
+    if dist==0 then return base end
+    local t=dist/KNIFE_SPEED; if t<=0 then t=0 end
+    local vel=worldVel(ch)
+    local horiz=Vector3.new(vel.X,0,vel.Z)
+    local speed=horiz.Magnitude
+    local lead=(speed>0) and (horiz*t) or Vector3.zero
+    local predicted = Vector3.new(base.X, p.Position.Y, base.Z) + lead
+    return predicted
+end
+
+local function directAim(o,tp,ch,ig)
+    local h,dir=rayTowards(o,tp,ig)
+    if not h or ignoreHit(h) then return tp end
+    local right=dir:Cross(Vector3.new(0,1,0)).Unit
+    local slide=right
+    if ch then
+        local vel=worldVel(ch)
+        local hor=Vector3.new(vel.X,0,vel.Z)
+        if hor.Magnitude>0.5 then slide = (hor:Dot(right)>=0) and right or -right end
+    end
+    for _,off in ipairs({1.5,2.5})do
+        for _,d in ipairs({slide,-slide})do
+            local sp = h.Position + d*off
+            sp=Vector3.new(sp.X,tp.Y,sp.Z)
+            local h1=rayTowards(o,sp,ig)
+            if h1 and not ignoreHit(h1) then continue end
+            local h2=rayTowards(sp,tp,ig)
+            if not h2 or ignoreHit(h2) then return sp end
+        end
+    end
+    return h.Position - dir*0.5
+end
+
+local function isPlayerPart(part)
+    if not part or not part:IsA("BasePart") then return false end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character and part:IsDescendantOf(player.Character) then
+            return true
+        end
+    end
+
+    local model = part.Parent
+    if model and model:IsA("Model") then
+        local humanoid = model:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            return true
+        end
+    end
+
+    return false
+end
+
+-- RANGE STAB FUNCTION
+local function performRangeStab()
+    local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
+    local targetPlayer, targetLimb = pickTarget(origin)
+    if not targetPlayer or not targetLimb then return end
+
+    local targetCharacter = targetPlayer.Character
+    local targetHumanoid = targetCharacter and targetCharacter:FindFirstChildOfClass("Humanoid")
+    local targetRoot = targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart")
+    if not targetHumanoid or targetHumanoid.Health <= 0 or not targetRoot then return end
+
+    local targetId = targetPlayer.UserId
+    if not trackedTargets[targetId] then
+        trackedTargets[targetId] = {
+            player = targetPlayer,
+            character = targetCharacter,
+            root = targetRoot,
+            startTime = tick()
+        }
+    end
+
+    local throwingKnifeAdded
+    throwingKnifeAdded = Workspace.ChildAdded:Connect(function(child)
+        if child.Name == "ThrowingKnife" then
+            task.spawn(function()
+
+                for _, part in ipairs(myCharacter:GetDescendants()) do
+                    if part:IsA("BasePart") then
+
+                        if not isPlayerPart(part) then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+
+                while child and child.Parent == Workspace do
+                    local knifePos = child:IsA("Model") and child:GetPivot().Position or (child:IsA("BasePart") and child.Position or nil)
+                    if not knifePos then break end
+
+                    for uid, data in pairs(trackedTargets) do
+                        local tChar = data.character
+                        local tRoot = data.root
+
+                        if tChar and tChar.Parent and tRoot and tRoot.Parent then
+                            local distance = (tRoot.Position - knifePos).Magnitude
+
+                            if distance <= RANGE_STAB_DISTANCE then
+
+                                local sizeArg = 5000
+                                local Size = Vector3.new(sizeArg, sizeArg, sizeArg)
+                                local Root = tRoot
+
+                                if Root:IsA("BasePart") then
+                                    Root.CanCollide = false
+                                    Root.Size = Size
+                                    Root.Transparency = 1
+
+                                    task.wait(0.05)
+
+                                    local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
+                                    if stabRemote then
+                                        stabRemote:FireServer("Slash")
+                                    end
+
+                                    task.wait(0.1)
+
+                                    if Root and Root.Parent then
+                                        Root.Size = Vector3.new(2, 1, 1)
+                                        Root.Transparency = 1
+                                    end
+                                end
+
+                                trackedTargets[uid] = nil
+                            end
+                        else
+
+                            trackedTargets[uid] = nil
+                        end
+                    end
+
+                    task.wait()
+                end
+
+                task.wait(0.5)
+                for _, part in ipairs(myCharacter:GetDescendants()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        if not isPlayerPart(part) then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+
+                trackedTargets = {}
+            end)
+
+            throwingKnifeAdded:Disconnect()
+        end
+    end)
+
+    task.delay(5, function()
+        if throwingKnifeAdded then
+            throwingKnifeAdded:Disconnect()
+        end
+    end)
+end
+
+local function step()
+    if not CoreGui:FindFirstChild(MARKER_NAME) then
+        if loopConnection then loopConnection:Disconnect(); loopConnection=nil end
+        return
+    end
+
+    if not Environment.CRIMSON_AUTO_KNIFE.enabled and not Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled then return end
+
+    resolveKnife()
+    if not myKnife or not myCharacter or not myRoot or not myHumanoid or myHumanoid.Health<=0 then
+        return
+    end
+
+    if not throwAllowed() then return end
+
+    if Environment.CRIMSON_AUTO_KNIFE.enabled then
+        if not knifeRemote then return end
+        local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
+        local targetPlayer, targetLimb = pickTarget(origin)
+        if not targetPlayer or not targetLimb then return end
+
+        local tc,targetHum,anchor = targetPlayer.Character, nil, nil
+        if tc then targetHum=tc:FindFirstChildOfClass("Humanoid"); anchor=getAimPart(tc) end
+        if not targetHum or targetHum.Health<=0 or not anchor then return end
+        if not (os.clock()-(_G.__stair_hold or 0)>=0) then return end
+
+        local ig={myCharacter}
+        local gp,same = findGround(tc,ig)
+        rememberGroundTorso(tc,same,gp)
+
+        local pred = predictPoint(origin,tc,targetLimb,same,gp)
+        if not pred then return end
+
+        local aim = directAim(origin,pred,tc,ig)
+        if not isFinite(aim) then return end
+
+        if math.abs((pred-origin).Y)>0.5 then
+            _G.__stair_hold=os.clock()
+        end
+
+        knifeRemote:FireServer(CFrame.new(aim),origin)
+
+        if Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled then
+            performRangeStab()
+        end
+    elseif Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled then
+
+        performRangeStab()
+    end
+end
+
+if loopConnection then loopConnection:Disconnect() end
+loopConnection=RunService.Heartbeat:Connect(step)
+
+Environment.CRIMSON_AUTO_KNIFE.enable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = true end
+Environment.CRIMSON_AUTO_KNIFE.disable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = false end
+Environment.CRIMSON_AUTO_KNIFE.enableRangeStab = function() Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled = true end
+Environment.CRIMSON_AUTO_KNIFE.disableRangeStab = function() Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled = false end
