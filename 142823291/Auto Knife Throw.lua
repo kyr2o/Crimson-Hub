@@ -19,7 +19,7 @@ local AllowedAnimationIds = { "rbxassetid://1957618848" }
 local AnimationGateSeconds = 0.75
 
 local KNIFE_SPEED = 63/0.85
-local MISS_THRESHOLD = 15
+local MISS_THRESHOLD = 20
 
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
