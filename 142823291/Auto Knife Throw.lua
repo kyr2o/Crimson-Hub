@@ -45,7 +45,6 @@ local lastGroundY = {}
 local lastGroundedTorso = {}
 local lastGroundedTime = {}
 
--- Silent Knife Tracking
 local trackedTargets = {}
 local SILENT_KNIFE_RANGE = 15
 
@@ -288,18 +287,15 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
--- Helper function to check if a part belongs to a player character or dead body
 local function isPlayerPart(part)
     if not part or not part:IsA("BasePart") then return false end
-    
-    -- Check if it's part of any player's character (alive)
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player.Character and part:IsDescendantOf(player.Character) then
             return true
         end
     end
-    
-    -- Check if it's part of a dead body (Model with Humanoid that's dead)
+
     local model = part.Parent
     if model and model:IsA("Model") then
         local humanoid = model:FindFirstChildOfClass("Humanoid")
@@ -307,11 +303,10 @@ local function isPlayerPart(part)
             return true
         end
     end
-    
+
     return false
 end
 
--- FIXED SILENT KNIFE using the provided method
 local function performSilentStab()
     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
@@ -332,75 +327,68 @@ local function performSilentStab()
         }
     end
 
-    -- Monitor for ThrowingKnife
     local throwingKnifeAdded
     throwingKnifeAdded = Workspace.ChildAdded:Connect(function(child)
         if child.Name == "ThrowingKnife" then
             task.spawn(function()
-                -- Disable collision ONLY for non-player parts
+
                 for _, part in ipairs(myCharacter:GetDescendants()) do
                     if part:IsA("BasePart") then
-                        -- Keep collision ON for player/humanoid parts
+
                         if not isPlayerPart(part) then
                             part.CanCollide = false
                         end
                     end
                 end
-                
-                -- Monitor knife position
+
                 while child and child.Parent == Workspace do
                     local knifePos = child:IsA("Model") and child:GetPivot().Position or (child:IsA("BasePart") and child.Position or nil)
                     if not knifePos then break end
-                    
-                    -- Check all tracked targets
+
                     for uid, data in pairs(trackedTargets) do
                         local tChar = data.character
                         local tRoot = data.root
-                        
+
                         if tChar and tChar.Parent and tRoot and tRoot.Parent then
                             local distance = (tRoot.Position - knifePos).Magnitude
-                            
+
                             if distance <= SILENT_KNIFE_RANGE then
-                                -- Target in range! Use the method from the provided code
+
                                 local sizeArg = 5000
                                 local Size = Vector3.new(sizeArg, sizeArg, sizeArg)
                                 local Root = tRoot
-                                
+
                                 if Root:IsA("BasePart") then
                                     Root.CanCollide = false
                                     Root.Size = Size
-                                    Root.Transparency = 0.5
-                                    
+                                    Root.Transparency = 1
+
                                     task.wait(0.05)
-                                    
-                                    -- Fire stab remote
+
                                     local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
                                     if stabRemote then
                                         stabRemote:FireServer("Slash")
                                     end
-                                    
+
                                     task.wait(0.1)
-                                    
-                                    -- Restore original size
+
                                     if Root and Root.Parent then
                                         Root.Size = Vector3.new(2, 1, 1)
-                                        Root.Transparency = 0
+                                        Root.Transparency = 1
                                     end
                                 end
-                                
-                                -- Remove from tracking
+
                                 trackedTargets[uid] = nil
                             end
                         else
-                            -- Clean up invalid targets
+
                             trackedTargets[uid] = nil
                         end
                     end
-                    
+
                     task.wait()
                 end
-                
-                -- Re-enable collision after knife lands
+
                 task.wait(0.5)
                 for _, part in ipairs(myCharacter:GetDescendants()) do
                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
@@ -409,16 +397,14 @@ local function performSilentStab()
                         end
                     end
                 end
-                
-                -- Clear all tracked targets after knife lands
+
                 trackedTargets = {}
             end)
-            
+
             throwingKnifeAdded:Disconnect()
         end
     end)
-    
-    -- Clean up after 5 seconds if knife wasn't thrown
+
     task.delay(5, function()
         if throwingKnifeAdded then
             throwingKnifeAdded:Disconnect()
@@ -433,7 +419,7 @@ local function step()
     end
 
     if not Environment.CRIMSON_AUTO_KNIFE.enabled and not Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then return end
-    
+
     resolveKnife()
     if not myKnife or not myCharacter or not myRoot or not myHumanoid or myHumanoid.Health<=0 then
         return
@@ -441,7 +427,6 @@ local function step()
 
     if not throwAllowed() then return end
 
-    -- Execute both systems when both are enabled
     if Environment.CRIMSON_AUTO_KNIFE.enabled then
         if not knifeRemote then return end
         local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
@@ -468,13 +453,12 @@ local function step()
         end
 
         knifeRemote:FireServer(CFrame.new(aim),origin)
-        
-        -- Trigger silent knife monitoring if enabled
+
         if Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
             performSilentStab()
         end
     elseif Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
-        -- If only silent knife is enabled, still monitor
+
         performSilentStab()
     end
 end
