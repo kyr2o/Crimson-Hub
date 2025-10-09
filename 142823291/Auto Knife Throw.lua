@@ -19,7 +19,6 @@ local AllowedAnimationIds = { "rbxassetid://1957618848" }
 local AnimationGateSeconds = 0.75
 
 local KNIFE_SPEED = 63/0.85
-local MISS_THRESHOLD = 15
 
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
@@ -40,12 +39,12 @@ local myRoot = myCharacter:WaitForChild("HumanoidRootPart")
 local myKnife, knifeRemote
 
 local loopConnection
+local collisionConnection
 
 local trackStart = setmetatable({}, { __mode = "k" })
 local lastGroundY = {}
 local lastGroundedTorso = {}
 local lastGroundedTime = {}
-local originalSizes = {}
 
 local function unitVector(v)
     local m = v.Magnitude
@@ -285,16 +284,66 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
-local function checkIfExposed(targetRoot, origin)
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {myCharacter, targetRoot.Parent}
-    
-    local direction = targetRoot.Position - origin
-    local hit = Workspace:Raycast(origin, direction, params)
-    
-    return not hit
+local function disableCollisions()
+    if collisionConnection then return end
+    collisionConnection = RunService.Heartbeat:Connect(function()
+        if myCharacter then
+            for _, part in ipairs(myCharacter:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+        
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= localPlayer and player.Character then
+                for _, part in ipairs(player.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+    end)
 end
+
+local function enableCollisions()
+    if collisionConnection then
+        collisionConnection:Disconnect()
+        collisionConnection = nil
+    end
+    
+    if myCharacter then
+        for _, part in ipairs(myCharacter:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+local function checkForThrowingKnife()
+    local throwingKnife = Workspace:FindFirstChild("ThrowingKnife")
+    if throwingKnife and myRoot then
+        local distance = (throwingKnife.Position - myRoot.Position).Magnitude
+        if distance <= 15 then
+            return true
+        end
+    end
+    return false
+end
+
+Workspace.ChildAdded:Connect(function(child)
+    if child.Name == "ThrowingKnife" and Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
+        disableCollisions()
+    end
+end)
+
+Workspace.ChildRemoved:Connect(function(child)
+    if child.Name == "ThrowingKnife" and Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled then
+        enableCollisions()
+    end
+end)
 
 local function performSilentStab()
     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
@@ -307,52 +356,91 @@ local function performSilentStab()
     if not targetHumanoid or targetHumanoid.Health <= 0 or not targetRoot then return end
 
     local initialOrigin = origin
-    local distance = (targetRoot.Position - initialOrigin).Magnitude
-    local travelTime = distance / KNIFE_SPEED
-
-    task.spawn(function()
-        task.wait(travelTime + 0.1)
-
-        if not targetCharacter or not targetCharacter.Parent or not targetRoot or not targetRoot.Parent or targetHumanoid.Health <= 0 then
-            return
-        end
-
-        local currentTargetPosition = targetRoot.Position
-        local distanceTraveled = (currentTargetPosition - initialOrigin).Magnitude
-        
-        if distanceTraveled > MISS_THRESHOLD then
-            if checkIfExposed(targetRoot, initialOrigin) then
-                local playerId = tostring(targetPlayer.UserId)
-                originalSizes[playerId] = targetRoot.Size
+    local targetPosition = targetRoot.Position
+    local direction = (targetPosition - initialOrigin).Unit
+    local distance = (targetPosition - initialOrigin).Magnitude
+    
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {myCharacter}
+    
+    local rayResult = Workspace:Raycast(initialOrigin, direction * distance * 1.2, params)
+    
+    local playersInPath = {}
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
+            local playerHum = player.Character:FindFirstChildOfClass("Humanoid")
+            if playerRoot and playerHum and playerHum.Health > 0 then
+                local toPlayer = playerRoot.Position - initialOrigin
+                local projectedDist = toPlayer:Dot(direction)
                 
-                targetRoot.Size = Vector3.new(5000, 5000, 5000)
-                
-                task.wait(0.05)
-                
-                local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
-                if stabRemote then
-                    stabRemote:FireServer(targetRoot)
-                end
-                
-                task.wait(0.1)
-                
-                if targetRoot and targetRoot.Parent and originalSizes[playerId] then
-                    targetRoot.Size = originalSizes[playerId]
-                    originalSizes[playerId] = nil
+                if projectedDist > 0 and projectedDist <= distance * 1.2 then
+                    local closestPoint = initialOrigin + direction * projectedDist
+                    local distanceToRay = (playerRoot.Position - closestPoint).Magnitude
+                    
+                    if distanceToRay <= 8 then
+                        table.insert(playersInPath, {player = player, root = playerRoot, distance = projectedDist})
+                    end
                 end
             end
-        else
-            local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
-            if stabRemote then
-                stabRemote:FireServer("Slash")
-            end
         end
-    end)
+    end
+    
+    table.sort(playersInPath, function(a, b) return a.distance < b.distance end)
+    
+    local shouldUseResize = false
+    if rayResult then
+        if not rayResult.Instance:IsDescendantOf(targetCharacter) then
+            shouldUseResize = true
+        end
+    else
+        shouldUseResize = true
+    end
+    
+    if shouldUseResize and #playersInPath > 0 then
+        for _, data in ipairs(playersInPath) do
+            local player = data.player
+            local root = data.root
+            local originalSize = root.Size
+            
+            task.spawn(function()
+                pcall(function()
+                    root.Size = Vector3.new(5000, 5000, 5000)
+                    root.Transparency = 1
+                    root.CanCollide = false
+                    
+                    task.wait(0.05)
+                    
+                    local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
+                    if stabRemote and player.Character and player.Character.Parent then
+                        stabRemote:FireServer("Slash")
+                    end
+                    
+                    task.wait(0.1)
+                    
+                    if root and root.Parent then
+                        root.Size = originalSize
+                        root.Transparency = 0
+                        root.CanCollide = true
+                    end
+                end)
+            end)
+        end
+    elseif not shouldUseResize then
+        local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
+        if stabRemote then
+            task.wait(0.05)
+            stabRemote:FireServer("Slash")
+        end
+    end
 end
 
 local function step()
     if not CoreGui:FindFirstChild(MARKER_NAME) then
         if loopConnection then loopConnection:Disconnect(); loopConnection=nil end
+        if collisionConnection then enableCollisions() end
         return
     end
 
@@ -404,5 +492,10 @@ loopConnection=RunService.Heartbeat:Connect(step)
 
 Environment.CRIMSON_AUTO_KNIFE.enable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = true end
 Environment.CRIMSON_AUTO_KNIFE.disable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = false end
-Environment.CRIMSON_AUTO_KNIFE.enableSilentKnife = function() Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = true end
-Environment.CRIMSON_AUTO_KNIFE.disableSilentKnife = function() Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = false end
+Environment.CRIMSON_AUTO_KNIFE.enableSilentKnife = function() 
+    Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = true 
+end
+Environment.CRIMSON_AUTO_KNIFE.disableSilentKnife = function() 
+    Environment.CRIMSON_AUTO_KNIFE.silentKnifeEnabled = false 
+    enableCollisions()
+end
