@@ -1269,7 +1269,7 @@ function mainUI:Create()
                                 end).Size = UDim2.new(1, 0, 0, 60)
 
                                 -- New Silent Knife Toggle Button
-                                createScriptButton(autoContainer, "Silent Knife", function(state)
+                                createScriptButton(autoContainer, "Silent Knife (Legit)", function(state)
                                     local G = (getgenv and getgenv()) or _G
                                     if not G.CRIMSON_AUTO_KNIFE then 
                                         if G.CRIMSON_NOTIFY then G.CRIMSON_NOTIFY("Error", "Enable Auto Knife Throw first.", 2, "error") end
