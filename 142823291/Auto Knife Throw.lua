@@ -296,25 +296,6 @@ local function checkIfExposed(targetRoot, origin)
     return not hit
 end
 
-local function isTargetInThrowPath(origin, targetPosition, throwDirection)
-    local directionToTarget = (targetPosition - origin).Unit
-    local dotProduct = throwDirection:Dot(directionToTarget)
-    
-    local angleThreshold = 0.95
-    
-    if dotProduct >= angleThreshold then
-        local distanceAlongPath = (targetPosition - origin):Dot(throwDirection)
-        if distanceAlongPath > 0 then
-            local projectedPoint = origin + throwDirection * distanceAlongPath
-            local perpendicularDistance = (targetPosition - projectedPoint).Magnitude
-            
-            return perpendicularDistance <= MISS_THRESHOLD
-        end
-    end
-    
-    return false
-end
-
 local function performSilentStab()
     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
@@ -326,8 +307,6 @@ local function performSilentStab()
     if not targetHumanoid or targetHumanoid.Health <= 0 or not targetRoot then return end
 
     local initialOrigin = origin
-    local initialTargetPosition = targetRoot.Position
-    local throwDirection = (initialTargetPosition - initialOrigin).Unit
     local distance = (targetRoot.Position - initialOrigin).Magnitude
     local travelTime = distance / KNIFE_SPEED
 
@@ -339,38 +318,33 @@ local function performSilentStab()
         end
 
         local currentTargetPosition = targetRoot.Position
+        local distanceTraveled = (currentTargetPosition - initialOrigin).Magnitude
         
-        if isTargetInThrowPath(initialOrigin, currentTargetPosition, throwDirection) then
+        if distanceTraveled > MISS_THRESHOLD then
             if checkIfExposed(targetRoot, initialOrigin) then
+                local playerId = tostring(targetPlayer.UserId)
+                originalSizes[playerId] = targetRoot.Size
+                
+                targetRoot.Size = Vector3.new(5000, 5000, 5000)
+                
+                task.wait(0.05)
+                
                 local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
                 if stabRemote then
-                    stabRemote:FireServer("Slash")
+                    stabRemote:FireServer(targetRoot)
+                end
+                
+                task.wait(0.1)
+                
+                if targetRoot and targetRoot.Parent and originalSizes[playerId] then
+                    targetRoot.Size = originalSizes[playerId]
+                    originalSizes[playerId] = nil
                 end
             end
         else
-            local distanceTraveled = (currentTargetPosition - initialOrigin).Magnitude
-            
-            if distanceTraveled > MISS_THRESHOLD then
-                if checkIfExposed(targetRoot, initialOrigin) then
-                    local playerId = tostring(targetPlayer.UserId)
-                    originalSizes[playerId] = targetRoot.Size
-                    
-                    targetRoot.Size = Vector3.new(5000, 5000, 5000)
-                    
-                    task.wait(0.05)
-                    
-                    local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
-                    if stabRemote then
-                        stabRemote:FireServer(targetRoot)
-                    end
-                    
-                    task.wait(0.1)
-                    
-                    if targetRoot and targetRoot.Parent and originalSizes[playerId] then
-                        targetRoot.Size = originalSizes[playerId]
-                        originalSizes[playerId] = nil
-                    end
-                end
+            local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
+            if stabRemote then
+                stabRemote:FireServer("Slash")
             end
         end
     end)
