@@ -1122,7 +1122,7 @@ function mainUI:Create()
                     content.Name = "RowContent"
                     content.BackgroundTransparency = 1
                     content.Position = UDim2.new(0, 180, 0, 12)  
-                    content.Size = UDim2.new(1, -210, 0, 0)    
+                    content.Size = UDim2.new(1, -210, 0, 0)   
                     content.AutomaticSize = Enum.AutomaticSize.Y
 
                     local grid = Instance.new("UIGridLayout", content)
@@ -1239,47 +1239,45 @@ function mainUI:Create()
                                 calibrateBtn.Size = UDim2.new(1, 0, 0, 40)
                                 calibrateBtn.TextSize = 14
                                 calibrateBtn.LayoutOrder = 3
-                            
-                            -- MODIFIED BLOCK FOR AUTO KNIFE THROW
+
                             elseif modName == "Auto Knife Throw" then
-                                -- Create a vertical container for this feature's buttons, similar to Auto Shoot
-                                grid.CellSize = UDim2.new(0, 220, 0, 138) -- Increase cell height to fit both buttons
+
+                                grid.CellSize = UDim2.new(0, 220, 0, 138) 
 
                                 local autoContainer = Instance.new("Frame", content)
                                 autoContainer.Size = UDim2.new(0, 220, 0, 0)
                                 autoContainer.AutomaticSize = Enum.AutomaticSize.Y
                                 autoContainer.BackgroundTransparency = 1
+
                                 local vList = Instance.new("UIListLayout", autoContainer)
                                 vList.Padding = UDim.new(0, 8)
                                 vList.SortOrder = Enum.SortOrder.LayoutOrder
 
-                                -- Main Auto Knife Throw Toggle Button
                                 createScriptButton(autoContainer, "Auto Knife Throw", function(state)
                                     local G = (getgenv and getgenv()) or _G
-                                    G.CRIMSON_AUTO_KNIFE = G.CRIMSON_AUTO_KNIFE or { enabled = false, silentKnifeEnabled = false }
-                                    
+                                    G.CRIMSON_AUTO_KNIFE = G.CRIMSON_AUTO_KNIFE or { enabled = false, rangeStabEnabled = false }
+
                                     if state then
                                         G.CRIMSON_AUTO_KNIFE.enabled = true
                                         if G.CRIMSON_AUTO_KNIFE.enable then G.CRIMSON_AUTO_KNIFE.enable() end
-                                        fn(true) -- This executes the script content
+                                        fn(true) 
                                     else
                                         G.CRIMSON_AUTO_KNIFE.enabled = false
                                         if G.CRIMSON_AUTO_KNIFE.disable then G.CRIMSON_AUTO_KNIFE.disable() end
                                     end
                                 end).Size = UDim2.new(1, 0, 0, 60)
 
-                                -- New Silent Knife Toggle Button
-                                createScriptButton(autoContainer, "Silent Knife (Legit)", function(state)
+                                createScriptButton(autoContainer, "Range Stab", function(state)
                                     local G = (getgenv and getgenv()) or _G
                                     if not G.CRIMSON_AUTO_KNIFE then 
                                         if G.CRIMSON_NOTIFY then G.CRIMSON_NOTIFY("Error", "Enable Auto Knife Throw first.", 2, "error") end
                                         return 
                                     end
-                                    
+
                                     if state then
-                                        if G.CRIMSON_AUTO_KNIFE.enableSilentKnife then pcall(G.CRIMSON_AUTO_KNIFE.enableSilentKnife) end
+                                        if G.CRIMSON_AUTO_KNIFE.enableRangeStab then pcall(G.CRIMSON_AUTO_KNIFE.enableRangeStab) end
                                     else
-                                        if G.CRIMSON_AUTO_KNIFE.disableSilentKnife then pcall(G.CRIMSON_AUTO_KNIFE.disableSilentKnife) end
+                                        if G.CRIMSON_AUTO_KNIFE.disableRangeStab then pcall(G.CRIMSON_AUTO_KNIFE.disableRangeStab) end
                                     end
                                 end).Size = UDim2.new(1, 0, 0, 60)
 
