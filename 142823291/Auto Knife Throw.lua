@@ -19,7 +19,7 @@ local AllowedAnimationIds = { "rbxassetid://1957618848" }
 local AnimationGateSeconds = 0.75
 
 local KNIFE_SPEED = 63/0.85
-local MISS_THRESHOLD = 50
+local MISS_THRESHOLD = 25
 
 local ignoreThinTransparency = 0.4
 local ignoreMinThickness = 0.4
@@ -286,14 +286,16 @@ local function directAim(o,tp,ch,ig)
 end
 
 local function checkIfExposed(targetRoot, origin)
+    if not targetRoot or not origin then return false end
+    
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = {myCharacter, targetRoot.Parent}
     
-    local direction = targetRoot.Position - origin
+    local direction = (targetRoot.Position - origin)
     local hit = Workspace:Raycast(origin, direction, params)
     
-    return not hit
+    return not hit or hit.Instance:IsDescendantOf(targetRoot.Parent)
 end
 
 local function performSilentStab()
@@ -307,12 +309,9 @@ local function performSilentStab()
     if not targetHumanoid or targetHumanoid.Health <= 0 or not targetRoot then return end
 
     local initialOrigin = origin
-    local distance = (targetRoot.Position - initialOrigin).Magnitude
+    local initialTargetPosition = targetRoot.Position
+    local distance = (initialTargetPosition - initialOrigin).Magnitude
     local travelTime = distance / KNIFE_SPEED
-    
-    myHumanoid:UnequipTools()
-    task.wait()
-    if myKnife then myHumanoid:EquipTool(myKnife) end
 
     task.spawn(function()
         task.wait(travelTime + 0.1)
@@ -322,10 +321,10 @@ local function performSilentStab()
         end
 
         local currentTargetPosition = targetRoot.Position
-        local distanceTraveled = (currentTargetPosition - initialOrigin).Magnitude
+        local missDistance = (currentTargetPosition - initialTargetPosition).Magnitude
         
-        if distanceTraveled > MISS_THRESHOLD then
-            if checkIfExposed(targetRoot, initialOrigin) then
+        if missDistance > MISS_THRESHOLD then
+            if checkIfExposed(targetRoot, myRoot.Position) then
                 local playerId = tostring(targetPlayer.UserId)
                 originalSizes[playerId] = targetRoot.Size
                 
