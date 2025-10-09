@@ -18,7 +18,7 @@ Environment.CRIMSON_AUTO_KNIFE = Environment.CRIMSON_AUTO_KNIFE or {
 local AllowedThrowAnimations = { "rbxassetid://1957618848" }
 local MinimumAnimationTime = 0.75
 
-local KnifeProjectileSpeed = 63/0.85
+local KnifeProjectileSpeed = 63/1.25
 
 local MinTransparencyToIgnore = 0.4
 local MinThicknessToIgnore = 0.4
