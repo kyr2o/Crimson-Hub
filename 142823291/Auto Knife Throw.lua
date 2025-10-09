@@ -47,7 +47,7 @@ local lastGroundedTime = {}
 
 -- Silent Knife Tracking
 local trackedTargets = {}
-local SILENT_KNIFE_RANGE = 50
+local SILENT_KNIFE_RANGE = 15
 
 local function unitVector(v)
     local m = v.Magnitude
@@ -288,7 +288,30 @@ local function directAim(o,tp,ch,ig)
     return h.Position - dir*0.5
 end
 
--- REWORKED SILENT KNIFE - Works alongside auto knife throw
+-- Helper function to check if a part belongs to a player character or dead body
+local function isPlayerPart(part)
+    if not part or not part:IsA("BasePart") then return false end
+    
+    -- Check if it's part of any player's character (alive)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character and part:IsDescendantOf(player.Character) then
+            return true
+        end
+    end
+    
+    -- Check if it's part of a dead body (Model with Humanoid that's dead)
+    local model = part.Parent
+    if model and model:IsA("Model") then
+        local humanoid = model:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- REWORKED SILENT KNIFE - Keeps collision enabled for players
 local function performSilentStab()
     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
@@ -314,10 +337,13 @@ local function performSilentStab()
     throwingKnifeAdded = Workspace.ChildAdded:Connect(function(child)
         if child.Name == "ThrowingKnife" then
             task.spawn(function()
-                -- Disable collision for my character during stab
+                -- Disable collision ONLY for non-player parts
                 for _, part in ipairs(myCharacter:GetDescendants()) do
                     if part:IsA("BasePart") then
-                        part.CanCollide = false
+                        -- Keep collision ON for player/humanoid parts
+                        if not isPlayerPart(part) then
+                            part.CanCollide = false
+                        end
                     end
                 end
                 
@@ -372,11 +398,13 @@ local function performSilentStab()
                     task.wait()
                 end
                 
-                -- Re-enable collision after knife lands
+                -- Re-enable collision after knife lands (except for parts that should stay non-collidable)
                 task.wait(0.5)
                 for _, part in ipairs(myCharacter:GetDescendants()) do
                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                        part.CanCollide = true
+                        if not isPlayerPart(part) then
+                            part.CanCollide = true
+                        end
                     end
                 end
                 
