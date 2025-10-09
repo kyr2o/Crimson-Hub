@@ -15,27 +15,21 @@ Environment.CRIMSON_AUTO_KNIFE = Environment.CRIMSON_AUTO_KNIFE or {
     rangeStabEnabled = false
 }
 
--- Animation Settings
 local AllowedThrowAnimations = { "rbxassetid://1957618848" }
 local MinimumAnimationTime = 0.75
 
--- Knife Physics
 local KnifeProjectileSpeed = 63/0.85
 
--- Object Detection Settings
 local MinTransparencyToIgnore = 0.4
 local MinThicknessToIgnore = 0.4
 
--- Ground Detection
 local GroundCheckRadius = 2.5
 local MaxGroundDistance = 24
 local GroundHeightTolerance = 1.75
 
--- Player Movement Prediction
 local GroundedMemoryDuration = 0.35
 local TorsoHeightAboveGround = 1.0
 
--- Target Exposure Settings
 local ExposureCheckRadius = 0.8
 local MinimumExposureRatio = 0.4
 
@@ -52,7 +46,6 @@ local lastGroundY = {}
 local lastGroundedTorso = {}
 local lastGroundedTime = {}
 
--- Range Stab Configuration
 local activeTargets = {}
 local RangeStabRadius = 15
 
@@ -315,7 +308,6 @@ local function isPlayerPart(part)
     return false
 end
 
--- RANGE STAB FUNCTION (INDEPENDENT)
 local function setupRangeStab()
     local function monitorThrowingKnife()
         local throwingKnifeAdded
@@ -323,14 +315,14 @@ local function setupRangeStab()
             if child.Name == "ThrowingKnife" and Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled then
                 task.spawn(function()
                     resolveKnife()
-                    
+
                     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
                     local targetPlayer, targetLimb = pickTarget(origin)
-                    
+
                     if targetPlayer and targetLimb then
                         local targetCharacter = targetPlayer.Character
                         local targetRoot = targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart")
-                        
+
                         if targetRoot then
                             local targetId = targetPlayer.UserId
                             activeTargets[targetId] = {
@@ -405,10 +397,10 @@ local function setupRangeStab()
                 end)
             end
         end)
-        
+
         return throwingKnifeAdded
     end
-    
+
     return monitorThrowingKnife()
 end
 
