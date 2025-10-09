@@ -47,7 +47,7 @@ local lastGroundedTime = {}
 
 -- Silent Knife Tracking
 local trackedTargets = {}
-local SILENT_KNIFE_RANGE = 25
+local SILENT_KNIFE_RANGE = 15
 
 local function unitVector(v)
     local m = v.Magnitude
@@ -311,7 +311,7 @@ local function isPlayerPart(part)
     return false
 end
 
--- FIXED SILENT KNIFE - No freezing
+-- FIXED SILENT KNIFE using the provided method
 local function performSilentStab()
     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
@@ -361,36 +361,31 @@ local function performSilentStab()
                             local distance = (tRoot.Position - knifePos).Magnitude
                             
                             if distance <= SILENT_KNIFE_RANGE then
-                                -- Target in range! Execute the resize-stab-restore combo
-                                local originalSize = tRoot.Size
-                                local originalCFrame = tRoot.CFrame
+                                -- Target in range! Use the method from the provided code
+                                local sizeArg = 5000
+                                local Size = Vector3.new(sizeArg, sizeArg, sizeArg)
+                                local Root = tRoot
                                 
-                                -- FIXED: Store anchored state and set properties WITHOUT freezing
-                                local wasAnchored = tRoot.Anchored
-                                
-                                -- Resize WITHOUT anchoring to prevent freeze
-                                tRoot.Size = Vector3.new(5000, 5000, 5000)
-                                tRoot.Massless = true
-                                tRoot.CanCollide = false
-                                
-                                -- Don't anchor, just set the CFrame
-                                tRoot.CFrame = originalCFrame
-                                
-                                task.wait(0.05)
-                                
-                                -- Fire stab remote
-                                local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
-                                if stabRemote then
-                                    stabRemote:FireServer("Slash")
-                                end
-                                
-                                task.wait(0.05)
-                                
-                                -- Restore original size IMMEDIATELY
-                                if tRoot and tRoot.Parent then
-                                    tRoot.Size = originalSize
-                                    tRoot.CFrame = originalCFrame
-                                    tRoot.Anchored = wasAnchored
+                                if Root:IsA("BasePart") then
+                                    Root.CanCollide = false
+                                    Root.Size = Size
+                                    Root.Transparency = 0.5
+                                    
+                                    task.wait(0.05)
+                                    
+                                    -- Fire stab remote
+                                    local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
+                                    if stabRemote then
+                                        stabRemote:FireServer("Slash")
+                                    end
+                                    
+                                    task.wait(0.1)
+                                    
+                                    -- Restore original size
+                                    if Root and Root.Parent then
+                                        Root.Size = Vector3.new(2, 1, 1)
+                                        Root.Transparency = 0
+                                    end
                                 end
                                 
                                 -- Remove from tracking
@@ -405,7 +400,7 @@ local function performSilentStab()
                     task.wait()
                 end
                 
-                -- Re-enable collision after knife lands (except for parts that should stay non-collidable)
+                -- Re-enable collision after knife lands
                 task.wait(0.5)
                 for _, part in ipairs(myCharacter:GetDescendants()) do
                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
