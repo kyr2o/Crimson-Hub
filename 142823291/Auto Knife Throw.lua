@@ -311,7 +311,7 @@ local function isPlayerPart(part)
     return false
 end
 
--- REWORKED SILENT KNIFE - Keeps collision enabled for players
+-- FIXED SILENT KNIFE - No freezing
 local function performSilentStab()
     local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
     local targetPlayer, targetLimb = pickTarget(origin)
@@ -365,10 +365,16 @@ local function performSilentStab()
                                 local originalSize = tRoot.Size
                                 local originalCFrame = tRoot.CFrame
                                 
-                                -- Resize to massive size
+                                -- FIXED: Store anchored state and set properties WITHOUT freezing
+                                local wasAnchored = tRoot.Anchored
+                                
+                                -- Resize WITHOUT anchoring to prevent freeze
                                 tRoot.Size = Vector3.new(5000, 5000, 5000)
                                 tRoot.Massless = true
                                 tRoot.CanCollide = false
+                                
+                                -- Don't anchor, just set the CFrame
+                                tRoot.CFrame = originalCFrame
                                 
                                 task.wait(0.05)
                                 
@@ -378,12 +384,13 @@ local function performSilentStab()
                                     stabRemote:FireServer("Slash")
                                 end
                                 
-                                task.wait(0.1)
+                                task.wait(0.05)
                                 
-                                -- Restore original size
+                                -- Restore original size IMMEDIATELY
                                 if tRoot and tRoot.Parent then
                                     tRoot.Size = originalSize
                                     tRoot.CFrame = originalCFrame
+                                    tRoot.Anchored = wasAnchored
                                 end
                                 
                                 -- Remove from tracking
