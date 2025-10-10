@@ -47,7 +47,7 @@ local lastGroundedTorso = {}
 local lastGroundedTime = {}
 
 local activeTargets = {}
-local RangeStabRadius = 15
+local RangeStabRadius = 20
 
 local function unitVector(v)
     local m = v.Magnitude
