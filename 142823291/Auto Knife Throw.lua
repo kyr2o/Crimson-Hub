@@ -1,465 +1,352 @@
-local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 local Workspace = game:GetService("Workspace")
 
-local MARKER_NAME = "_cr1m50n__kv_ok__7F2B1D"
-if not CoreGui:FindFirstChild(MARKER_NAME) then return end
-
-local localPlayer = Players.LocalPlayer
-local camera = Workspace.CurrentCamera
-
-local Environment = (getgenv and getgenv()) or _G
-Environment.CRIMSON_AUTO_KNIFE = Environment.CRIMSON_AUTO_KNIFE or {
-    enabled = false,
-    rangeStabEnabled = false
+local G = (getgenv and getgenv()) or _G
+G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { 
+    enabled = false, 
+    prediction = 0.14,
+    autoCalibrate = true,
+    lastCalibrationTime = 0,
+    calibrationInterval = 0.5 -- Update every 0.5 seconds
 }
 
-local AllowedThrowAnimations = { "rbxassetid://1957618848" }
-local MinimumAnimationTime = 0.75
+-- Known optimal prediction values (ping -> prediction mapping)
+local PING_PREDICTION_MAP = {
+    {ping = 10, pred = 0.110},
+    {ping = 20, pred = 0.115},
+    {ping = 30, pred = 0.118},
+    {ping = 40, pred = 0.12},
+    {ping = 50, pred = 0.122},
+    {ping = 60, pred = 0.124},
+    {ping = 70, pred = 0.126},
+    {ping = 80, pred = 0.128},
+    {ping = 90, pred = 0.132},
+    {ping = 100, pred = 0.137},
+    {ping = 110, pred = 0.142},
+    {ping = 120, pred = 0.147},
+    {ping = 130, pred = 0.150},
+    {ping = 140, pred = 0.152},
+    {ping = 150, pred = 0.154},
+    {ping = 160, pred = 0.156},
+    {ping = 170, pred = 0.158},
+    {ping = 180, pred = 0.159},
+    {ping = 190, pred = 0.162},
+    {ping = 200, pred = 0.165},
+    {ping = 210, pred = 0.168},
+    {ping = 220, pred = 0.171},
+    {ping = 250, pred = 0.180},
+    {ping = 300, pred = 0.195},
+}
 
-local KnifeProjectileSpeed = 63/1.25
-
-local MinTransparencyToIgnore = 0.4
-local MinThicknessToIgnore = 0.4
-
-local GroundCheckRadius = 2.5
-local MaxGroundDistance = 24
-local GroundHeightTolerance = 1.75
-
-local GroundedMemoryDuration = 0.35
-local TorsoHeightAboveGround = 1.0
-
-local ExposureCheckRadius = 0.8
-local MinimumExposureRatio = 0.4
-
-local myCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-local myHumanoid = myCharacter:WaitForChild("Humanoid")
-local myRoot = myCharacter:WaitForChild("HumanoidRootPart")
-local myKnife, knifeRemote
-
-local loopConnection
-local rangeStabConnection
-
-local trackStart = setmetatable({}, { __mode = "k" })
-local lastGroundY = {}
-local lastGroundedTorso = {}
-local lastGroundedTime = {}
-
-local activeTargets = {}
-local RangeStabRadius = 10
-
-local function unitVector(v)
-    local m = v.Magnitude
-    if m == 0 or m ~= m then return Vector3.zero, 0 end
-    return v/m, m
+-- Linear interpolation helper
+local function lerp(a, b, t)
+    return a + (b - a) * t
 end
 
-local function clampValue(v,a,b)
-    if b<a then a,b=b,a end
-    if v~=v then return a end
-    return math.clamp(v,a,b)
-end
-
-local function isFinite(v)
-    return v and v.X==v.X and v.Y==v.Y and v.Z==v.Z
-end
-
-local function resolveKnife()
-    local k = (localPlayer.Backpack and localPlayer.Backpack:FindFirstChild("Knife")) or (myCharacter and myCharacter:FindFirstChild("Knife"))
-    if k~=myKnife then
-        myKnife=k
-        knifeRemote = myKnife and myKnife:FindFirstChild("Throw") or nil
-    end
-end
-
-resolveKnife()
-localPlayer.CharacterAdded:Connect(function(c)
-    myCharacter=c
-    myHumanoid=c:WaitForChild("Humanoid")
-    myRoot=c:WaitForChild("HumanoidRootPart")
-    trackStart=setmetatable({}, { __mode="k" })
-    activeTargets = {}
-    task.defer(resolveKnife)
-end)
-if localPlayer:FindFirstChild("Backpack") then
-    localPlayer.Backpack.ChildAdded:Connect(function(it) if it.Name=="Knife" then resolveKnife() end end)
-    localPlayer.Backpack.ChildRemoved:Connect(function(it) if it==myKnife then resolveKnife() end end)
-end
-myCharacter.ChildAdded:Connect(function(it) if it.Name=="Knife" then resolveKnife() end end)
-myCharacter.ChildRemoved:Connect(function(it) if it==myKnife then resolveKnife() end end)
-
-local function throwAllowed()
-    if not myHumanoid then return false end
-    local now=os.clock()
-    local ok=false
-    for _,tr in ipairs(myHumanoid:GetPlayingAnimationTracks()) do
-        local id=tr.Animation and tr.Animation.AnimationId or ""
-        for _,a in ipairs(AllowedThrowAnimations) do
-            if id:find(a,1,true) then
-                if not trackStart[tr] then trackStart[tr]=now end
-                if now-trackStart[tr]>=MinimumAnimationTime then ok=true end
+-- Calculate prediction from ping using interpolation
+local function __mm2_pred_from_ping(ms)
+    if not ms or ms ~= ms then return 0.14 end
+    
+    -- Clamp to reasonable range
+    ms = math.clamp(ms, 10, 350)
+    
+    -- Find the two closest ping values
+    local lower, upper
+    for i = 1, #PING_PREDICTION_MAP do
+        local entry = PING_PREDICTION_MAP[i]
+        if ms <= entry.ping then
+            if i == 1 then
+                return entry.pred
             end
+            lower = PING_PREDICTION_MAP[i - 1]
+            upper = entry
+            break
         end
     end
-    for tr in pairs(trackStart) do
-        if typeof(tr)~="Instance" or not tr.IsPlaying then trackStart[tr]=nil end
+    
+    -- If ping is higher than max mapped value, use the last one
+    if not lower then
+        return PING_PREDICTION_MAP[#PING_PREDICTION_MAP].pred
     end
-    return ok
+    
+    -- Interpolate between the two closest values
+    local t = (ms - lower.ping) / (upper.ping - lower.ping)
+    local interpolatedPred = lerp(lower.pred, upper.pred, t)
+    
+    -- Round to 7 decimal places for precision (like 0.1444086)
+    return math.floor(interpolatedPred * 10000000 + 0.5) / 10000000
 end
 
-local function getAimPart(ch)
-    return ch and (ch:FindFirstChild("UpperTorso") or ch:FindFirstChild("HumanoidRootPart") or ch:FindFirstChild("Head"))
-end
+-- Get current ping in milliseconds
+local function __mm2_ping_ms()
+    local success, result = pcall(function()
+        local net = Stats:FindFirstChild("Network")
+        if not net then return nil end
 
-local function worldVel(ch)
-    local p=getAimPart(ch)
-    return p and p.AssemblyLinearVelocity or Vector3.zero
-end
+        local serverStats = net:FindFirstChild("ServerStatsItem")
+        if not serverStats then return nil end
 
-local function ignoreHit(h)
-    local i=h.Instance
-    if i and i:IsA("BasePart") then
-        if i.Transparency>=MinTransparencyToIgnore then return true end
-        local s=i.Size
-        if s.X<MinThicknessToIgnore or s.Y<MinThicknessToIgnore or s.Z<MinThicknessToIgnore then return true end
-        if i.Material==Enum.Material.Glass or i.Material==Enum.Material.ForceField then return true end
+        local dataPing = serverStats:FindFirstChild("Data Ping")
+        if not dataPing then return nil end
+
+        local value = dataPing:GetValue()
+        if not value then return nil end
+
+        if value < 1 then
+            return math.floor(value * 1000 + 0.5)
+        else
+            return math.floor(value + 0.5)
+        end
+    end)
+
+    if success and result then
+        return result
     end
-    return false
-end
 
-local function raycastVec(o,d,l,ig)
-    local p=RaycastParams.new()
-    p.FilterType=Enum.RaycastFilterType.Exclude
-    p.FilterDescendantsInstances=ig
-    return Workspace:Raycast(o,d*l,p)
-end
+    local success2, result2 = pcall(function()
+        return Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
+    end)
 
-local function rayTowards(o,t,ig)
-    local u,m=unitVector(t-o)
-    local hit=raycastVec(o,u,clampValue(m,0,12288),ig)
-    return hit,u,m
-end
-
-local LimbOrder={"LeftFoot","RightFoot","LeftLowerLeg","RightLowerLeg","LeftLeg","RightLeg",
-    "LeftHand","RightHand","LeftLowerArm","RightLowerArm","LeftArm","RightArm",
-    "Head","UpperTorso","LowerTorso","HumanoidRootPart"}
-
-local function isExposed(part,origin,ignore)
-    if not part or not part:IsA("BasePart") then return false end
-    local c=part.Position; local s=part.Size
-    local pts={c,c+Vector3.new(s.X*0.3,0,0),c+Vector3.new(-s.X*0.3,0,0),
-        c+Vector3.new(0,s.Y*0.3,0),c+Vector3.new(0,-s.Y*0.3,0),
-        c+Vector3.new(0,0,s.Z*0.3),c+Vector3.new(0,0,-s.Z*0.3)}
-    if part.Name:find("Foot") or part.Name:find("Hand") or part.Name:find("Leg") or part.Name:find("Arm") then
-        table.insert(pts,c+Vector3.new(s.X*0.4,s.Y*0.4,0))
-        table.insert(pts,c+Vector3.new(-s.X*0.4,s.Y*0.4,0))
-        table.insert(pts,c+Vector3.new(s.X*0.4,-s.Y*0.4,0))
-        table.insert(pts,c+Vector3.new(-s.X*0.4,-s.Y*0.4,0))
-    end
-    local clear=0
-    local fullIgnore={myCharacter,part.Parent}
-    for _,v in ipairs(ignore)do table.insert(fullIgnore,v) end
-    for _,p in ipairs(pts)do
-        local h=rayTowards(origin,p,fullIgnore)
-        if not h or h.Instance:IsDescendantOf(part.Parent) or ignoreHit(h) then clear=clear+1 end
-    end
-    return (clear/#pts)>=MinimumExposureRatio
-end
-
-local function pickTarget(origin)
-    local mouse=localPlayer:GetMouse()
-    local bp,bl,bs=nil,nil,math.huge
-    for _,pl in ipairs(Players:GetPlayers())do
-        if pl~=localPlayer then
-            local ch=pl.Character; local h=ch and ch:FindFirstChildOfClass("Humanoid")
-            if ch and h and h.Health>0 then
-                local ig={myCharacter}
-                for _,part in ipairs((function()
-                    local ex={}
-                    for _,nm in ipairs(LimbOrder)do
-                        local p=ch:FindFirstChild(nm)
-                        if p and isExposed(p,origin,ig) then table.insert(ex,p) end
-                    end
-                    return ex
-                end)())do
-                    local v,on=camera:WorldToViewportPoint(part.Position)
-                    local sc=on and (Vector2.new(v.X,v.Y)-Vector2.new(mouse.X,mouse.Y)).Magnitude or 9999
-                    local ws=(part.Position-origin).Magnitude*0.1
-                    local bias= part.Name:find("Foot") and -100
-                        or part.Name:find("LowerLeg") and -80
-                        or part.Name:find("Leg") and -60
-                        or part.Name:find("Hand") and -40
-                        or part.Name:find("LowerArm") and -30
-                        or part.Name:find("Arm") and -20
-                        or part.Name=="Head" and -10
-                        or 10
-                    local score=sc+ws+bias
-                    if score<bs then bp,bl,bs=pl,part,score end
-                end
-            end
+    if success2 and result2 then
+        local num = tonumber(result2:match("%d+%.?%d*"))
+        if num then
+            return math.floor(num + 0.5)
         end
     end
-    return bp,bl
+
+    return 140
 end
 
-local function rememberGroundTorso(ch,same,gp)
-    local h=ch and ch:FindFirstChildOfClass("Humanoid")
-    local t=ch and ch:FindFirstChild("UpperTorso")
-    if not h or not t then return end
-    local id=ch:GetDebugId()
-    if same and gp then
-        local p=t.Position
-        lastGroundedTorso[id]=Vector3.new(p.X,gp.Y+TorsoHeightAboveGround,p.Z)
-        lastGroundedTime[id]=os.clock()
+-- Manual calibration function (still available)
+G.CRIMSON_AUTO_SHOOT.calibrate = function()
+    local ms = __mm2_ping_ms()
+    local pred = __mm2_pred_from_ping(ms)
+    G.CRIMSON_AUTO_SHOOT.prediction = pred
+    return ms, pred
+end
+
+-- Auto-calibration loop
+local autoCalibrationConnection
+local function startAutoCalibration()
+    if autoCalibrationConnection then
+        autoCalibrationConnection:Disconnect()
+    end
+    
+    autoCalibrationConnection = RunService.Heartbeat:Connect(function()
+        if not G.CRIMSON_AUTO_SHOOT.autoCalibrate then return end
+        
+        local currentTime = tick()
+        if currentTime - G.CRIMSON_AUTO_SHOOT.lastCalibrationTime >= G.CRIMSON_AUTO_SHOOT.calibrationInterval then
+            local ms = __mm2_ping_ms()
+            local pred = __mm2_pred_from_ping(ms)
+            G.CRIMSON_AUTO_SHOOT.prediction = pred
+            G.CRIMSON_AUTO_SHOOT.lastCalibrationTime = currentTime
+        end
+    end)
+end
+
+-- Compatibility aliases
+G.CalibrateAutoShoot = G.CRIMSON_AUTO_SHOOT.calibrate
+G.CRIMSON_CalibrateShoot = G.CRIMSON_AUTO_SHOOT.calibrate
+
+local LocalPlayer = Players.LocalPlayer
+local shootConnection
+
+local function getHumanoid(character)
+    return character and character:FindFirstChildOfClass("Humanoid") or nil
+end
+
+local function getVel(part)
+    if not part then return Vector3.zero end
+
+    local ok, v = pcall(function() return part.AssemblyLinearVelocity end)
+    if ok and v then return v end
+    return part.Velocity
+end
+
+local function isInAir(humanoid)
+    if not humanoid then return false end
+    local state = humanoid:GetState()
+    return state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping
+end
+
+local function getJumpV0(humanoid)
+    local g = Workspace.Gravity
+    if humanoid and humanoid.UseJumpPower then
+        local jp = humanoid.JumpPower or 50
+        return math.max(jp, 1)
+    else
+        local jh = (humanoid and humanoid.JumpHeight) or 7.2
+        return math.sqrt(math.max(2 * g * math.max(jh, 0.1), 1))
     end
 end
 
-local function findGround(ch,ignore)
-    local ap=getAimPart(ch)
-    if not ap then return nil,false end
-    local from=ap.Position+Vector3.new(0,2,0)
-    local hit=raycastVec(from,Vector3.new(0,-1,0),MaxGroundDistance,ignore)
-    local gp=hit and hit.Position or nil
-    if not gp then
-        local vel=worldVel(ch)
-        local f=Vector3.new(vel.X,0,vel.Z)
-        f=f.Magnitude>0 and f.Unit or Vector3.new(0,0,1)
-        local r=f:Cross(Vector3.new(0,1,0)).Unit
-        for _,off in ipairs({Vector3.new(),r*GroundCheckRadius,-r*GroundCheckRadius,f*GroundCheckRadius,-f*GroundCheckRadius})do
-            local h2=raycastVec(from+off,Vector3.new(0,-1,0),MaxGroundDistance,ignore)
-            if h2 then gp=h2.Position break end
+local function findPart(character, names)
+    for _, n in ipairs(names) do
+        local p = character:FindFirstChild(n)
+        if p and p:IsA("BasePart") then
+            return p
         end
     end
-    local id=ch:GetDebugId(); local same=false
-    if gp then
-        local last=lastGroundY[id]
-        if last then same=math.abs(gp.Y-last)<=GroundHeightTolerance end
-        lastGroundY[id]=gp.Y
-    end
-    return gp,same
+    return nil
 end
 
-local function hasNormalJump(h) local jp=h and h.JumpPower or 50 return jp>=40 and jp<=75 end
+local function pickAimPart(character, vy, v0, groundedDefaultToHead)
+    local head = findPart(character, {"Head"})
+    local lowerTorso = findPart(character, {"LowerTorso", "Torso"})
+    local upperTorso = findPart(character, {"UpperTorso", "Torso"})
+    local leftLowerLeg = findPart(character, {"LeftLowerLeg", "Left Leg"})
+    local rightLowerLeg = findPart(character, {"RightLowerLeg", "Right Leg"})
+    local root = findPart(character, {"HumanoidRootPart"})
 
-local function predictPoint(origin,ch,focus,same,gp)
-    local p=focus or getAimPart(ch)
-    if not p then return nil end
-    local h=ch and ch:FindFirstChildOfClass("Humanoid")
-    local id,chtime=ch:GetDebugId(),os.clock()
-    local useStick=false
-    if h and hasNormalJump(h) and lastGroundedTorso[id] and lastGroundedTime[id] and (chtime-lastGroundedTime[id]<=GroundedMemoryDuration) then
-        local st=h:GetState()
-        if (st==Enum.HumanoidStateType.Jumping or st==Enum.HumanoidStateType.Freefall) and (not same) then useStick=true end
+    local fast = 0.6 * v0
+    local slow = 0.2 * v0
+
+    if vy > fast then
+        return head or upperTorso or lowerTorso or root
+    elseif vy > slow then
+        return lowerTorso or upperTorso or head or root
+    elseif vy < -slow then
+        return leftLowerLeg or rightLowerLeg or lowerTorso or upperTorso or head or root
+    else
+        return lowerTorso or upperTorso or head or root
     end
-    local base=useStick and lastGroundedTorso[id] or p.Position
-    if not useStick and gp then base=Vector3.new(base.X,gp.Y+(p.Name=="Head" and 1 or 0.9),base.Z) end
-    local dist=(base-origin).Magnitude
-    if dist==0 then return base end
-    local t=dist/KnifeProjectileSpeed; if t<=0 then t=0 end
-    local vel=worldVel(ch)
-    local horiz=Vector3.new(vel.X,0,vel.Z)
-    local speed=horiz.Magnitude
-    local lead=(speed>0) and (horiz*t) or Vector3.zero
-    local predicted = Vector3.new(base.X, p.Position.Y, base.Z) + lead
-    return predicted
 end
 
-local function directAim(o,tp,ch,ig)
-    local h,dir=rayTowards(o,tp,ig)
-    if not h or ignoreHit(h) then return tp end
-    local right=dir:Cross(Vector3.new(0,1,0)).Unit
-    local slide=right
-    if ch then
-        local vel=worldVel(ch)
-        local hor=Vector3.new(vel.X,0,vel.Z)
-        if hor.Magnitude>0.5 then slide = (hor:Dot(right)>=0) and right or -right end
+local function computePredictedAimPos(part, t, doVerticalBallistics)
+    if not part then return nil end
+    local pos0 = part.Position
+    local v = getVel(part)
+
+    local x = pos0.X + v.X * t
+    local z = pos0.Z + v.Z * t
+
+    local y
+    if doVerticalBallistics then
+        local g = Workspace.Gravity
+        y = pos0.Y + v.Y * t - 0.5 * g * t * t
+    else
+        y = pos0.Y
     end
-    for _,off in ipairs({1.5,2.5})do
-        for _,d in ipairs({slide,-slide})do
-            local sp = h.Position + d*off
-            sp=Vector3.new(sp.X,tp.Y,sp.Z)
-            local h1=rayTowards(o,sp,ig)
-            if h1 and not ignoreHit(h1) then continue end
-            local h2=rayTowards(sp,tp,ig)
-            if not h2 or ignoreHit(h2) then return sp end
-        end
-    end
-    return h.Position - dir*0.5
+
+    return Vector3.new(x, y, z)
 end
 
-local function isPlayerPart(part)
-    if not part or not part:IsA("BasePart") then return false end
-
+local function findMurderer()
+    local lp = LocalPlayer
     for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character and part:IsDescendantOf(player.Character) then
-            return true
+        if player ~= lp and player.Character then
+            local bp = player:FindFirstChild("Backpack")
+            if (bp and bp:FindFirstChild("Knife")) or player.Character:FindFirstChild("Knife") then
+                return player
+            end
         end
     end
-
-    local model = part.Parent
-    if model and model:IsA("Model") then
-        local humanoid = model:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            return true
-        end
-    end
-
-    return false
+    return nil
 end
 
-local function setupRangeStab()
-    local function monitorThrowingKnife()
-        local throwingKnifeAdded
-        throwingKnifeAdded = Workspace.ChildAdded:Connect(function(child)
-            if child.Name == "ThrowingKnife" and Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled then
-                task.spawn(function()
-                    resolveKnife()
+local function disconnectShoot()
+    if shootConnection then
+        shootConnection:Disconnect()
+        shootConnection = nil
+    end
+end
 
-                    local origin = (myKnife and myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
-                    local targetPlayer, targetLimb = pickTarget(origin)
+local function onCharacter(character)
+    disconnectShoot()
+    local backpack = LocalPlayer:WaitForChild("Backpack", 5)
+    if not backpack then return end
 
-                    if targetPlayer and targetLimb then
-                        local targetCharacter = targetPlayer.Character
-                        local targetRoot = targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart")
+    local function tryBindGun()
+        local gun = character:FindFirstChild("Gun") or backpack:FindFirstChild("Gun")
+        if not gun then return end
 
-                        if targetRoot then
-                            local targetId = targetPlayer.UserId
-                            activeTargets[targetId] = {
-                                player = targetPlayer,
-                                character = targetCharacter,
-                                root = targetRoot,
-                                startTime = tick()
-                            }
-                        end
-                    end
+        local rf = gun:FindFirstChild("KnifeLocal")
+            and gun.KnifeLocal:FindFirstChild("CreateBeam")
+            and gun.KnifeLocal.CreateBeam:FindFirstChild("RemoteFunction")
+        if not rf then return end
 
-                    for _, part in ipairs(myCharacter:GetDescendants()) do
-                        if part:IsA("BasePart") and not isPlayerPart(part) then
-                            part.CanCollide = false
-                        end
-                    end
+        if shootConnection then shootConnection:Disconnect() end
+        shootConnection = RunService.Heartbeat:Connect(function()
+            if not G.CRIMSON_AUTO_SHOOT.enabled then return end
+            if not character:FindFirstChild("Gun") then return end
 
-                    while child and child.Parent == Workspace and Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled do
-                        local knifePos = child:IsA("Model") and child:GetPivot().Position or (child:IsA("BasePart") and child.Position or nil)
-                        if not knifePos then break end
+            local murderer = findMurderer()
+            local mchar = murderer and murderer.Character
+            if not mchar then return end
 
-                        for uid, data in pairs(activeTargets) do
-                            local tChar = data.character
-                            local tRoot = data.root
+            local hum = getHumanoid(mchar)
+            local inAir = isInAir(hum)
+            local v0 = getJumpV0(hum)
 
-                            if tChar and tChar.Parent and tRoot and tRoot.Parent then
-                                local distance = (tRoot.Position - knifePos).Magnitude
+            local head = mchar:FindFirstChild("Head")
+            local baseAimPart
+            if inAir then
+                local torsoRef = findPart(mchar, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"}) or head
+                local vy = torsoRef and getVel(torsoRef).Y or 0
+                baseAimPart = pickAimPart(mchar, vy, v0, false)
+            else
+                baseAimPart = head or findPart(mchar, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"})
+            end
+            if not baseAimPart then return end
 
-                                if distance <= RangeStabRadius then
-                                    local HitboxSize = 5000
-                                    local ExpandedSize = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-                                    local Root = tRoot
+            local t = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
 
-                                    if Root:IsA("BasePart") then
-                                        Root.CanCollide = false
-                                        Root.Size = ExpandedSize
-                                        Root.Transparency = 1
+            local aimPos = computePredictedAimPos(baseAimPart, t, inAir)
 
-                                        task.wait(0.05)
-
-                                        local stabRemote = myKnife and myKnife:FindFirstChild("Stab")
-                                        if stabRemote then
-                                            stabRemote:FireServer("Slash")
-                                        end
-
-                                        task.wait(0.1)
-
-                                        if Root and Root.Parent then
-                                            Root.Size = Vector3.new(2, 1, 1)
-                                            Root.Transparency = 1
-                                        end
-                                    end
-
-                                    activeTargets[uid] = nil
-                                end
-                            else
-                                activeTargets[uid] = nil
-                            end
-                        end
-
-                        task.wait()
-                    end
-
-                    task.wait(0.5)
-                    for _, part in ipairs(myCharacter:GetDescendants()) do
-                        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and not isPlayerPart(part) then
-                            part.CanCollide = true
-                        end
-                    end
-
-                    activeTargets = {}
-                end)
+            if aimPos then
+                rf:InvokeServer(1, aimPos, "AH2")
             end
         end)
-
-        return throwingKnifeAdded
     end
 
-    return monitorThrowingKnife()
+    character.ChildAdded:Connect(function(child)
+        if child.Name == "Gun" then tryBindGun() end
+    end)
+    character.ChildRemoved:Connect(function(child)
+        if child.Name == "Gun" then disconnectShoot() end
+    end)
+
+    tryBindGun()
 end
 
-local function step()
-    if not CoreGui:FindFirstChild(MARKER_NAME) then
-        if loopConnection then loopConnection:Disconnect(); loopConnection=nil end
-        return
-    end
+if LocalPlayer.Character then onCharacter(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(onCharacter)
 
-    if not Environment.CRIMSON_AUTO_KNIFE.enabled then return end
+-- Start auto-calibration
+startAutoCalibration()
 
-    resolveKnife()
-    if not myKnife or not myCharacter or not myRoot or not myHumanoid or myHumanoid.Health<=0 then
-        return
-    end
-
-    if not throwAllowed() then return end
-
-    if not knifeRemote then return end
-    local origin = (myKnife:FindFirstChild("Handle") and myKnife.Handle.Position) or myRoot.Position
-    local targetPlayer, targetLimb = pickTarget(origin)
-    if not targetPlayer or not targetLimb then return end
-
-    local tc,targetHum,anchor = targetPlayer.Character, nil, nil
-    if tc then targetHum=tc:FindFirstChildOfClass("Humanoid"); anchor=getAimPart(tc) end
-    if not targetHum or targetHum.Health<=0 or not anchor then return end
-    if not (os.clock()-(_G.__stair_hold or 0)>=0) then return end
-
-    local ig={myCharacter}
-    local gp,same = findGround(tc,ig)
-    rememberGroundTorso(tc,same,gp)
-
-    local pred = predictPoint(origin,tc,targetLimb,same,gp)
-    if not pred then return end
-
-    local aim = directAim(origin,pred,tc,ig)
-    if not isFinite(aim) then return end
-
-    if math.abs((pred-origin).Y)>0.5 then
-        _G.__stair_hold=os.clock()
-    end
-
-    knifeRemote:FireServer(CFrame.new(aim),origin)
+G.CRIMSON_AUTO_SHOOT.enable = function()
+    G.CRIMSON_AUTO_SHOOT.enabled = true
 end
 
-if loopConnection then loopConnection:Disconnect() end
-loopConnection=RunService.Heartbeat:Connect(step)
-
-Environment.CRIMSON_AUTO_KNIFE.enable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = true end
-Environment.CRIMSON_AUTO_KNIFE.disable = function() Environment.CRIMSON_AUTO_KNIFE.enabled = false end
-
-Environment.CRIMSON_AUTO_KNIFE.enableRangeStab = function() 
-    Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled = true 
-    if rangeStabConnection then rangeStabConnection:Disconnect() end
-    rangeStabConnection = setupRangeStab()
+G.CRIMSON_AUTO_SHOOT.disable = function()
+    G.CRIMSON_AUTO_SHOOT.enabled = false
+    disconnectShoot()
 end
 
-Environment.CRIMSON_AUTO_KNIFE.disableRangeStab = function() 
-    Environment.CRIMSON_AUTO_KNIFE.rangeStabEnabled = false 
-    if rangeStabConnection then rangeStabConnection:Disconnect() rangeStabConnection = nil end
-    activeTargets = {}
+G.CRIMSON_AUTO_SHOOT.toggleAutoCalibrate = function(state)
+    if state ~= nil then
+        G.CRIMSON_AUTO_SHOOT.autoCalibrate = state
+    else
+        G.CRIMSON_AUTO_SHOOT.autoCalibrate = not G.CRIMSON_AUTO_SHOOT.autoCalibrate
+    end
+    return G.CRIMSON_AUTO_SHOOT.autoCalibrate
+end
+
+G.CRIMSON_AUTO_SHOOT.setCalibrationInterval = function(seconds)
+    G.CRIMSON_AUTO_SHOOT.calibrationInterval = math.max(0.1, seconds)
+end
+
+-- Debug function to see current stats
+G.CRIMSON_AUTO_SHOOT.getStats = function()
+    local ping = __mm2_ping_ms()
+    return {
+        ping = ping,
+        prediction = G.CRIMSON_AUTO_SHOOT.prediction,
+        autoCalibrate = G.CRIMSON_AUTO_SHOOT.autoCalibrate,
+        enabled = G.CRIMSON_AUTO_SHOOT.enabled
+    }
 end
