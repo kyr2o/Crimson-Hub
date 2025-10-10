@@ -6,48 +6,56 @@ local Workspace = game:GetService("Workspace")
 local GlobalEnv = (getgenv and getgenv()) or _G
 GlobalEnv.CRIMSON_AUTO_SHOOT = GlobalEnv.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
+-- Reference data points for ping-to-prediction mapping
+-- These serve as calibration anchors for the dynamic calculation
 local PredictionReferenceData = {
-    {ping = 40, prediction = 0.12},    
-    {ping = 60, prediction = 0.124},   
-    {ping = 80, prediction = 0.128},   
-    {ping = 100, prediction = 0.137},  
-    {ping = 120, prediction = 0.147},  
-    {ping = 150, prediction = 0.154},  
-    {ping = 170, prediction = 0.158},  
-    {ping = 180, prediction = 0.159},  
-    {ping = 200, prediction = 0.15},   
-    {ping = 220, prediction = 0.166}   
+    {ping = 40, prediction = 0.12},    -- 40ms ping
+    {ping = 60, prediction = 0.124},   -- 60ms ping
+    {ping = 80, prediction = 0.128},   -- 80ms ping
+    {ping = 100, prediction = 0.137},  -- 100ms ping
+    {ping = 120, prediction = 0.147},  -- 120ms ping
+    {ping = 150, prediction = 0.154},  -- 150ms ping
+    {ping = 170, prediction = 0.158},  -- 170ms ping (added for your case)
+    {ping = 180, prediction = 0.159},  -- 180ms ping
+    {ping = 200, prediction = 0.15},   -- 200ms ping (your example)
+    {ping = 220, prediction = 0.166}   -- 220ms ping
 }
 
+-- Dynamic prediction calculation using interpolation
+-- This creates smooth, precise prediction values based on actual ping
 local function CalculatePredictionFromPing(milliseconds)
     if not milliseconds or milliseconds ~= milliseconds then return 0.14 end
 
     local firstReference = PredictionReferenceData[1]
     local lastReference = PredictionReferenceData[#PredictionReferenceData]
 
+    -- Handle edge case: ping lower than lowest reference
     if milliseconds <= firstReference.ping then
         return firstReference.prediction
     end
 
+    -- Handle edge case: ping higher than highest reference (extrapolate)
     if milliseconds >= lastReference.ping then
-        local secondLastReference = PredictionReferenceData[#PredictionReferenceData 
-        local slopeRate = (lastReference.prediction 
-        local extrapolatedValue = lastReference.prediction + slopeRate * (milliseconds 
+        local secondLastReference = PredictionReferenceData[#PredictionReferenceData - 1]
+        local slopeRate = (lastReference.prediction - secondLastReference.prediction) / (lastReference.ping - secondLastReference.ping)
+        local extrapolatedValue = lastReference.prediction + slopeRate * (milliseconds - lastReference.ping)
         return math.max(extrapolatedValue, lastReference.prediction)
     end
 
-    for referenceIndex = 1, #PredictionReferenceData 
+    -- Find the two reference points to interpolate between
+    for referenceIndex = 1, #PredictionReferenceData - 1 do
         local lowerBound = PredictionReferenceData[referenceIndex]
         local upperBound = PredictionReferenceData[referenceIndex + 1]
 
         if milliseconds >= lowerBound.ping and milliseconds <= upperBound.ping then
-
-            local interpolationRatio = (milliseconds 
-            local interpolatedPrediction = lowerBound.prediction + (upperBound.prediction 
+            -- Linear interpolation formula
+            local interpolationRatio = (milliseconds - lowerBound.ping) / (upperBound.ping - lowerBound.ping)
+            local interpolatedPrediction = lowerBound.prediction + (upperBound.prediction - lowerBound.prediction) * interpolationRatio
             return interpolatedPrediction
         end
     end
 
+    -- Fallback (should never reach here)
     return 0.14
 end
 
@@ -65,6 +73,8 @@ local function GetCurrentPingInMilliseconds()
         local rawPingValue = dataPingObject:GetValue()
         if not rawPingValue then return nil end
 
+        -- FIX: Roblox's "Data Ping" already returns milliseconds
+        -- No conversion needed - just return the value as-is
         return rawPingValue
     end)
 
@@ -72,6 +82,7 @@ local function GetCurrentPingInMilliseconds()
         return pingValue
     end
 
+    -- Fallback method: try to parse string value
     local successString, pingString = pcall(function()
         return Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
     end)
@@ -79,13 +90,14 @@ local function GetCurrentPingInMilliseconds()
     if successString and pingString then
         local parsedNumber = tonumber(pingString:match("%d+%.?%d*"))
         if parsedNumber then
-            return parsedNumber  
+            return parsedNumber  -- Already in milliseconds
         end
     end
 
-    return 140  
+    return 140  -- Default fallback: 140ms
 end
 
+-- Calibrate function now returns precise, calculated prediction values
 GlobalEnv.CRIMSON_AUTO_SHOOT.calibrate = function()
     local currentPingMs = GetCurrentPingInMilliseconds()
     local calculatedPrediction = CalculatePredictionFromPing(currentPingMs)
@@ -150,16 +162,16 @@ local function SelectBestAimTarget(character, verticalVelocity, jumpVelocity, gr
     local slowThreshold = 0.2 * jumpVelocity
 
     if verticalVelocity > fastThreshold then
-
+        -- Target is jumping up fast - aim for head
         return headPart or upperTorsoPart or lowerTorsoPart or rootPart
     elseif verticalVelocity > slowThreshold then
-
+        -- Target is slowly rising - aim for torso
         return lowerTorsoPart or upperTorsoPart or headPart or rootPart
-    elseif verticalVelocity < 
-
+    elseif verticalVelocity < -slowThreshold then
+        -- Target is falling - aim for legs/feet
         return leftLowerLegPart or rightLowerLegPart or lowerTorsoPart or upperTorsoPart or headPart or rootPart
     else
-
+        -- Target is roughly stationary vertically - aim for torso
         return lowerTorsoPart or upperTorsoPart or headPart or rootPart
     end
 end
@@ -175,7 +187,7 @@ local function ComputePredictedPosition(targetPart, predictionTime, useVerticalB
     local predictedY
     if useVerticalBallistics then
         local gravityForce = Workspace.Gravity
-        predictedY = currentPosition.Y + currentVelocity.Y * predictionTime 
+        predictedY = currentPosition.Y + currentVelocity.Y * predictionTime - 0.5 * gravityForce * predictionTime * predictionTime
     else
         predictedY = currentPosition.Y
     end
@@ -239,12 +251,12 @@ local function SetupCharacterAutoShoot(character)
             local selectedAimPart
 
             if isTargetInAir then
-
+                -- Target is airborne - use dynamic aim part selection
                 local torsoReference = FindBodyPart(murdererCharacter, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"}) or murdererHead
                 local targetVerticalVelocity = torsoReference and GetPartVelocity(torsoReference).Y or 0
                 selectedAimPart = SelectBestAimTarget(murdererCharacter, targetVerticalVelocity, targetJumpVelocity, false)
             else
-
+                -- Target is grounded - aim for head/torso
                 selectedAimPart = murdererHead or FindBodyPart(murdererCharacter, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"})
             end
 
