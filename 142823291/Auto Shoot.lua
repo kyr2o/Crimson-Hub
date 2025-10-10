@@ -13,6 +13,7 @@ local PredictionReferenceData = {
     {ping = 100, prediction = 0.137},  
     {ping = 120, prediction = 0.147},  
     {ping = 150, prediction = 0.154},  
+    {ping = 170, prediction = 0.158},  
     {ping = 180, prediction = 0.159},  
     {ping = 200, prediction = 0.15},   
     {ping = 220, prediction = 0.166}   
@@ -29,20 +30,20 @@ local function CalculatePredictionFromPing(milliseconds)
     end
 
     if milliseconds >= lastReference.ping then
-        local secondLastReference = PredictionReferenceData[#PredictionReferenceData - 1]
-        local slopeRate = (lastReference.prediction - secondLastReference.prediction) / (lastReference.ping - secondLastReference.ping)
-        local extrapolatedValue = lastReference.prediction + slopeRate * (milliseconds - lastReference.ping)
+        local secondLastReference = PredictionReferenceData[#PredictionReferenceData 
+        local slopeRate = (lastReference.prediction 
+        local extrapolatedValue = lastReference.prediction + slopeRate * (milliseconds 
         return math.max(extrapolatedValue, lastReference.prediction)
     end
 
-    for referenceIndex = 1, #PredictionReferenceData - 1 do
+    for referenceIndex = 1, #PredictionReferenceData 
         local lowerBound = PredictionReferenceData[referenceIndex]
         local upperBound = PredictionReferenceData[referenceIndex + 1]
 
         if milliseconds >= lowerBound.ping and milliseconds <= upperBound.ping then
 
-            local interpolationRatio = (milliseconds - lowerBound.ping) / (upperBound.ping - lowerBound.ping)
-            local interpolatedPrediction = lowerBound.prediction + (upperBound.prediction - lowerBound.prediction) * interpolationRatio
+            local interpolationRatio = (milliseconds 
+            local interpolatedPrediction = lowerBound.prediction + (upperBound.prediction 
             return interpolatedPrediction
         end
     end
@@ -64,11 +65,7 @@ local function GetCurrentPingInMilliseconds()
         local rawPingValue = dataPingObject:GetValue()
         if not rawPingValue then return nil end
 
-        if rawPingValue < 1 then
-            return rawPingValue * 1000  
-        else
-            return rawPingValue * 2.0  
-        end
+        return rawPingValue
     end)
 
     if success and pingValue then
@@ -82,7 +79,7 @@ local function GetCurrentPingInMilliseconds()
     if successString and pingString then
         local parsedNumber = tonumber(pingString:match("%d+%.?%d*"))
         if parsedNumber then
-            return parsedNumber * 2.0  
+            return parsedNumber  
         end
     end
 
@@ -158,7 +155,7 @@ local function SelectBestAimTarget(character, verticalVelocity, jumpVelocity, gr
     elseif verticalVelocity > slowThreshold then
 
         return lowerTorsoPart or upperTorsoPart or headPart or rootPart
-    elseif verticalVelocity < -slowThreshold then
+    elseif verticalVelocity < 
 
         return leftLowerLegPart or rightLowerLegPart or lowerTorsoPart or upperTorsoPart or headPart or rootPart
     else
@@ -178,7 +175,7 @@ local function ComputePredictedPosition(targetPart, predictionTime, useVerticalB
     local predictedY
     if useVerticalBallistics then
         local gravityForce = Workspace.Gravity
-        predictedY = currentPosition.Y + currentVelocity.Y * predictionTime - 0.5 * gravityForce * predictionTime * predictionTime
+        predictedY = currentPosition.Y + currentVelocity.Y * predictionTime 
     else
         predictedY = currentPosition.Y
     end
