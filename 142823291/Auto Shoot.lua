@@ -3,190 +3,198 @@ local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local Workspace = game:GetService("Workspace")
 
-local G = (getgenv and getgenv()) or _G
-G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
+local GlobalEnv = (getgenv and getgenv()) or _G
+GlobalEnv.CRIMSON_AUTO_SHOOT = GlobalEnv.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
-local PREDICTION_REFERENCE = {
-    {ping = 40, prediction = 0.12},
-    {ping = 60, prediction = 0.124},
-    {ping = 80, prediction = 0.128},
-    {ping = 100, prediction = 0.137},
-    {ping = 120, prediction = 0.147},
-    {ping = 150, prediction = 0.154},
-    {ping = 180, prediction = 0.159},
-    {ping = 200, prediction = 0.15},    
-    {ping = 220, prediction = 0.166}
+local PredictionReferenceData = {
+    {ping = 40, prediction = 0.12},    
+    {ping = 60, prediction = 0.124},   
+    {ping = 80, prediction = 0.128},   
+    {ping = 100, prediction = 0.137},  
+    {ping = 120, prediction = 0.147},  
+    {ping = 150, prediction = 0.154},  
+    {ping = 180, prediction = 0.159},  
+    {ping = 200, prediction = 0.15},   
+    {ping = 220, prediction = 0.166}   
 }
 
-local function __mm2_pred_from_ping(ms)
-    if not ms or ms ~= ms then return 0.14 end
+local function CalculatePredictionFromPing(milliseconds)
+    if not milliseconds or milliseconds ~= milliseconds then return 0.14 end
 
-    if ms <= PREDICTION_REFERENCE[1].ping then
-        return PREDICTION_REFERENCE[1].prediction
+    local firstReference = PredictionReferenceData[1]
+    local lastReference = PredictionReferenceData[#PredictionReferenceData]
+
+    if milliseconds <= firstReference.ping then
+        return firstReference.prediction
     end
 
-    if ms >= PREDICTION_REFERENCE[#PREDICTION_REFERENCE].ping then
-
-        local p1 = PREDICTION_REFERENCE[#PREDICTION_REFERENCE - 1]
-        local p2 = PREDICTION_REFERENCE[#PREDICTION_REFERENCE]
-        local slope = (p2.prediction - p1.prediction) / (p2.ping - p1.ping)
-        local extrapolated = p2.prediction + slope * (ms - p2.ping)
-        return math.max(extrapolated, p2.prediction)
+    if milliseconds >= lastReference.ping then
+        local secondLastReference = PredictionReferenceData[#PredictionReferenceData - 1]
+        local slopeRate = (lastReference.prediction - secondLastReference.prediction) / (lastReference.ping - secondLastReference.ping)
+        local extrapolatedValue = lastReference.prediction + slopeRate * (milliseconds - lastReference.ping)
+        return math.max(extrapolatedValue, lastReference.prediction)
     end
 
-    for i = 1, #PREDICTION_REFERENCE - 1 do
-        local lower = PREDICTION_REFERENCE[i]
-        local upper = PREDICTION_REFERENCE[i + 1]
+    for referenceIndex = 1, #PredictionReferenceData - 1 do
+        local lowerBound = PredictionReferenceData[referenceIndex]
+        local upperBound = PredictionReferenceData[referenceIndex + 1]
 
-        if ms >= lower.ping and ms <= upper.ping then
+        if milliseconds >= lowerBound.ping and milliseconds <= upperBound.ping then
 
-            local ratio = (ms - lower.ping) / (upper.ping - lower.ping)
-            local interpolated = lower.prediction + (upper.prediction - lower.prediction) * ratio
-            return interpolated
+            local interpolationRatio = (milliseconds - lowerBound.ping) / (upperBound.ping - lowerBound.ping)
+            local interpolatedPrediction = lowerBound.prediction + (upperBound.prediction - lowerBound.prediction) * interpolationRatio
+            return interpolatedPrediction
         end
     end
 
     return 0.14
 end
 
-local function __mm2_ping_ms()
-    local success, result = pcall(function()
-        local net = Stats:FindFirstChild("Network")
-        if not net then return nil end
+local function GetCurrentPingInMilliseconds()
+    local success, pingValue = pcall(function()
+        local networkStats = Stats:FindFirstChild("Network")
+        if not networkStats then return nil end
 
-        local serverStats = net:FindFirstChild("ServerStatsItem")
-        if not serverStats then return nil end
+        local serverStatsItem = networkStats:FindFirstChild("ServerStatsItem")
+        if not serverStatsItem then return nil end
 
-        local dataPing = serverStats:FindFirstChild("Data Ping")
-        if not dataPing then return nil end
+        local dataPingObject = serverStatsItem:FindFirstChild("Data Ping")
+        if not dataPingObject then return nil end
 
-        local value = dataPing:GetValue()
-        if not value then return nil end
+        local rawPingValue = dataPingObject:GetValue()
+        if not rawPingValue then return nil end
 
-        if value < 1 then
-            return value * 1000  
+        if rawPingValue < 1 then
+            return rawPingValue * 1000  
         else
-            return value
+            return rawPingValue * 2.0  
         end
     end)
 
-    if success and result then
-        return result
+    if success and pingValue then
+        return pingValue
     end
 
-    local success2, result2 = pcall(function()
+    local successString, pingString = pcall(function()
         return Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
     end)
 
-    if success2 and result2 then
-        local num = tonumber(result2:match("%d+%.?%d*"))
-        if num then
-            return num
+    if successString and pingString then
+        local parsedNumber = tonumber(pingString:match("%d+%.?%d*"))
+        if parsedNumber then
+            return parsedNumber * 2.0  
         end
     end
 
-    return 140
+    return 140  
 end
 
-G.CRIMSON_AUTO_SHOOT.calibrate = function()
-    local ms = __mm2_ping_ms()
-    local pred = __mm2_pred_from_ping(ms)
-    G.CRIMSON_AUTO_SHOOT.prediction = pred
-    return ms, pred
+GlobalEnv.CRIMSON_AUTO_SHOOT.calibrate = function()
+    local currentPingMs = GetCurrentPingInMilliseconds()
+    local calculatedPrediction = CalculatePredictionFromPing(currentPingMs)
+    GlobalEnv.CRIMSON_AUTO_SHOOT.prediction = calculatedPrediction
+    return currentPingMs, calculatedPrediction
 end
 
-G.CalibrateAutoShoot = G.CRIMSON_AUTO_SHOOT.calibrate
-G.CRIMSON_CalibrateShoot = G.CRIMSON_AUTO_SHOOT.calibrate
+GlobalEnv.CalibrateAutoShoot = GlobalEnv.CRIMSON_AUTO_SHOOT.calibrate
+GlobalEnv.CRIMSON_CalibrateShoot = GlobalEnv.CRIMSON_AUTO_SHOOT.calibrate
 
 local LocalPlayer = Players.LocalPlayer
-local shootConnection
+local currentShootConnection
 
-local function getHumanoid(character)
+local function GetCharacterHumanoid(character)
     return character and character:FindFirstChildOfClass("Humanoid") or nil
 end
 
-local function getVel(part)
+local function GetPartVelocity(part)
     if not part then return Vector3.zero end
 
-    local ok, v = pcall(function() return part.AssemblyLinearVelocity end)
-    if ok and v then return v end
+    local success, velocity = pcall(function() return part.AssemblyLinearVelocity end)
+    if success and velocity then return velocity end
     return part.Velocity
 end
 
-local function isInAir(humanoid)
+local function IsCharacterInAir(humanoid)
     if not humanoid then return false end
-    local state = humanoid:GetState()
-    return state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping
+    local currentState = humanoid:GetState()
+    return currentState == Enum.HumanoidStateType.Freefall or currentState == Enum.HumanoidStateType.Jumping
 end
 
-local function getJumpV0(humanoid)
-    local g = Workspace.Gravity
+local function GetJumpInitialVelocity(humanoid)
+    local gravityForce = Workspace.Gravity
     if humanoid and humanoid.UseJumpPower then
-        local jp = humanoid.JumpPower or 50
-        return math.max(jp, 1)
+        local jumpPower = humanoid.JumpPower or 50
+        return math.max(jumpPower, 1)
     else
-        local jh = (humanoid and humanoid.JumpHeight) or 7.2
-        return math.sqrt(math.max(2 * g * math.max(jh, 0.1), 1))
+        local jumpHeight = (humanoid and humanoid.JumpHeight) or 7.2
+        return math.sqrt(math.max(2 * gravityForce * math.max(jumpHeight, 0.1), 1))
     end
 end
 
-local function findPart(character, names)
-    for _, n in ipairs(names) do
-        local p = character:FindFirstChild(n)
-        if p and p:IsA("BasePart") then
-            return p
+local function FindBodyPart(character, partNames)
+    for _, partName in ipairs(partNames) do
+        local foundPart = character:FindFirstChild(partName)
+        if foundPart and foundPart:IsA("BasePart") then
+            return foundPart
         end
     end
     return nil
 end
 
-local function pickAimPart(character, vy, v0, groundedDefaultToHead)
-    local head = findPart(character, {"Head"})
-    local lowerTorso = findPart(character, {"LowerTorso", "Torso"})
-    local upperTorso = findPart(character, {"UpperTorso", "Torso"})
-    local leftLowerLeg = findPart(character, {"LeftLowerLeg", "Left Leg"})
-    local rightLowerLeg = findPart(character, {"RightLowerLeg", "Right Leg"})
-    local root = findPart(character, {"HumanoidRootPart"})
+local function SelectBestAimTarget(character, verticalVelocity, jumpVelocity, groundedDefaultToHead)
+    local headPart = FindBodyPart(character, {"Head"})
+    local lowerTorsoPart = FindBodyPart(character, {"LowerTorso", "Torso"})
+    local upperTorsoPart = FindBodyPart(character, {"UpperTorso", "Torso"})
+    local leftLowerLegPart = FindBodyPart(character, {"LeftLowerLeg", "Left Leg"})
+    local rightLowerLegPart = FindBodyPart(character, {"RightLowerLeg", "Right Leg"})
+    local rootPart = FindBodyPart(character, {"HumanoidRootPart"})
 
-    local fast = 0.6 * v0
-    local slow = 0.2 * v0
+    local fastThreshold = 0.6 * jumpVelocity
+    local slowThreshold = 0.2 * jumpVelocity
 
-    if vy > fast then
-        return head or upperTorso or lowerTorso or root
-    elseif vy > slow then
-        return lowerTorso or upperTorso or head or root
-    elseif vy < -slow then
-        return leftLowerLeg or rightLowerLeg or lowerTorso or upperTorso or head or root
+    if verticalVelocity > fastThreshold then
+
+        return headPart or upperTorsoPart or lowerTorsoPart or rootPart
+    elseif verticalVelocity > slowThreshold then
+
+        return lowerTorsoPart or upperTorsoPart or headPart or rootPart
+    elseif verticalVelocity < -slowThreshold then
+
+        return leftLowerLegPart or rightLowerLegPart or lowerTorsoPart or upperTorsoPart or headPart or rootPart
     else
-        return lowerTorso or upperTorso or head or root
+
+        return lowerTorsoPart or upperTorsoPart or headPart or rootPart
     end
 end
 
-local function computePredictedAimPos(part, t, doVerticalBallistics)
-    if not part then return nil end
-    local pos0 = part.Position
-    local v = getVel(part)
+local function ComputePredictedPosition(targetPart, predictionTime, useVerticalBallistics)
+    if not targetPart then return nil end
+    local currentPosition = targetPart.Position
+    local currentVelocity = GetPartVelocity(targetPart)
 
-    local x = pos0.X + v.X * t
-    local z = pos0.Z + v.Z * t
+    local predictedX = currentPosition.X + currentVelocity.X * predictionTime
+    local predictedZ = currentPosition.Z + currentVelocity.Z * predictionTime
 
-    local y
-    if doVerticalBallistics then
-        local g = Workspace.Gravity
-        y = pos0.Y + v.Y * t - 0.5 * g * t * t
+    local predictedY
+    if useVerticalBallistics then
+        local gravityForce = Workspace.Gravity
+        predictedY = currentPosition.Y + currentVelocity.Y * predictionTime - 0.5 * gravityForce * predictionTime * predictionTime
     else
-        y = pos0.Y
+        predictedY = currentPosition.Y
     end
 
-    return Vector3.new(x, y, z)
+    return Vector3.new(predictedX, predictedY, predictedZ)
 end
 
-local function findMurderer()
-    local lp = LocalPlayer
+local function FindMurdererPlayer()
+    local localPlayer = LocalPlayer
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= lp and player.Character then
-            local bp = player:FindFirstChild("Backpack")
-            if (bp and bp:FindFirstChild("Knife")) or player.Character:FindFirstChild("Knife") then
+        if player ~= localPlayer and player.Character then
+            local playerBackpack = player:FindFirstChild("Backpack")
+            local hasKnifeInBackpack = playerBackpack and playerBackpack:FindFirstChild("Knife")
+            local hasKnifeEquipped = player.Character:FindFirstChild("Knife")
+
+            if hasKnifeInBackpack or hasKnifeEquipped then
                 return player
             end
         end
@@ -194,79 +202,86 @@ local function findMurderer()
     return nil
 end
 
-local function disconnectShoot()
-    if shootConnection then
-        shootConnection:Disconnect()
-        shootConnection = nil
+local function DisconnectShootLoop()
+    if currentShootConnection then
+        currentShootConnection:Disconnect()
+        currentShootConnection = nil
     end
 end
 
-local function onCharacter(character)
-    disconnectShoot()
-    local backpack = LocalPlayer:WaitForChild("Backpack", 5)
-    if not backpack then return end
+local function SetupCharacterAutoShoot(character)
+    DisconnectShootLoop()
+    local playerBackpack = LocalPlayer:WaitForChild("Backpack", 5)
+    if not playerBackpack then return end
 
-    local function tryBindGun()
-        local gun = character:FindFirstChild("Gun") or backpack:FindFirstChild("Gun")
-        if not gun then return end
+    local function TryBindGunShooting()
+        local gunTool = character:FindFirstChild("Gun") or playerBackpack:FindFirstChild("Gun")
+        if not gunTool then return end
 
-        local rf = gun:FindFirstChild("KnifeLocal")
-            and gun.KnifeLocal:FindFirstChild("CreateBeam")
-            and gun.KnifeLocal.CreateBeam:FindFirstChild("RemoteFunction")
-        if not rf then return end
+        local knifeLocalScript = gunTool:FindFirstChild("KnifeLocal")
+        local createBeamFolder = knifeLocalScript and knifeLocalScript:FindFirstChild("CreateBeam")
+        local remoteFunction = createBeamFolder and createBeamFolder:FindFirstChild("RemoteFunction")
 
-        if shootConnection then shootConnection:Disconnect() end
-        shootConnection = RunService.Heartbeat:Connect(function()
-            if not G.CRIMSON_AUTO_SHOOT.enabled then return end
+        if not remoteFunction then return end
+
+        if currentShootConnection then currentShootConnection:Disconnect() end
+
+        currentShootConnection = RunService.Heartbeat:Connect(function()
+            if not GlobalEnv.CRIMSON_AUTO_SHOOT.enabled then return end
             if not character:FindFirstChild("Gun") then return end
 
-            local murderer = findMurderer()
-            local mchar = murderer and murderer.Character
-            if not mchar then return end
+            local murdererPlayer = FindMurdererPlayer()
+            local murdererCharacter = murdererPlayer and murdererPlayer.Character
+            if not murdererCharacter then return end
 
-            local hum = getHumanoid(mchar)
-            local inAir = isInAir(hum)
-            local v0 = getJumpV0(hum)
+            local murdererHumanoid = GetCharacterHumanoid(murdererCharacter)
+            local isTargetInAir = IsCharacterInAir(murdererHumanoid)
+            local targetJumpVelocity = GetJumpInitialVelocity(murdererHumanoid)
 
-            local head = mchar:FindFirstChild("Head")
-            local baseAimPart
-            if inAir then
-                local torsoRef = findPart(mchar, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"}) or head
-                local vy = torsoRef and getVel(torsoRef).Y or 0
-                baseAimPart = pickAimPart(mchar, vy, v0, false)
+            local murdererHead = murdererCharacter:FindFirstChild("Head")
+            local selectedAimPart
+
+            if isTargetInAir then
+
+                local torsoReference = FindBodyPart(murdererCharacter, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"}) or murdererHead
+                local targetVerticalVelocity = torsoReference and GetPartVelocity(torsoReference).Y or 0
+                selectedAimPart = SelectBestAimTarget(murdererCharacter, targetVerticalVelocity, targetJumpVelocity, false)
             else
-                baseAimPart = head or findPart(mchar, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"})
+
+                selectedAimPart = murdererHead or FindBodyPart(murdererCharacter, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"})
             end
-            if not baseAimPart then return end
 
-            local t = tonumber(G.CRIMSON_AUTO_SHOOT.prediction) or 0.14
+            if not selectedAimPart then return end
 
-            local aimPos = computePredictedAimPos(baseAimPart, t, inAir)
+            local predictionTime = tonumber(GlobalEnv.CRIMSON_AUTO_SHOOT.prediction) or 0.14
 
-            if aimPos then
-                rf:InvokeServer(1, aimPos, "AH2")
+            local predictedAimPosition = ComputePredictedPosition(selectedAimPart, predictionTime, isTargetInAir)
+
+            if predictedAimPosition then
+                remoteFunction:InvokeServer(1, predictedAimPosition, "AH2")
             end
         end)
     end
 
     character.ChildAdded:Connect(function(child)
-        if child.Name == "Gun" then tryBindGun() end
+        if child.Name == "Gun" then TryBindGunShooting() end
     end)
+
     character.ChildRemoved:Connect(function(child)
-        if child.Name == "Gun" then disconnectShoot() end
+        if child.Name == "Gun" then DisconnectShootLoop() end
     end)
 
-    tryBindGun()
+    TryBindGunShooting()
 end
 
-if LocalPlayer.Character then onCharacter(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(onCharacter)
+if LocalPlayer.Character then SetupCharacterAutoShoot(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(SetupCharacterAutoShoot)
 
-G.CRIMSON_AUTO_SHOOT.enable = function()
-    G.CRIMSON_AUTO_SHOOT.enabled = true
+GlobalEnv.CRIMSON_AUTO_SHOOT.enable = function()
+    GlobalEnv.CRIMSON_AUTO_SHOOT.enabled = true
 end
 
-G.CRIMSON_AUTO_SHOOT.disable = function()
-    G.CRIMSON_AUTO_SHOOT.enabled = false
-    disconnectShoot()
+GlobalEnv.CRIMSON_AUTO_SHOOT.disable = function()
+    GlobalEnv.CRIMSON_AUTO_SHOOT.enabled = false
+    DisconnectShootLoop()
 end
