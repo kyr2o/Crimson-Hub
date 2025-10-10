@@ -6,17 +6,47 @@ local Workspace = game:GetService("Workspace")
 local G = (getgenv and getgenv()) or _G
 G.CRIMSON_AUTO_SHOOT = G.CRIMSON_AUTO_SHOOT or { enabled = false, prediction = 0.14 }
 
+local PREDICTION_REFERENCE = {
+    {ping = 40, prediction = 0.12},
+    {ping = 60, prediction = 0.124},
+    {ping = 80, prediction = 0.128},
+    {ping = 100, prediction = 0.137},
+    {ping = 120, prediction = 0.147},
+    {ping = 150, prediction = 0.154},
+    {ping = 180, prediction = 0.159},
+    {ping = 200, prediction = 0.15},    
+    {ping = 220, prediction = 0.166}
+}
+
 local function __mm2_pred_from_ping(ms)
     if not ms or ms ~= ms then return 0.14 end
-    if ms <= 40  then return 0.12 end
-    if ms <= 60  then return 0.124 end
-    if ms <= 80  then return 0.128 end
-    if ms <= 100 then return 0.137 end
-    if ms <= 120 then return 0.147 end
-    if ms <= 150 then return 0.154 end
-    if ms <= 180 then return 0.159 end
-    if ms <= 220 then return 0.166 end
-    return 0.21
+
+    if ms <= PREDICTION_REFERENCE[1].ping then
+        return PREDICTION_REFERENCE[1].prediction
+    end
+
+    if ms >= PREDICTION_REFERENCE[#PREDICTION_REFERENCE].ping then
+
+        local p1 = PREDICTION_REFERENCE[#PREDICTION_REFERENCE - 1]
+        local p2 = PREDICTION_REFERENCE[#PREDICTION_REFERENCE]
+        local slope = (p2.prediction - p1.prediction) / (p2.ping - p1.ping)
+        local extrapolated = p2.prediction + slope * (ms - p2.ping)
+        return math.max(extrapolated, p2.prediction)
+    end
+
+    for i = 1, #PREDICTION_REFERENCE - 1 do
+        local lower = PREDICTION_REFERENCE[i]
+        local upper = PREDICTION_REFERENCE[i + 1]
+
+        if ms >= lower.ping and ms <= upper.ping then
+
+            local ratio = (ms - lower.ping) / (upper.ping - lower.ping)
+            local interpolated = lower.prediction + (upper.prediction - lower.prediction) * ratio
+            return interpolated
+        end
+    end
+
+    return 0.14
 end
 
 local function __mm2_ping_ms()
@@ -34,9 +64,9 @@ local function __mm2_ping_ms()
         if not value then return nil end
 
         if value < 1 then
-            return math.floor(value * 1000 + 0.5)
+            return value * 1000  
         else
-            return math.floor(value + 0.5)
+            return value
         end
     end)
 
@@ -51,7 +81,7 @@ local function __mm2_ping_ms()
     if success2 and result2 then
         local num = tonumber(result2:match("%d+%.?%d*"))
         if num then
-            return math.floor(num + 0.5)
+            return num
         end
     end
 
@@ -90,7 +120,6 @@ local function isInAir(humanoid)
 end
 
 local function getJumpV0(humanoid)
-
     local g = Workspace.Gravity
     if humanoid and humanoid.UseJumpPower then
         local jp = humanoid.JumpPower or 50
@@ -112,7 +141,6 @@ local function findPart(character, names)
 end
 
 local function pickAimPart(character, vy, v0, groundedDefaultToHead)
-
     local head = findPart(character, {"Head"})
     local lowerTorso = findPart(character, {"LowerTorso", "Torso"})
     local upperTorso = findPart(character, {"UpperTorso", "Torso"})
@@ -128,10 +156,8 @@ local function pickAimPart(character, vy, v0, groundedDefaultToHead)
     elseif vy > slow then
         return lowerTorso or upperTorso or head or root
     elseif vy < -slow then
-
         return leftLowerLeg or rightLowerLeg or lowerTorso or upperTorso or head or root
     else
-
         return lowerTorso or upperTorso or head or root
     end
 end
@@ -205,7 +231,6 @@ local function onCharacter(character)
             local head = mchar:FindFirstChild("Head")
             local baseAimPart
             if inAir then
-
                 local torsoRef = findPart(mchar, {"UpperTorso", "LowerTorso", "Torso", "HumanoidRootPart"}) or head
                 local vy = torsoRef and getVel(torsoRef).Y or 0
                 baseAimPart = pickAimPart(mchar, vy, v0, false)
@@ -219,7 +244,6 @@ local function onCharacter(character)
             local aimPos = computePredictedAimPos(baseAimPart, t, inAir)
 
             if aimPos then
-
                 rf:InvokeServer(1, aimPos, "AH2")
             end
         end)
